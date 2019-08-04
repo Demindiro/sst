@@ -1,0 +1,5 @@
+int main()
+	for i in 0 to 100000000
+	end
+	return 0
+end

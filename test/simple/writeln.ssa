@@ -1,0 +1,18 @@
+# Write the given string to stdout and append a newline
+#  - r0: The string (array with length) to write
+writeln:
+	set	r1,1		# stdout
+	load	r3,r0		# Load the length
+	set	r4,8
+	add	r2,r0,r4	# Point to the string
+	set	r0,1		# SYSCALL_write
+	syscall
+	set	r0,1		# SYSCALL_write
+	#set	r1,1		# stdout
+	set	r3,1		# 1 byte
+	set	r2,writeln.newline	# newline
+	syscall
+	set	r0,0		# :D
+	ret
+
+writeln.newline:	.byte 10
