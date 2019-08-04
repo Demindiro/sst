@@ -1,7 +1,7 @@
 int main(string[] args)
-	i = 1
 	writeln 2
 	writeln 3
+	i = 3
 	while true
 		i += 2
 		for j in 2 to i / 2

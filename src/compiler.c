@@ -87,6 +87,17 @@ struct func_line_return {
 	char *val;
 };
 
+union func_line_all_p {
+	struct func_line *line;
+	struct func_line_assign *a;
+	struct func_line_func   *f;
+	struct func_line_goto   *g;
+	struct func_line_if     *i;
+	struct func_line_label  *l;
+	struct func_line_math   *m;
+	struct func_line_return *r;
+};
+
 
 struct func_arg {
 	char type[32];
@@ -240,11 +251,12 @@ static int parsefunc(size_t start, size_t end) {
 	start++;
 	line = lines[start];
 	k = 0;
-	struct func_line_goto  *forjmps[16];
+	struct func_line_goto  *loopjmps[16];
 	struct func_line_math  *formath[16];
 	struct func_line_label *forends[16];
-	int forcounter = 0;
-	int forcount   = 0;
+	char looptype[16];
+	int  loopcounter = 0;
+	int  loopcount   = 0;
 	for ( ; ; ) {
 		// Parse first 16 words for analysis
 		char word[16][32];
@@ -264,16 +276,28 @@ static int parsefunc(size_t start, size_t end) {
 			}
 			memcpy(word[l], line + i, j - i);
 		}
+		union func_line_all_p flp;
 		// Determine line type
 		if (streq(word[0], "end")) {
-			if (forcount > 0) {
-				forcount--;
-				f->lines[k] = (void *)formath[forcount];
-				k++;
-				f->lines[k] = (void *)forjmps[forcount];
-				k++;
-				f->lines[k] = (void *)forends[forcount];
-				k++;
+			if (loopcount > 0) {
+				loopcount--;
+				switch (looptype[loopcount]) {
+				case 1:
+					f->lines[k] = (void *)formath[loopcount];
+					k++;
+					f->lines[k] = (void *)loopjmps[loopcount];
+					k++;
+					f->lines[k] = (void *)forends[loopcount];
+					k++;
+					break;
+				case 2:
+					f->lines[k] = (struct func_line *)loopjmps[loopcount];
+					k++;
+					break;
+				default:
+					fprintf(stderr, "Invalid loop type (%d)\n", looptype[loopcount]);
+					abort();
+				}
 			} else {
 				break;
 			}
@@ -295,7 +319,7 @@ static int parsefunc(size_t start, size_t end) {
 			k++;
 
 			char lbl[16];
-		       	snprintf(lbl, sizeof lbl, "__for_%d", forcounter);
+		       	snprintf(lbl, sizeof lbl, "__for_%d", loopcounter);
 
 			struct func_line_label  *fll = calloc(sizeof *fll, 1);
 			fll->line.type = FUNC_LINE_LABEL;
@@ -303,37 +327,76 @@ static int parsefunc(size_t start, size_t end) {
 			f->lines[k]    = (struct func_line *)fll;
 			k++;
 
-			formath[forcount] = calloc(sizeof *formath[forcount], 1);
-			formath[forcount]->line.type = FUNC_LINE_MATH;
-			formath[forcount]->op       = MATH_ADD;
-			formath[forcount]->x        = fla->var;
-			formath[forcount]->y        = fla->var;
-			formath[forcount]->z        = "1";
+			formath[loopcount] = calloc(sizeof *formath[loopcount], 1);
+			formath[loopcount]->line.type = FUNC_LINE_MATH;
+			formath[loopcount]->op       = MATH_ADD;
+			formath[loopcount]->x        = fla->var;
+			formath[loopcount]->y        = fla->var;
+			formath[loopcount]->z        = "1";
 
-			forjmps[forcount] = calloc(sizeof *forjmps[forcount], 1);
-			forjmps[forcount]->line.type = FUNC_LINE_GOTO;
-			forjmps[forcount]->label     = fll->label;
+			loopjmps[loopcount] = calloc(sizeof *loopjmps[loopcount], 1);
+			loopjmps[loopcount]->line.type = FUNC_LINE_GOTO;
+			loopjmps[loopcount]->label     = fll->label;
 
-		       	snprintf(lbl, sizeof lbl, "__for_%d_end", forcounter);
-			forends[forcount] = calloc(sizeof *forends[forcount], 1);
-			forends[forcount]->line.type = FUNC_LINE_LABEL;
-			forends[forcount]->label     = strclone(lbl);
+		       	snprintf(lbl, sizeof lbl, "__for_%d_end", loopcounter);
+			forends[loopcount] = calloc(sizeof *forends[loopcount], 1);
+			forends[loopcount]->line.type = FUNC_LINE_LABEL;
+			forends[loopcount]->label     = strclone(lbl);
 
 			struct func_line_if     *fli = calloc(sizeof *fli, 1);
 			fli->line.type = FUNC_LINE_IF;
-			fli->label     = forends[forcount]->label;
+			fli->label     = forends[loopcount]->label;
 			fli->x         = fla->var;
 			fli->y         = strclone(word[5]);
 			f->lines[k]    = (struct func_line *)fli;
 			k++;
 
-			forcount++;
-			forcounter++;
+			looptype[loopcount] = 1;
+
+			loopcount++;
+			loopcounter++;
+		} else if (streq(word[0], "while")) {
+			char lbl[16];
+		       	snprintf(lbl, sizeof lbl, "__while_%d", loopcounter);
+			char *lblc = strclone(lbl);
+			
+			flp.l = calloc(sizeof *flp.l, 1);
+			flp.l->line.type = FUNC_LINE_LABEL;
+			flp.l->label     = lblc;
+			f->lines[k]      = flp.line;
+			k++;
+
+			flp.g = calloc(sizeof *flp.g, 1);
+			flp.g->line.type    = FUNC_LINE_GOTO;
+			flp.g->label        = lblc;
+			loopjmps[loopcount] = flp.g;
+
+			looptype[loopcount] = 2;
+
+			loopcount++;
+			loopcounter++;
 		} else if (streq(word[0], "return")) {
 			struct func_line_return *flr = calloc(sizeof *flr, 1);
 			flr->line.type = FUNC_LINE_RETURN;
 			flr->val = strclone(word[1]);
 			f->lines[k] = (struct func_line *)flr;
+			k++;
+		} else if (streq(word[1], "=")) {
+			flp.a = calloc(sizeof *flp.a, 1);
+			flp.a->line.type = FUNC_LINE_ASSIGN;
+			flp.a->var       = strclone(word[0]);
+			flp.a->value     = strclone(word[2]);
+			f->lines[k]      = flp.line;
+			k++;
+		} else if (strchr("+-*/", word[1][0]) && word[1][1] == '=' &&
+		           word[1][2] == 0) {
+			flp.m = calloc(sizeof *flp.m, 1);
+			flp.m->line.type = FUNC_LINE_MATH;
+			flp.m->op        = MATH_ADD; // TODO
+			flp.m->x         = strclone(word[0]);
+			flp.m->y         = flp.m->x;
+			flp.m->z         = strclone(word[2]);
+			f->lines[k]      = flp.line;
 			k++;
 		} else {
 			struct func_line_func *flf = calloc(sizeof *flf, 1);
@@ -697,7 +760,7 @@ int main(int argc, char **argv) {
 			fprintf(stderr, "Unknown OP (%d)\n", vasms[i].op);
 			abort();
 		case VASM_OP_NONE:
-			printf("\n");
+			teeprintf("\n");
 			break;
 		case VASM_OP_COMMENT:
 			for (size_t j = 0; j < vasmcount; j++) {
@@ -741,12 +804,12 @@ int main(int argc, char **argv) {
 			break;
 		}
 	}
-	fprintf(_f, "\n");
+	teeprintf("\n");
 	for (size_t i = 0; i < stringcount; i++) {
-		fprintf(_f, "__str_%d:\n"
-		            "\t.long %lu\n"
-		            "\t.str \"%s\"\n",
-			    i, strlen(strings[i]), strings[i]);
+		teeprintf("__str_%d:\n"
+		          "\t.long %lu\n"
+		          "\t.str \"%s\"\n",
+			  i, strlen(strings[i]), strings[i]);
 	}
 	printf("\n");
 
