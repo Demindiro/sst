@@ -635,49 +635,39 @@ int main(int argc, char **argv) {
 			switch (f->lines[j]->type) {
 			case FUNC_LINE_ASSIGN:
 				fla = (struct func_line_assign *)f->lines[j];
-				printf("  Line:  Assign\n");
-				printf("    Variable: %s\n", fla->var);
-				printf("    Value:    %s\n", fla->value);
+				printf("  Assign: %s = %s\n", fla->var, fla->value);
 				break;
 			case FUNC_LINE_FUNC:
 				flf = (struct func_line_func *)f->lines[j];
-				printf("  Line:  Function\n");
-				printf("    Assign:   %s\n", flf->assign.name);
-				printf("    Type:     %s\n", flf->assign.type);
-				printf("    Name:     %s\n", flf->name);
-				printf("    Params:   %d\n", flf->paramcount);
-				for (size_t k = 0; k < flf->paramcount; k++)
-					printf("      %s\n", flf->params[k]);
+				printf("  Function:");
+				if (flf->assign.name[0] != 0)
+					printf(" %s %s =", flf->assign.name, flf->assign.type);
+				printf(" %s", flf->name);
+				if (flf->paramcount > 0)
+					printf(" %s", flf->params[0]);
+				for (size_t k = 1; k < flf->paramcount; k++)
+					printf(",%s", flf->params[k]);
+				printf("\n");
 				break;
 			case FUNC_LINE_GOTO:
 				flg = (struct func_line_goto *)f->lines[j];
-				printf("  Line:  Goto\n");
-				printf("    Label:   %s\n", flg->label);
+				printf("  Goto: %s\n", flg->label);
 				break;
 			case FUNC_LINE_IF:
 				fli = (struct func_line_if *)f->lines[j];
-				printf("  Line:  If\n");
-				printf("    Label:   %s\n", fli->label);
-				printf("    X:       %s\n", fli->x);
-				printf("    Y:       %s\n", fli->y);
+				printf("  If %s == %s then %s\n", fli->x, fli->y, fli->label);
 				break;
 			case FUNC_LINE_LABEL:
 				fll = (struct func_line_label *)f->lines[j];
-				printf("  Line:  Label\n");
-				printf("    Label:   %s\n", fll->label);
+				printf("  Label: %s\n", fll->label);
 				break;
 			case FUNC_LINE_MATH:
 				flm = (struct func_line_math *)f->lines[j];
-				printf("  Line:  Math\n");
-				printf("    Operator:%s\n", "add");
-				printf("    X:       %s\n", flm->x);
-				printf("    Y:       %s\n", flm->y);
-				printf("    Z:       %s\n", flm->z);
+				printf("  Math: %s = %s %s %s\n", flm->x, flm->y, "add", flm->z);
 				break;
 			case FUNC_LINE_RETURN:
 				flr = (struct func_line_return *)f->lines[j];
-				printf("  Line:  Return\n");
-				printf("    Return:  %s\n", flr->val);
+				printf("  Return: %s\n", flr->val);
 				break;
 			default:
 				printf("  Unknown line type (%d)\n", f->lines[j]->type);
