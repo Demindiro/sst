@@ -41,13 +41,21 @@ static int getop(char *mnem)
 		if (streq("call", mnem))
 			return VASM_OP_CALL;
 		break;
+	case 'd':
+		if (streq("div", mnem))
+			return VASM_OP_DIV;
+		break;
+	case 'i':
+		if (streq("inv", mnem))
+			return VASM_OP_INV;
+		break;
 	case 'j':
 		if (streq("jmp", mnem))
 			return VASM_OP_JMP;
-		if (streq("je", mnem))
-			return VASM_OP_JE;
-		if (streq("jne", mnem))
-			return VASM_OP_JNE;
+		if (streq("jz", mnem))
+			return VASM_OP_JZ;
+		if (streq("jnz", mnem))
+			return VASM_OP_JNZ;
 		break;
 	case 'l':
 		if (streq("load", mnem))
@@ -56,6 +64,11 @@ static int getop(char *mnem)
 	case 'm':
 		if (streq("mov", mnem))
 			return VASM_OP_MOV;
+		if (streq("mod", mnem))
+			return VASM_OP_MOD;
+	case 'n':
+		if (streq("not", mnem))
+			return VASM_OP_NOT;
 	case 'p':
 		if (streq("push", mnem))
 			return VASM_OP_PUSH;
@@ -69,6 +82,10 @@ static int getop(char *mnem)
 	case 's':
 		if (streq("set", mnem))
 			return VASM_OP_SET;
+		if (streq("store", mnem))
+			return VASM_OP_STORE;
+		if (streq("sub", mnem))
+			return VASM_OP_SUB;
 		if (streq("syscall", mnem))
 			return VASM_OP_SYSCALL;
 		break;
@@ -91,7 +108,7 @@ static int getop(char *mnem)
 	       ptr++;
 	ptr--;
 	if (*ptr == ':')
-		return VASM_OP_LABEL;	
+		return VASM_OP_LABEL;
 
 	printf("Invalid mnemonic (%s)\n", mnem);
 	return -1;
@@ -162,11 +179,16 @@ static int parse_op_args(union vasm_all *v, char *args)
 		SKIP;
 		STR(v->rs.str);
 		break;
+	// 1 addr, 1 reg
+	case VASM_OP_JZ:
+	case VASM_OP_JNZ:
+	case VASM_OP_JP:
+	case VASM_OP_JPZ:
+		STR(v->rs.str);
+		SKIP;
+		REG(v->rs.r);
+		break;
 	// 2 reg, 1 addr
-	case VASM_OP_JE:
-	case VASM_OP_JNE:
-	case VASM_OP_JG:
-	case VASM_OP_JGE:
 		STR(v->r2s.str);
 		SKIP;
 		REG(v->r2s.r[0]);
@@ -174,14 +196,22 @@ static int parse_op_args(union vasm_all *v, char *args)
 		REG(v->r2s.r[1]);
 		break;
 	// 2 reg
+	case VASM_OP_STORE:
 	case VASM_OP_LOAD:
 	case VASM_OP_MOV:
+	case VASM_OP_NOT:
+	case VASM_OP_INV:
 		REG(v->r2.r[0]);
 		SKIP;
 		REG(v->r2.r[1]);
 		break;
 	// 3 reg
 	case VASM_OP_ADD:
+	case VASM_OP_SUB:
+	case VASM_OP_MUL:
+	case VASM_OP_DIV:
+	case VASM_OP_MOD:
+	case VASM_OP_REM:
 		REG(v->r3.r[0]);
 		SKIP;
 		REG(v->r3.r[1]);
@@ -333,19 +363,17 @@ static int vasm2vbin() {
 		case VASM_OP_RET:
 			break;
 		// 1 reg
-		case VASM_OP_SET:
-			vbin[vbinlen] = a.rs.r;
+		case VASM_OP_PUSH:
+		case VASM_OP_POP:
+			vbin[vbinlen] = a.r.r;
 			vbinlen++;
-			if ('0' <= a.rs.str[0] && a.rs.str[0] <= '9')
-				val = strtol(a.rs.str, NULL, 0);
-			else 
-				POS2LBL(a.rs.str);
-			*(size_t *)(vbin + vbinlen) = htobe64(val);
-			vbinlen += sizeof val;
 			break;
 		// 2 reg
+		case VASM_OP_STORE:
 		case VASM_OP_LOAD:
 		case VASM_OP_MOV:
+		case VASM_OP_NOT:
+		case VASM_OP_INV:
 			vbin[vbinlen] = a.r2.r[0];
 			vbinlen++;
 			vbin[vbinlen] = a.r2.r[1];
@@ -353,6 +381,11 @@ static int vasm2vbin() {
 			break;
 		// 3 reg
 		case VASM_OP_ADD:
+		case VASM_OP_SUB:
+		case VASM_OP_MUL:
+		case VASM_OP_DIV:
+		case VASM_OP_MOD:
+		case VASM_OP_REM:
 			for (size_t i = 0; i < 3; i++) {
 				vbin[vbinlen] = a.r3.r[i];
 				vbinlen++;
@@ -368,14 +401,23 @@ static int vasm2vbin() {
 			*(size_t *)(vbin + vbinlen) = val;
 			vbinlen += sizeof val;
 			break;
-		// 2 reg, 1 addr
-		case VASM_OP_JE:
-		case VASM_OP_JNE:
-		case VASM_OP_JG:
-		case VASM_OP_JGE:
-			vbin[vbinlen] = a.r2.r[0];
+		// 1 reg, 1 addr
+		case VASM_OP_SET:
+			vbin[vbinlen] = a.rs.r;
 			vbinlen++;
-			vbin[vbinlen] = a.r2.r[1];
+			if ('0' <= a.rs.str[0] && a.rs.str[0] <= '9')
+				val = strtol(a.rs.str, NULL, 0);
+			else 
+				POS2LBL(a.rs.str);
+			*(size_t *)(vbin + vbinlen) = htobe64(val);
+			vbinlen += sizeof val;
+			break;
+		// 2 reg, 1 addr
+		case VASM_OP_JZ:
+		case VASM_OP_JNZ:
+		case VASM_OP_JP:
+		case VASM_OP_JPZ:
+			vbin[vbinlen] = a.rs.r;
 			vbinlen++;
 			if ('0' <= a.rs.str[0] && a.rs.str[0] <= '9')
 				val = strtol(a.rs.str, NULL, 0);
@@ -423,7 +465,7 @@ static int vasm2vbin() {
 			break;
 		default:
 			printf("IDK lol (%d)\n", a.op);
-			break;
+			abort();
 		}
 	}
 

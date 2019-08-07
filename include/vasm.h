@@ -25,6 +25,8 @@
 #define VASM_OP_SUB        10
 #define VASM_OP_MUL        11
 #define VASM_OP_DIV        12
+#define VASM_OP_MOD       113
+#define VASM_OP_REM       114
 #define VASM_OP_LSHIFT     13
 #define VASM_OP_RSHIFT     14
 #define VASM_OP_LROT       15
@@ -32,12 +34,14 @@
 #define VASM_OP_AND        17
 #define VASM_OP_OR         18
 #define VASM_OP_XOR        19
+#define VASM_OP_NOT       120
+#define VASM_OP_INV       121
 #define VASM_OP_SYSCALL    20
 #define VASM_OP_JMP        21
-#define VASM_OP_JE         22
-#define VASM_OP_JNE        23
-#define VASM_OP_JG         24
-#define VASM_OP_JGE        25
+#define VASM_OP_JZ         22
+#define VASM_OP_JNZ        23
+#define VASM_OP_JP         24
+#define VASM_OP_JPZ        25
 
 
 struct vasm {
