@@ -3,9 +3,10 @@
 
 
 #include <stdint.h>
+#include "vasm.h"
 
 
-int text2vasm(char *buf, size_t len);
+int text2vasm(char *buf, size_t len, union vasm_all *vasms, size_t *vasmcount);
 
 
 #endif

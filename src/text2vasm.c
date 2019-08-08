@@ -5,18 +5,13 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <endian.h>
+#include "text2vasm.h"
 #include "vasm.h"
 
 
 #define FUNC_LINE_NONE   0
 #define FUNC_LINE_FUNC   1
 
-
-union vasm_all vasms[4096];
-size_t vasmcount;
-
-char vbin[0x10000];
-size_t vbinlen;
 
 struct lblpos lbl2pos[4096];
 size_t lbl2poscount;
@@ -259,8 +254,10 @@ static int parse_op_args(union vasm_all *v, char *args)
 }
 
 
-int text2vasm(char *buf, size_t len)
+int text2vasm(char *buf, size_t len, union vasm_all *vasms, size_t *vasmcount_p)
 {
+	size_t vasmcount = 0;
+
 	char *ptr = buf;
 	while (ptr - buf < len) {
 
@@ -326,4 +323,8 @@ int text2vasm(char *buf, size_t len)
 
 		vasmcount++;
 	}
+
+	*vasmcount_p = vasmcount;
+
+	return 0;
 }

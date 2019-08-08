@@ -23,8 +23,6 @@ struct hashtbl {
 };
 
 
-size_t h_hash_str(char *str);
-
 
 int h_create(struct hashtbl *tbl, size_t size);
 
@@ -41,7 +39,7 @@ int h_add(struct hashtbl *tbl, char *str, size_t val);
 size_t h_get(struct hashtbl *tbl, char *str);
 
 
-void h_rem(struct hashtbl *tbl, char *str);
+void h_rem(struct hashtbl *tbl, const char *str);
 
 
 #endif

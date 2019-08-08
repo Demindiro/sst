@@ -20,10 +20,7 @@ size_t vasmcount;
 char vbin[0x10000];
 size_t vbinlen;
 
-struct lblpos lbl2pos[4096];
-size_t lbl2poscount;
-struct lblpos pos2lbl[4096];
-size_t pos2lblcount;
+struct lblmap map;
 
 
 int main(int argc, char **argv) {
@@ -40,19 +37,18 @@ int main(int argc, char **argv) {
 	close(fd);
 
 	printf("=== text2vasm ===\n");
-	if (text2vasm(buf, len) < 0)
+	if (text2vasm(buf, len, vasms, &vasmcount) < 0)
 		return 1;
 	printf("\n");
 
-	// x. vasm2vbin
 	printf("=== vasm2vbin ===\n");
-	vasm2vbin();
+	vasm2vbin(vasms, vasmcount, vbin, &vbinlen, &map);
 	printf("\n");
-	for (size_t i = 0; i < lbl2poscount; i++)
-		printf("%s --> %lu\n", lbl2pos[i].lbl, lbl2pos[i].pos);
+	for (size_t i = 0; i < map.lbl2poscount; i++)
+		printf("%s --> %lu\n", map.lbl2pos[i].lbl, map.lbl2pos[i].pos);
 	printf("\n");
-	for (size_t i = 0; i < pos2lblcount; i++)
-		printf("%lu --> %s\n", pos2lbl[i].pos, pos2lbl[i].lbl);
+	for (size_t i = 0; i < map.pos2lblcount; i++)
+		printf("%lu --> %s\n", map.pos2lbl[i].pos, map.pos2lbl[i].lbl);
 	printf("\n");
 	size_t i = 0, j = 0;
 	while (i < vbinlen) {
@@ -80,7 +76,7 @@ int main(int argc, char **argv) {
 	// Write binary shit
 	fd = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0755);
 	write(fd, "\x55\x10\x20\x19", 4); // Magic number
-	dumplbl(fd);
+	dumplbl(fd, &map);
 	write(fd, vbin, vbinlen);
 	close(fd);
 

@@ -33,10 +33,12 @@ static size_t ip;
 
 #define sp regs[31]
 
+static size_t _ = 0;
 
 static void vasm_syscall() {
 	switch (regs[0]) {
 	case 0:
+		fprintf(stderr, "Instructions executed: %lu\n", _);
 		exit(regs[1]);
 		break;
 	case 1:
@@ -60,6 +62,7 @@ static void run() {
 
 
 	while (1) {
+		_++;
 #ifndef NDEBUG
 		fprintf(stderr, "0x%08lx: ", ip);
 #endif

@@ -99,4 +99,12 @@ struct lblpos {
 };
 
 
+struct lblmap {
+	struct lblpos lbl2pos[4096];
+	size_t lbl2poscount;
+	struct lblpos pos2lbl[4096];
+	size_t pos2lblcount;
+};
+
+
 #endif

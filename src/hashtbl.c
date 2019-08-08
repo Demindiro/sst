@@ -8,10 +8,10 @@
 #include "hashtbl.h"
 
 
-size_t h_hash_str(char *str)
+static size_t h_hash_str(const char *str)
 {
 	size_t h = 0;
-	for (char *c = str; *c != 0; c++) {
+	for (const char *c = str; *c != 0; c++) {
 		h += *c;
 	}
 	return h;
@@ -124,4 +124,25 @@ size_t h_get(struct hashtbl *tbl, char *str)
 	}
 	
 	return -1;
+}
+
+
+void h_rem(struct hashtbl *tbl, const char *str)
+{
+	size_t k = h_hash_str(str) % tbl->len;
+	void **a = tbl->arrays[k];
+	if (a == NULL)
+		return;
+
+	size_t l = *(size_t *)a;
+	size_t lcount = l >> 32L;
+
+	for (size_t i = 0; i < lcount; i++) {
+		if (strcmp(a[1 + i * 2], str) == 0) {
+			lcount--;
+			memmove(a + 1 + i * 2, a + 1 + (i + 1) * 2, (lcount - i) * 2);
+			l = (lcount << 32L) | (l & 0xFFFFFFFF);
+			*(size_t *)a = l;
+		}
+	}
 }
