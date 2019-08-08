@@ -2,6 +2,8 @@ CC = cc
 LD = ld
 AS = as
 
+INCLUDE = -Iinclude/
+CFLAGS  = -O0 -g
 
 cc = $(CC) $(INCLUDE) $(CFLAGS) $+ -o $@
 ld = $(LD) $< -o $@
@@ -11,17 +13,19 @@ as = $(AS) $< -o $@
 default: build/compiler build/assembler build/interpreter build/linker
 
 
-build/compiler: src/compiler.c include/vasm.h
-	cc src/compiler.c -Iinclude -o build/compiler -g
+build/compiler:		src/compiler.c src/text2lines.c src/lines2structs.c src/structs2vasm.c src/hashtbl.c | \
+			include/vasm.h include/text2lines.h include/lines2structs.h include/structs2vasm.h include/hashtbl.h
+	$(cc)
 
-build/assembler: src/assembler.c include/vasm.h
-	cc src/assembler.c -Iinclude -o build/assembler -g
+build/assembler:	src/assembler.c	src/vasm2vbin.c src/text2vasm.c | \
+			include/vasm.h include/vasm2vbin.h include/text2vasm.h
+	$(cc)
 
-build/interpreter: src/interpreter.c include/vasm.h
-	cc src/interpreter.c -Iinclude -o build/interpreter -g
+build/interpreter:	src/interpreter.c				| include/vasm.h
+	$(cc)
 
-build/linker: src/linker.c include/vasm.h
-	cc src/linker.c -Iinclude -o build/linker -g -O0
+build/linker:		src/linker.c src/hashtbl.c | include/hashtbl.h
+	$(cc)
 
 
 test: default
