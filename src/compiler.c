@@ -29,13 +29,18 @@
 #define FUNC_LINE_MATH    8
 #define FUNC_LINE_RETURN  9
 
-#define MATH_ADD VASM_OP_ADD
-#define MATH_SUB VASM_OP_SUB
-#define MATH_MUL VASM_OP_MUL
-#define MATH_DIV VASM_OP_DIV
-#define MATH_MOD VASM_OP_MOD
-#define MATH_NOT VASM_OP_NOT
-#define MATH_INV VASM_OP_INV
+#define MATH_ADD    VASM_OP_ADD
+#define MATH_SUB    VASM_OP_SUB
+#define MATH_MUL    VASM_OP_MUL
+#define MATH_DIV    VASM_OP_DIV
+#define MATH_MOD    VASM_OP_MOD
+#define MATH_NOT    VASM_OP_NOT
+#define MATH_INV    VASM_OP_INV
+#define MATH_RSHIFT VASM_OP_RSHIFT
+#define MATH_LSHIFT VASM_OP_LSHIFT
+#define MATH_AND    VASM_OP_AND
+#define MATH_OR     VASM_OP_OR
+#define MATH_XOR    VASM_OP_XOR
 
 
 //#define streq(x,y) (strcmp(x,y) == 0)
@@ -79,6 +84,7 @@ struct func_line_if {
 	struct func_line line;
 	char *label;
 	char *var;
+	char inv;
 };
 
 struct func_line_label {
@@ -158,12 +164,16 @@ static char *strclone(const char *text) {
 static const char *mathop2str(int op)
 {
 	switch (op) {
-	case MATH_ADD: return "+";
-	case MATH_SUB: return "-";
-	case MATH_MUL: return "*";
-	case MATH_DIV: return "/";
-	case MATH_MOD: return "%";
-	case MATH_INV: return "!";
+	case MATH_ADD:    return "+";
+	case MATH_SUB:    return "-";
+	case MATH_MUL:    return "*";
+	case MATH_DIV:    return "/";
+	case MATH_MOD:    return "%";
+	case MATH_NOT:    return "~";
+	case MATH_INV:    return "!";
+	case MATH_RSHIFT: return ">>";
+	case MATH_LSHIFT: return "<<";
+	case MATH_XOR:    return "^";
 	default: fprintf(stderr, "Invalid op (%d)\n", op); abort();
 	}
 }
@@ -454,6 +464,7 @@ static int parsefunc(size_t start, size_t end) {
 	k = 0;
 	struct func_line_goto  *loopjmps[16];
 	struct func_line_math  *formath[16];
+	char *loopvars[16];
 	struct func_line_label *loopelse[16];
 	struct func_line_label *loopends[16];
 	char looptype[16];
@@ -505,6 +516,13 @@ static int parsefunc(size_t start, size_t end) {
 						f->lines[k] = (struct func_line *)loopjmps[loopcount];
 						k++;
 					case 3:
+						if (looptype[loopcount] == 1) {
+							fl.d = calloc(sizeof *fl.d, 1);
+							fl.d->line.type = FUNC_LINE_DESTROY;
+							fl.d->var       = loopvars[loopcount];
+							f->lines[k]     = fl.line;
+							k++;
+						}
 						f->lines[k] = (struct func_line *)loopelse[loopcount];
 						k++;
 						break;
@@ -529,6 +547,13 @@ static int parsefunc(size_t start, size_t end) {
 					f->lines[k] = (struct func_line *)loopjmps[loopcount];
 					k++;
 				case 3:
+					if (looptype[loopcount] == 1) {
+						fl.d = calloc(sizeof *fl.d, 1);
+						fl.d->line.type = FUNC_LINE_DESTROY;
+						fl.d->var       = loopvars[loopcount];
+						f->lines[k]     = fl.line;
+						k++;
+					}
 					f->lines[k] = (struct func_line *)loopelse[loopcount];
 					loopelse[loopcount] = NULL;
 					k++;
@@ -617,16 +642,24 @@ static int parsefunc(size_t start, size_t end) {
 			loopends[loopcount]->line.type = FUNC_LINE_LABEL;
 			loopends[loopcount]->label     = strclone(lbl);
 
-			struct func_line_if     *fli = calloc(sizeof *fli, 1);
+			fl.i = calloc(sizeof *fl.i, 1);
 			char expr[64];
 			snprintf(expr, sizeof expr, "%s == %s", fla->var, toval);
-			fli->line.type = FUNC_LINE_IF;
-			fli->label     = loopelse[loopcount]->label;
-			fli->var       = parseexpr(expr, f, &k);
-			f->lines[k]    = (struct func_line *)fli;
+			char *e = parseexpr(expr, f, &k);
+			fl.i->line.type = FUNC_LINE_IF;
+			fl.i->label     = loopelse[loopcount]->label;
+			fl.i->var       = e;
+			f->lines[k]     = fl.line;
+			k++;
+
+			fl.d = calloc(sizeof *fl.d, 1);
+			fl.d->line.type = FUNC_LINE_DESTROY;
+			fl.d->var       = e;
+			f->lines[k]     = fl.line;
 			k++;
 
 			looptype[loopcount] = 1;
+			loopvars[loopcount] = toval;
 
 			loopcount++;
 			loopcounter++;
@@ -801,6 +834,219 @@ static int parsefunc(size_t start, size_t end) {
 
 
 
+static int optimizefunc_replace(struct func *f)
+{
+	for (size_t i = 0; i < f->linecount; i++) {
+		union func_line_all_p fl = { .line = f->lines[i] };
+		switch (fl.line->type) {
+		case FUNC_LINE_MATH:
+
+			if (0 && fl.m->z != NULL && isnum(*fl.m->z)) {
+				if (fl.m->op == MATH_DIV) {
+					size_t n = 0, l;
+					size_t z = strtol(fl.m->z, NULL, 0);
+					for (size_t k = 0; k < 64; k++) {
+						if (z & 1) {
+							n++;
+							l = k;
+						}
+						z >>= 1;
+					}
+					if (n == 1) {
+						fl.m->op = MATH_RSHIFT;
+						char b[16];
+						snprintf(b, sizeof b, "%lu", l);
+						fl.m->z  = strclone(b);
+					}
+				} else if (fl.m->op == MATH_MOD) {
+					size_t n = 0;
+					size_t z = strtol(fl.m->z, NULL, 0), oz = z;
+					for (size_t k = 0; k < 64; k++) {
+						if (z & 1)
+							n++;
+						z >>= 1;
+					}
+					if (n == 1) {
+						fl.m->op = MATH_AND;
+						char b[16];
+						snprintf(b, sizeof b, "0x%lx", oz - 1);
+						fl.m->z  = strclone(b);
+					}
+				}
+			}
+
+			if (fl.m->op == MATH_ADD || fl.m->op == MATH_SUB) {
+				if (streq(fl.m->y, "0") || streq(fl.m->z, "0")) {
+					char *var = fl.m->x,
+					     *val = streq(fl.m->y, "0") ? fl.m->z : fl.m->y;
+					fl.a = calloc(sizeof *fl.a, 1);
+					fl.a->line.type = FUNC_LINE_ASSIGN;
+					fl.a->var = var;
+					fl.a->value = val;
+					f->lines[i] = fl.line;
+				}
+			} else if (fl.m->op == MATH_MUL) {
+				if (!streq(fl.m->y, "0") && !streq(fl.m->z, "0"))
+					break;
+			} else if (fl.m->op == MATH_DIV || fl.m->op == MATH_MOD) {
+				if (!streq(fl.m->z, "1"))
+					break;
+			} else {
+				break;
+			}
+			break;
+		}
+	}
+
+	return 0;
+}
+
+
+static int optimizefunc_peephole2(struct func *f)
+{
+	for (size_t i = 0; i < f->linecount - 1; i++) {
+		union func_line_all_p fl0 = { .line = f->lines[i + 0] },
+		                      fl1 = { .line = f->lines[i + 1] };
+		switch (fl0.line->type) {
+		case FUNC_LINE_MATH:
+			if (fl1.line->type == FUNC_LINE_DESTROY) {
+				char *v = fl1.d->var;
+				if (!streq(v, fl0.m->x) && !streq(v, fl0.m->y) &&
+				    (fl0.m->z == NULL || !streq(v, fl0.m->z))) {
+					f->lines[i + 0] = fl1.line;
+					f->lines[i + 1] = fl0.line;
+				}
+			}
+			break;
+		}
+	}
+
+	return 0;
+}
+
+
+static int optimizefunc_peephole3(struct func *f)
+{
+	for (size_t i = 0; i < f->linecount - 2; i++) {
+		union func_line_all_p fl0 = { .line = f->lines[i + 0] },
+		                      fl1 = { .line = f->lines[i + 1] },
+				      fl2 = { .line = f->lines[i + 2] };
+		switch (fl0.line->type) {
+		case FUNC_LINE_DECLARE:
+			if (fl1.line->type == FUNC_LINE_ASSIGN  &&
+			    fl2.line->type == FUNC_LINE_DESTROY) {
+				if (streq(fl0.d->var, fl1.a->var) &&
+				    streq(fl1.a->value, fl2.d->var)) {
+					char *v = fl0.d->var, *w = fl2.d->var;
+					f->lines[i] = f->lines[i + 1];
+					f->linecount -= 3;
+					memmove(f->lines + i, f->lines + i + 3, (f->linecount - i) * sizeof f->lines[i]);
+					i -= 3;
+					for (size_t j = i; j < f->linecount; j++) {
+						union func_line_all_p l = { .line = f->lines[j] };
+						switch (l.line->type) {
+						case FUNC_LINE_ASSIGN:
+							if (streq(l.a->var, v))
+								l.a->var = w;
+							if (streq(l.a->value, v))
+								l.a->value = w;
+							break;
+						case FUNC_LINE_DECLARE:
+						case FUNC_LINE_DESTROY:
+							if (streq(l.d->var, v))
+								l.d->var = w;
+							break;
+						case FUNC_LINE_FUNC:
+							for (size_t k = 0; k < l.f->paramcount; k++) {
+								if (streq(l.f->params[k], v))
+									strcpy(l.f->params[k], w);
+							}
+							break;
+						case FUNC_LINE_IF:
+							if (streq(l.i->var, v))
+								l.i->var = w;
+							break;
+						case FUNC_LINE_MATH:
+							if (streq(l.m->x, v))
+								l.m->x = w;
+							if (streq(l.m->y, v))
+								l.m->x = w;
+							if (l.m->z != NULL && streq(l.m->z, v))
+								l.m->x = w;
+							break;
+						case FUNC_LINE_RETURN:
+							if (streq(l.r->val, v))
+								l.r->val = w;
+							break;
+						}
+					}
+				}
+			}
+			break;
+		case FUNC_LINE_MATH:
+			if (fl0.m->op == MATH_INV &&
+			    fl1.line->type == FUNC_LINE_IF &&
+			    fl2.line->type == FUNC_LINE_DESTROY) {
+				if (streq(fl0.m->x, fl1.i->var) && streq(fl1.i->var, fl2.d->var)) {
+					fl1.i->inv = !fl1.i->inv;
+					f->linecount--;
+					memmove(f->lines + i, f->lines + i + 1, (f->linecount - i) * sizeof f->lines[i]);
+				}
+			}
+			break;
+		}
+	}
+
+	return 0;
+}
+
+
+
+static int optimizefunc_peephole4(struct func *f)
+{
+	for (size_t i = 0; i < f->linecount - 3; i++) {
+		union func_line_all_p fl0 = { .line = f->lines[i + 0] },
+		                      fl1 = { .line = f->lines[i + 1] },
+				      fl2 = { .line = f->lines[i + 2] },
+				      fl3 = { .line = f->lines[i + 3] };
+		switch (fl0.line->type) {
+		case FUNC_LINE_DECLARE:
+			if (fl1.line->type == FUNC_LINE_ASSIGN &&
+			    fl2.line->type == FUNC_LINE_IF &&
+			    fl3.line->type == FUNC_LINE_DESTROY &&
+			    streq(fl0.d->var, fl3.d->var)) {
+				if (streq(fl0.d->var, fl1.a->var) &&
+				    streq(fl1.a->var, fl2.i->var)) {
+					fl2.i->var = fl1.a->value;
+					f->lines[i] = fl2.line;
+					f->linecount -= 3;
+					memmove(f->lines + i + 1, f->lines + i + 4, (f->linecount - i) * sizeof f->lines[i]);
+				}
+			}
+			break;
+		}
+	}
+
+	return 0;
+}
+
+
+
+static int optimizefunc(struct func *f)
+{
+	// It works
+	for (size_t i = 0; i < 5; i++) {
+		if (optimizefunc_replace  (f) < 0 ||
+		    optimizefunc_peephole2(f) < 0 ||
+		    optimizefunc_peephole3(f) < 0 ||
+		    optimizefunc_peephole4(f) < 0)
+			return -1;
+	}
+	return 0;
+}
+
+
+
 static int lines2structs()
 {
 	for (size_t i = 0; i < linecount; i++) {
@@ -812,6 +1058,7 @@ static int lines2structs()
 			while (strcmp(lines[i], "end") != 0)
 				i++;
 			parsefunc(start, i);
+			optimizefunc(&funcs[funccount]);
 			funccount++;
 		}
 	}
@@ -966,7 +1213,7 @@ static int func2vasm(struct func *f) {
 				}
 			}
 			rb = 0;
-			a.r2s.op   = VASM_OP_JNZ;
+			a.r2s.op   = fli->inv ? VASM_OP_JZ : VASM_OP_JNZ;
 			a.r2s.r[0] = ra;
 			a.r2s.r[1] = rb;
 			a.r2s.str  = fli->label;
@@ -1070,9 +1317,84 @@ static int func2vasm(struct func *f) {
 }
 
 
+
+
+static int optimizevasm_replace(void)
+{
+	for (size_t i = 0; i < vasmcount; i++) {
+		union vasm_all a = { .a = vasms[i] };
+		switch (a.op) {
+		case VASM_OP_SET:
+			/*
+			if (streq(a.rs.str, "0")) {
+				char reg = a.rs.r;
+				a.r3.op = VASM_OP_XOR;
+				a.r3.r[0] = a.r3.r[1] = a.r3.r[2] = reg;
+				vasms[i] = a.a;
+			}
+			*/
+			break;
+		}
+	}
+
+	return 0;
+}
+
+
+static int optimizevasm_peephole2(void)
+{
+	for (size_t i = 0; i < vasmcount - 1; i++) {
+		union vasm_all a0 = { .a = vasms[i + 0] },
+		               a1 = { .a = vasms[i + 1] };
+		switch (a0.op) {
+		case VASM_OP_RET:
+			if (a1.op == VASM_OP_RET) {
+				vasmcount--;
+				memmove(vasms + i + 1, vasms + i + 3, (vasmcount - i) * sizeof vasms[i]);
+				i -= 2;
+			}
+			break;
+		}
+	}
+
+	return 0;
+}
+
+
+static int optimizevasm_peephole3(void)
+{
+	for (size_t i = 0; i < vasmcount - 2; i++) {
+		union vasm_all a0 = { .a = vasms[i + 0] },
+		               a1 = { .a = vasms[i + 1] },
+		               a2 = { .a = vasms[i + 2] };
+		switch (a0.op) {
+		case VASM_OP_JZ:
+		case VASM_OP_JNZ:
+			if (a1.op == VASM_OP_JMP   &&
+			    a2.op == VASM_OP_LABEL &&
+			    streq(a0.rs.str, a2.s.str)) {
+				a0.op = (a0.op == VASM_OP_JZ) ? VASM_OP_JNZ : VASM_OP_JZ;
+				a0.rs.str = a1.s.str;
+				vasms[i] = a0.a;
+				vasmcount -= 2;
+				memmove(vasms + i + 1, vasms + i + 3, (vasmcount - i) * sizeof vasms[i]);
+				i -= 3;
+			}
+			break;
+		}
+	}
+
+	return 0;
+}
+
+
+
 static int structs2vasm() {
 	for (size_t i = 0; i < funccount; i++)
 		func2vasm(&funcs[i]);
+	optimizevasm_replace();
+	optimizevasm_peephole2();
+	optimizevasm_peephole3();
 }
 
 
@@ -1150,7 +1472,10 @@ int main(int argc, char **argv) {
 				break;
 			case FUNC_LINE_IF:
 				fli = (struct func_line_if *)f->lines[j];
-				printf("  If %s then %s\n", fli->var, fli->label);
+				if (fli->inv)
+					printf("  If not %s then %s\n", fli->var, fli->label);
+				else
+					printf("  If %s then %s\n", fli->var, fli->label);
 				break;
 			case FUNC_LINE_LABEL:
 				fll = (struct func_line_label *)f->lines[j];
@@ -1260,6 +1585,15 @@ int main(int argc, char **argv) {
 			break;
 		case VASM_OP_INV:
 			teeprintf("\tinv\tr%d,r%d\n", a.r2.r[0], a.r2.r[1]);
+			break;
+		case VASM_OP_RSHIFT:
+			teeprintf("\trshift\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			break;
+		case VASM_OP_LSHIFT:
+			teeprintf("\tlshift\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			break;
+		case VASM_OP_XOR:
+			teeprintf("\txor\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 			break;
 		}
 	}

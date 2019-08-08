@@ -3,9 +3,11 @@ int main(string[] args)
 	writeln_num 3
 	long true = 1
 	long i = 3
+long c = 2
+long l = 200001
 	while true
-		i += 2
-		if i == 200001
+		i += c
+		if i == l
 			break
 		end
 		for j in 2 to i / 2

@@ -24,7 +24,6 @@ size_t pos2lblcount;
 
 static int getop(char *mnem)
 {
-	printf("%s\n", mnem);
 	char c = *mnem;
 	char *ptr = mnem;
 	switch (c) {
@@ -55,15 +54,19 @@ static int getop(char *mnem)
 	case 'l':
 		if (streq("load", mnem))
 			return VASM_OP_LOAD;
+		if (streq("lshift", mnem))
+			return VASM_OP_LSHIFT;
 		break;
 	case 'm':
 		if (streq("mov", mnem))
 			return VASM_OP_MOV;
 		if (streq("mod", mnem))
 			return VASM_OP_MOD;
+		break;
 	case 'n':
 		if (streq("not", mnem))
 			return VASM_OP_NOT;
+		break;
 	case 'p':
 		if (streq("push", mnem))
 			return VASM_OP_PUSH;
@@ -73,6 +76,8 @@ static int getop(char *mnem)
 	case 'r':
 		if (streq("ret", mnem))
 			return VASM_OP_RET;
+		if (streq("rshift", mnem))
+			return VASM_OP_RSHIFT;
 		break;
 	case 's':
 		if (streq("set", mnem))
@@ -83,6 +88,10 @@ static int getop(char *mnem)
 			return VASM_OP_SUB;
 		if (streq("syscall", mnem))
 			return VASM_OP_SYSCALL;
+		break;
+	case 'x':
+		if (streq("xor", mnem))
+			return VASM_OP_XOR;
 		break;
 	case '.':
 		if (streq(".long", mnem))
@@ -95,6 +104,7 @@ static int getop(char *mnem)
 			return VASM_OP_RAW_BYTE;
 		if (streq(".str", mnem))
 			return VASM_OP_RAW_STR;
+		break;
 	}
 
 	if (*ptr == '#')
@@ -207,6 +217,9 @@ static int parse_op_args(union vasm_all *v, char *args)
 	case VASM_OP_DIV:
 	case VASM_OP_MOD:
 	case VASM_OP_REM:
+	case VASM_OP_RSHIFT:
+	case VASM_OP_LSHIFT:
+	case VASM_OP_XOR:
 		REG(v->r3.r[0]);
 		SKIP;
 		REG(v->r3.r[1]);

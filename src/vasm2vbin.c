@@ -66,6 +66,9 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		case VASM_OP_DIV:
 		case VASM_OP_MOD:
 		case VASM_OP_REM:
+		case VASM_OP_RSHIFT:
+		case VASM_OP_LSHIFT:
+		case VASM_OP_XOR:
 			for (size_t i = 0; i < 3; i++) {
 				vbin[vbinlen] = a.r3.r[i];
 				vbinlen++;

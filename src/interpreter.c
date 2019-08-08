@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <endian.h>
+#include <x86intrin.h>
 #include "vasm.h"
 
 
@@ -33,12 +34,31 @@ static size_t ip;
 
 #define sp regs[31]
 
-static size_t _ = 0;
+
+#ifndef NOPROF
+__attribute__((always_inline))
+static inline unsigned long rdtsc()
+{
+    unsigned int lo,hi;
+    __asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
+    return ((unsigned long)hi << 32) | lo;
+}
+static size_t icounter;
+static size_t rstart;
+#endif
+
+
 
 static void vasm_syscall() {
 	switch (regs[0]) {
 	case 0:
-		fprintf(stderr, "Instructions executed: %lu\n", _);
+#ifndef NOPROF
+		; size_t r = rdtsc() - rstart;
+		printf("\n");
+		printf("Instructions executed: %lu\n", icounter);
+		printf("Host CPU cycles: %lu\n", r);
+		printf("Average host CPU cycles per instruction: %lf\n", (double)r / icounter);
+#endif
 		exit(regs[1]);
 		break;
 	case 1:
@@ -60,9 +80,14 @@ static void run() {
 	void *code  = mem;
 	sp = 0x10000;
 
+#ifndef NOPROF
+	rstart = rdtsc();
+#endif
 
 	while (1) {
-		_++;
+#ifndef NOPROF
+		icounter++;
+#endif
 #ifndef NDEBUG
 		fprintf(stderr, "0x%08lx: ", ip);
 #endif
@@ -210,6 +235,10 @@ static void run() {
 		case VASM_OP_RSHIFT:
 			REG3OP(>>);
 			REG32STR("rshift", ">>");
+			break;
+		case VASM_OP_XOR:
+			REG3OP(^);
+			REG32STR("xor", "^");
 			break;
 		case VASM_OP_NOT:
 			regi = mem[ip];
