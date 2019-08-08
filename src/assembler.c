@@ -199,24 +199,17 @@ static int parse_op_args(union vasm_all *v, char *args)
 	case VASM_OP_STORE:
 	case VASM_OP_LOAD:
 	case VASM_OP_MOV:
-	case VASM_OP_NOT:
-	case VASM_OP_INV:
-		REG(v->r2.r[0]);
-		SKIP;
-		REG(v->r2.r[1]);
-		break;
-	// 3 reg
 	case VASM_OP_ADD:
 	case VASM_OP_SUB:
 	case VASM_OP_MUL:
 	case VASM_OP_DIV:
 	case VASM_OP_MOD:
 	case VASM_OP_REM:
-		REG(v->r3.r[0]);
+	case VASM_OP_NOT:
+	case VASM_OP_INV:
+		REG(v->r2.r[0]);
 		SKIP;
-		REG(v->r3.r[1]);
-		SKIP;
-		REG(v->r3.r[2]);
+		REG(v->r2.r[1]);
 		break;
 	// Raw (aka str)
 	case VASM_OP_RAW_LONG:
@@ -372,24 +365,18 @@ static int vasm2vbin() {
 		case VASM_OP_STORE:
 		case VASM_OP_LOAD:
 		case VASM_OP_MOV:
-		case VASM_OP_NOT:
-		case VASM_OP_INV:
-			vbin[vbinlen] = a.r2.r[0];
-			vbinlen++;
-			vbin[vbinlen] = a.r2.r[1];
-			vbinlen++;
-			break;
-		// 3 reg
 		case VASM_OP_ADD:
 		case VASM_OP_SUB:
 		case VASM_OP_MUL:
 		case VASM_OP_DIV:
 		case VASM_OP_MOD:
 		case VASM_OP_REM:
-			for (size_t i = 0; i < 3; i++) {
-				vbin[vbinlen] = a.r3.r[i];
-				vbinlen++;
-			}
+		case VASM_OP_NOT:
+		case VASM_OP_INV:
+			vbin[vbinlen] = a.r2.r[0];
+			vbinlen++;
+			vbin[vbinlen] = a.r2.r[1];
+			vbinlen++;
 			break;
 		// 1 addr
 		case VASM_OP_JMP:

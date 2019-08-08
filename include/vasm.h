@@ -64,11 +64,6 @@ struct vasm_reg2 {
 	char  r[2];
 };
 
-struct vasm_reg3 {
-	short op;
-	char  r[3];
-};
-
 struct vasm_reg_str {
 	short op;
 	char  r;
@@ -86,7 +81,6 @@ union vasm_all {
 	struct vasm          a;
 	struct vasm_reg      r;
 	struct vasm_reg2     r2;
-	struct vasm_reg3     r3;
 	struct vasm_str      s;
 	struct vasm_reg_str  rs;
 	struct vasm_reg2_str r2s;

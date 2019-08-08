@@ -4,7 +4,8 @@ writeln:
 	set	r1,1		# stdout
 	load	r3,r0		# Load the length
 	set	r4,8
-	add	r2,r0,r4	# Point to the string
+	mov	r2,r0		# Point to the string
+	add	r2,r4
 	set	r0,1		# SYSCALL_write
 	syscall
 	set	r0,1		# SYSCALL_write
@@ -20,22 +21,23 @@ writeln_num:
 	# Allocate temporary buffer
 	mov	r30,r31
 	set	r1,64
-	add	r31,r31,r1
+	add	r31,r1
 	mov	r2,r31
 	set	r1,80
-	add	r31,r31,r1
+	add	r31,r1
 	# Parse number
 	set	r10,10	# The base (decimal)
 	set	r11,0	# The length
 	set	r12,1	# To decrease r2 and increase r11
 	set	r13,48	# '0'
 .loop0:
-	mod	r20,r0,r10
-	add	r20,r20,r13
+	mov	r20,r0
+	mod	r20,r10
+	add	r20,r13
 	store	r20,r2
-	add	r11,r11,r12
-	sub	r2,r2,r12
-	div	r0,r0,r10
+	add	r11,r12
+	sub	r2,r12
+	div	r0,r10
 	jnz	.loop0,r0
 	# Store length
 	store	r11,r2

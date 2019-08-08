@@ -52,7 +52,7 @@ struct func_line {
 struct func_line_assign {
 	struct func_line line;
 	char *var;
-	char *value;
+	char *val;
 };
 
 struct func_line_func {
@@ -82,7 +82,7 @@ struct func_line_label {
 struct func_line_math {
 	struct func_line line;
 	char op;
-	char *x, *y, *z;
+	char *x, *y;
 };
 
 struct func_line_return {
@@ -299,29 +299,52 @@ static char *parseexpr(const char *p, struct func *f, size_t *k)
 		printf("%c --> %d\n", words[1][0], precdl);
 		printf("%c --> %d\n", words[3][0], precdr);
 		printf("---------\n");
-		fl.m = calloc(sizeof *fl.m, 1);
-		fl.m->line.type = FUNC_LINE_MATH;
-		fl.m->op = op;
 		char *x;
 		if (precdl >= precdr) {
-			fl.m->x = strclone(var);
-			fl.m->y = strclone(words[0]);
-			fl.m->z = strclone(words[2]);
+			char   *v = strclone(var);
+
+			fl.a      = calloc(sizeof *fl.a, 1);
+			fl.a->line.type = FUNC_LINE_ASSIGN;
+			fl.a->var = v;
+			fl.a->val = strclone(words[0]);
 			f->lines[*k] = fl.line;
 			(*k)++;
+
+			fl.m = calloc(sizeof *fl.m, 1);
+			fl.m->line.type = FUNC_LINE_MATH;
+			fl.m->op = op;
+			fl.m->x = v;
+			fl.m->y = strclone(words[2]);
+			f->lines[*k] = fl.line;
+			(*k)++;
+
 			x = fl.m->x;
 			// Dragons
 			size_t ok = *k;
-			char *v = fl.m->x;
 			parseexpr(p, f, k);
 			fl.line = f->lines[ok];
-			fl.m->y = v;
+			fl.a->var = v;
+			fl.line = f->lines[ok + 1];
+			fl.m->x = v;
 		} else {
-			fl.m->x = strclone(var);
-			fl.m->y = strclone(words[0]);
-			fl.m->z = parseexpr(p, f, k);
+			char   *v = strclone(var);
+			char   *e = parseexpr(p, f, k);
+
+			fl.a      = calloc(sizeof *fl.a, 1);
+			fl.a->line.type = FUNC_LINE_ASSIGN;
+			fl.a->var = v;
+			fl.a->val = strclone(words[0]);
 			f->lines[*k] = fl.line;
 			(*k)++;
+
+			fl.m = calloc(sizeof *fl.m, 1);
+			fl.m->line.type = FUNC_LINE_MATH;
+			fl.m->op = op;
+			fl.m->x = v;
+			fl.m->y = e;
+			f->lines[*k] = fl.line;
+			(*k)++;
+
 			x = fl.m->x;
 		}
 		if (words[1][0] == '=') { // meh
@@ -526,7 +549,7 @@ static int parsefunc(size_t start, size_t end) {
 			struct func_line_assign *fla = calloc(sizeof *fla, 1);
 			fla->line.type = FUNC_LINE_ASSIGN;
 			fla->var       = var;
-			fla->value     = fromval;
+			fla->val       = fromval;
 			f->lines[k]    = (struct func_line *)fla;
 			k++;
 
@@ -543,8 +566,7 @@ static int parsefunc(size_t start, size_t end) {
 			formath[loopcount]->line.type = FUNC_LINE_MATH;
 			formath[loopcount]->op       = MATH_ADD;
 			formath[loopcount]->x        = fla->var;
-			formath[loopcount]->y        = fla->var;
-			formath[loopcount]->z        = "1";
+			formath[loopcount]->y        = "1";
 
 			loopjmps[loopcount] = calloc(sizeof *loopjmps[loopcount], 1);
 			loopjmps[loopcount]->line.type = FUNC_LINE_GOTO;
@@ -664,7 +686,7 @@ static int parsefunc(size_t start, size_t end) {
 				flp.a = calloc(sizeof *flp.a, 1);
 				flp.a->line.type = FUNC_LINE_ASSIGN;
 				flp.a->var       = strclone(name);
-				flp.a->value     = strclone(ptr);
+				flp.a->val       = strclone(ptr);
 				f->lines[k]      = flp.line;
 				k++;
 			} else if (strchr("+-*/", word[0]) && word[1] == '=' &&
@@ -673,9 +695,8 @@ static int parsefunc(size_t start, size_t end) {
 				flp.m->line.type = FUNC_LINE_MATH;
 				flp.m->op        = MATH_ADD; // TODO
 				flp.m->x         = strclone(name);
-				flp.m->y         = flp.m->x;
 				NEXTWORD;
-				flp.m->z         = strclone(word);
+				flp.m->y         = strclone(word);
 				f->lines[k]      = flp.line;
 				k++;
 			} else {
@@ -771,14 +792,14 @@ static int func2vasm(struct func *f) {
 				fprintf(stderr, "Failed to add variable to hashtable\n");
 				abort();
 			}
-			if ('0' <= *fla->value && *fla->value <= '9') {
+			if ('0' <= *fla->val && *fla->val <= '9') {
 				a.rs.op  = VASM_OP_SET;
 				a.rs.r   = reg;
-				a.rs.str = fla->value;
+				a.rs.str = fla->val;
 			} else {
 				a.r2.op   = VASM_OP_MOV;
 				a.r2.r[0] = reg;
-				reg = h_get(&tbl, fla->value);
+				reg = h_get(&tbl, fla->val);
 				if (reg == -1) {
 					fprintf(stderr, "Variable not defined\n");
 					abort();
@@ -886,54 +907,23 @@ static int func2vasm(struct func *f) {
 			} else {
 				ra = h_get(&tbl, flm->y);
 				if (ra == -1) {
-					fprintf(stderr, "RIPOfzkzefopozezERZ\n");
+					fprintf(stderr, "Variable '%s' doesn't exist\n", flm->y);
 					abort();
 				}
 			}
-			if (flm->op != MATH_INV) {
-				if (isnum(*flm->z)) {
-					a.rs.op  = VASM_OP_SET;
-					a.rs.r   = rb = 21;
-					a.rs.str = flm->z;
-					vasms[vasmcount] = a.a;
-					vasmcount++;
-				} else {
-					rb = h_get(&tbl, flm->z);
-					if (rb == -1) {
-						fprintf(stderr, "RIPOERefnzfezfzeZ\n");
-						abort();
+			a.r2.op   = flm->op;
+			a.r2.r[0] = h_get(&tbl, flm->x);
+			a.r2.r[1] = ra;
+			if (a.r2.r[0] == -1) {
+				size_t reg = 0;
+				for ( ; reg < sizeof allocated_regs / sizeof *allocated_regs; reg++) {
+					if (!allocated_regs[reg]) {
+						allocated_regs[reg] = 1;
+						break;
 					}
 				}
-				a.r3.op   = flm->op;
-				a.r3.r[0] = h_get(&tbl, flm->x);
-				a.r3.r[1] = ra;
-				a.r3.r[2] = rb;
-				if (a.r3.r[0] == -1) {
-					size_t reg = 0;
-					for ( ; reg < sizeof allocated_regs / sizeof *allocated_regs; reg++) {
-						if (!allocated_regs[reg]) {
-							allocated_regs[reg] = 1;
-							break;
-						}
-					}
-					a.r3.r[0] = reg;
-					h_add(&tbl, flm->x, reg);
-				}
-			} else {
-				a.r2.op   = flm->op;
-				a.r2.r[0] = h_get(&tbl, flm->x);
-				a.r2.r[1] = ra;
-				if (a.r2.r[0] == -1) {
-					size_t reg = 0;
-					for ( ; reg < sizeof allocated_regs / sizeof *allocated_regs; reg++) {
-						if (!allocated_regs[reg]) {
-							allocated_regs[reg] = 1;
-							break;
-						}
-					}
-					a.r2.r[0] = reg;
-					h_add(&tbl, flm->x, reg);
-				}
+				a.r2.r[0] = reg;
+				h_add(&tbl, flm->x, reg);
 			}
 			vasms[vasmcount] = a.a;
 			vasmcount++;
@@ -1013,7 +1003,7 @@ int main(int argc, char **argv) {
 			switch (f->lines[j]->type) {
 			case FUNC_LINE_ASSIGN:
 				fla = (struct func_line_assign *)f->lines[j];
-				printf("  Assign: %s = %s\n", fla->var, fla->value);
+				printf("  Assign: %s = %s\n", fla->var, fla->val);
 				break;
 			case FUNC_LINE_FUNC:
 				flf = (struct func_line_func *)f->lines[j];
@@ -1044,7 +1034,7 @@ int main(int argc, char **argv) {
 				if (flm->op == MATH_INV)
 					printf("  Math: %s = !%s\n", flm->x, flm->y);
 				else
-					printf("  Math: %s = %s %s %s\n", flm->x, flm->y, mathop2str(flm->op), flm->z);
+					printf("  Math: %s %s= %s\n", flm->x, mathop2str(flm->op), flm->y);
 				break;
 			case FUNC_LINE_RETURN:
 				flr = (struct func_line_return *)f->lines[j];
@@ -1124,19 +1114,19 @@ int main(int argc, char **argv) {
 			teeprintf("\tpop\tr%d\n", a.r.r);
 			break;
 		case VASM_OP_ADD:
-			teeprintf("\tadd\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			teeprintf("\tadd\tr%d,r%d\n", a.r2.r[0], a.r2.r[1]);
 			break;
 		case VASM_OP_SUB:
-			teeprintf("\tsub\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			teeprintf("\tsub\tr%d,r%d\n", a.r2.r[0], a.r2.r[1]);
 			break;
 		case VASM_OP_MUL:
-			teeprintf("\tmul\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			teeprintf("\tmul\tr%d,r%d\n", a.r2.r[0], a.r2.r[1]);
 			break;
 		case VASM_OP_DIV:
-			teeprintf("\tdiv\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			teeprintf("\tdiv\tr%d,r%d\n", a.r2.r[0], a.r2.r[1]);
 			break;
 		case VASM_OP_MOD:
-			teeprintf("\tmod\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			teeprintf("\tmod\tr%d,r%d\n", a.r2.r[0], a.r2.r[1]);
 			break;
 		case VASM_OP_NOT:
 			teeprintf("\tnot\tr%d,r%d\n", a.r2.r[0], a.r2.r[1]);

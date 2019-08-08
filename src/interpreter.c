@@ -16,6 +16,8 @@ static long   regs[32];
 static size_t ip;
 
 
+#if 0
+
 #define REG3OP(op)        \
 	regi = mem[ip++]; \
 	regj = mem[ip++]; \
@@ -24,6 +26,19 @@ static size_t ip;
 
 #define REG32STR(m,op) DEBUG(m "\tr%d,r%d,r%d\t(%lu = %lu " op " %lu)", \
                              regi, regj, regk, regs[regi], regs[regj], regs[regk])
+
+#else
+
+#define REG3OP(op)        \
+	regi = mem[ip++]; \
+	regj = mem[ip++]; \
+	regs[regi] = regs[regi] op regs[regj]
+
+#define REG32STR(m,op) DEBUG(m "\tr%d,r%d\t(%lu " op "= %lu)", \
+                             regi, regj, regs[regi], regs[regj])
+
+#endif
+
 
 #ifndef NDEBUG
 # define DEBUG(x, ...) fprintf(stderr, x "\n", ##__VA_ARGS__)
@@ -60,6 +75,7 @@ static void run() {
 
 
 	while (1) {
+
 #ifndef NDEBUG
 		fprintf(stderr, "0x%08lx: ", ip);
 #endif
