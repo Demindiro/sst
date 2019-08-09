@@ -517,7 +517,8 @@ static int parsefunc(size_t start, size_t end) {
 						f->lines[k] = (struct func_line *)loopjmps[loopcount];
 						k++;
 					case 3:
-						if (looptype[loopcount] == 1) {
+						if (looptype[loopcount] == 1 &&
+						    !isnum(*loopvars[loopcount])) {
 							fl.d = calloc(sizeof *fl.d, 1);
 							fl.d->line.type = FUNC_LINE_DESTROY;
 							fl.d->var       = loopvars[loopcount];
@@ -548,7 +549,8 @@ static int parsefunc(size_t start, size_t end) {
 					f->lines[k] = (struct func_line *)loopjmps[loopcount];
 					k++;
 				case 3:
-					if (looptype[loopcount] == 1) {
+					if (looptype[loopcount] == 1 &&
+					    !isnum(*loopvars[loopcount])) {
 						fl.d = calloc(sizeof *fl.d, 1);
 						fl.d->line.type = FUNC_LINE_DESTROY;
 						fl.d->var       = loopvars[loopcount];
