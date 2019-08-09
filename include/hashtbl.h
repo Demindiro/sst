@@ -39,6 +39,9 @@ int h_add(struct hashtbl *tbl, char *str, size_t val);
 size_t h_get(struct hashtbl *tbl, char *str);
 
 
+int h_get2(struct hashtbl *tbl, const char *str, size_t *val);
+
+
 void h_rem(struct hashtbl *tbl, const char *str);
 
 

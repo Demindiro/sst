@@ -60,6 +60,7 @@ struct func_line_assign {
 	struct func_line line;
 	char *var;
 	char *value;
+	char cons;
 };
 
 struct func_line_declare {
@@ -836,9 +837,32 @@ static int parsefunc(size_t start, size_t end) {
 
 static int optimizefunc_replace(struct func *f)
 {
+	struct hashtbl h;
+	h_create(&h, 16);
+
 	for (size_t i = 0; i < f->linecount; i++) {
 		union func_line_all_p fl = { .line = f->lines[i] };
+		size_t j;
 		switch (fl.line->type) {
+		case FUNC_LINE_ASSIGN:
+			if (fl.a->cons && isnum(*fl.a->value)) {
+				j = strtol(fl.a->value, NULL, 0);
+				h_add(&h, fl.a->var, j);
+			}
+			break;
+		case FUNC_LINE_IF:
+			if (h_get2(&h, fl.i->var, &j) >= 0) {
+				if ((j == 0) == fl.i->inv) {
+					char *lbl   = fl.i->label;
+					fl.g        = calloc(sizeof *fl.g, 1);
+					fl.g->label = lbl;
+					f->lines[i] = fl.line;
+				} else {
+					f->linecount--;
+					memmove(f->lines + i, f->lines + i + 1,
+					        (f->linecount - i) * sizeof *f->lines);
+				}
+			}
 		case FUNC_LINE_MATH:
 
 			if (0 && fl.m->z != NULL && isnum(*fl.m->z)) {
@@ -1031,12 +1055,51 @@ static int optimizefunc_peephole4(struct func *f)
 }
 
 
+static int optimizefunc_findconst(struct func *f)
+{
+	struct hashtbl h;
+	h_create(&h, 16);
+	for (size_t i = 0; i < f->linecount; i++) {
+		union func_line_all_p l = { .line = f->lines[i] };
+		size_t j;
+		switch (l.line->type) {
+		case FUNC_LINE_ASSIGN:
+			j = h_get(&h, l.a->var);
+			if (j == -1) {
+				h_add(&h, l.a->var, i);
+				l.a->cons = 1;
+			} else {
+				((struct func_line_assign *)f->lines[j])->cons = 0;
+				h_rem(&h, l.a->var);
+			}
+			break;
+		case FUNC_LINE_MATH:
+			j = h_get(&h, l.m->x);
+			if (j != -1) {
+				((struct func_line_assign *)f->lines[j])->cons = 0;
+				h_rem(&h, l.m->x);
+			}
+			break;
+		}
+	}
+	for (size_t i = 0; i < f->linecount; i++) {
+		union func_line_all_p l = { .line = f->lines[i] };
+		if (l.line->type == FUNC_LINE_DECLARE && h_get(&h, l.d->var) != -1) {
+			f->linecount--;
+			memmove(f->lines + i, f->lines + i + 1, (f->linecount - i) * sizeof *f->lines);
+		}
+	}
+	return 0;
+}
+
+
 
 static int optimizefunc(struct func *f)
 {
 	// It works
 	for (size_t i = 0; i < 5; i++) {
-		if (optimizefunc_replace  (f) < 0 ||
+		if (optimizefunc_findconst(f) < 0 ||
+		    optimizefunc_replace  (f) < 0 ||
 		    optimizefunc_peephole2(f) < 0 ||
 		    optimizefunc_peephole3(f) < 0 ||
 		    optimizefunc_peephole4(f) < 0)
@@ -1070,6 +1133,8 @@ static int lines2structs()
 
 static int func2vasm(struct func *f) {
 	union vasm_all a;
+	union func_line_all_p l;
+
 	a.s.op  = VASM_OP_LABEL;
 	a.s.str = f->name;
 	vasms[vasmcount] = a.a;
@@ -1082,8 +1147,37 @@ static int func2vasm(struct func *f) {
 	}
 
 	char allocated_regs[32];
+	char is_const_reg_zero[32];
 	memset(allocated_regs, 0, sizeof allocated_regs);
+	memset(is_const_reg_zero, 0, sizeof is_const_reg_zero);
 
+	// Add constants first (if not too many)
+	size_t consts[4];
+	size_t constcount = 0;
+	for (size_t i = 0; i < f->linecount; i++) {
+		l.line = f->lines[i];
+		if (l.line->type == FUNC_LINE_ASSIGN && l.a->cons) {
+			if (constcount >= sizeof consts / sizeof *consts)
+				goto noconsts;
+			consts[constcount] = i;
+			constcount++;
+		}
+	}
+
+	for (size_t i = 0; i < constcount; i++) {
+		l.line   = f->lines[consts[i]];
+		allocated_regs[i] = 1;
+		a.op     = VASM_OP_SET;
+		a.rs.r   = i;
+		a.rs.str = l.a->value;
+		h_add(&tbl, l.a->var, a.rs.r);
+		vasms[vasmcount] = a.a;
+		vasmcount++;
+		is_const_reg_zero[i] =
+			!(isnum(*l.a->value) && strtol(l.a->value, NULL, 0) == 0);
+	}
+
+noconsts:
 	for (size_t i = 0; i < f->linecount; i++) {
 		union  func_line_all_p   fl = { .line = f->lines[i] };
 		struct func_line_assign *fla;
@@ -1097,6 +1191,8 @@ static int func2vasm(struct func *f) {
 		size_t reg;
 		switch (f->lines[i]->type) {
 		case FUNC_LINE_ASSIGN:
+			if (fl.a->cons && h_get(&tbl, fl.a->var) != -1)
+				break;
 			reg = h_get(&tbl, fl.a->var);
 			if (reg == -1) {
 				fprintf(stderr, "Variable '%s' not declared\n", fl.a->var);
@@ -1212,11 +1308,19 @@ static int func2vasm(struct func *f) {
 					abort();
 				}
 			}
-			rb = 0;
-			a.r2s.op   = fli->inv ? VASM_OP_JZ : VASM_OP_JNZ;
-			a.r2s.r[0] = ra;
-			a.r2s.r[1] = rb;
-			a.r2s.str  = fli->label;
+			if (ra < constcount) {
+				char jz = (fli->inv == VASM_OP_JZ);
+				if (is_const_reg_zero[ra] != jz)
+					break;
+				a.s.op  = VASM_OP_JMP;
+				a.s.str = fli->label;
+			} else {
+				rb = 0;
+				a.r2s.op   = fli->inv ? VASM_OP_JZ : VASM_OP_JNZ;
+				a.r2s.r[0] = ra;
+				a.r2s.r[1] = rb;
+				a.r2s.str  = fli->label;
+			}
 			vasms[vasmcount] = a.a;
 			vasmcount++;
 			break;
@@ -1435,7 +1539,7 @@ int main(int argc, char **argv) {
 			printf("  %s -> %s\n", f->args[j].name, f->args[j].type);
 		printf("Lines:  %d\n", f->linecount);
 		for (size_t j = 0; j < f->linecount; j++) {
-			union  func_line_all_p   flp = { .line = f->lines[j] } ;
+			union  func_line_all_p   fl = { .line = f->lines[j] } ;
 			struct func_line_assign *fla;
 			struct func_line_func   *flf;
 			struct func_line_goto   *flg;
@@ -1445,14 +1549,16 @@ int main(int argc, char **argv) {
 			struct func_line_return *flr;
 			switch (f->lines[j]->type) {
 			case FUNC_LINE_ASSIGN:
-				fla = (struct func_line_assign *)f->lines[j];
-				printf("  Assign: %s = %s\n", fla->var, fla->value);
+				if (fl.a->cons)
+					printf("  Assign: %s = %s (const)\n", fl.a->var, fl.a->value);
+				else
+					printf("  Assign: %s = %s\n", fl.a->var, fl.a->value);
 				break;
 			case FUNC_LINE_DECLARE:
-				printf("  Declare: %s\n", flp.d->var);
+				printf("  Declare: %s\n", fl.d->var);
 				break;
 			case FUNC_LINE_DESTROY:
-				printf("  Destroy: %s\n", flp.d->var);
+				printf("  Destroy: %s\n", fl.d->var);
 				break;
 			case FUNC_LINE_FUNC:
 				flf = (struct func_line_func *)f->lines[j];

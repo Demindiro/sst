@@ -127,6 +127,27 @@ size_t h_get(struct hashtbl *tbl, char *str)
 }
 
 
+int h_get2(struct hashtbl *tbl, const char *str, size_t *val)
+{
+	size_t k = h_hash_str(str) % tbl->len;
+	void **a = tbl->arrays[k];
+	if (a == NULL)
+		return -1;
+
+	size_t l = *(size_t *)a;
+	size_t lcount = l >> 32L;
+
+	for (size_t i = 0; i < lcount; i++) {
+		if (strcmp(a[1 + i * 2], str) == 0) {
+			*val = (size_t)a[1 + i * 2 + 1];
+			return 0;
+		}
+	}
+	
+	return -1;
+}
+
+
 void h_rem(struct hashtbl *tbl, const char *str)
 {
 	size_t k = h_hash_str(str) % tbl->len;
