@@ -1184,30 +1184,67 @@ static int func2vasm(struct func *f) {
 	// Add constants first (if not too many)
 	size_t consts[4];
 	size_t constcount = 0;
-	for (size_t i = 0; i < f->linecount; i++) {
+	for (size_t i = 0; i < f->linecount && constcount < sizeof consts / sizeof *consts; i++) {
 		l.line = f->lines[i];
-		if (l.line->type == FUNC_LINE_ASSIGN && l.a->cons) {
-			if (constcount >= sizeof consts / sizeof *consts)
-				goto noconsts;
-			consts[constcount] = i;
-			constcount++;
+		switch (l.line->type) {
+		case FUNC_LINE_ASSIGN:
+			if (l.a->cons) {
+				consts[constcount] = i;
+				constcount++;
+			}
+			break;
+		case FUNC_LINE_MATH:
+			if (isnum(*l.m->y)) {
+				consts[constcount] = i;
+				constcount++;
+			}
+			if (l.m->z != NULL && isnum(*l.m->z)) {
+				consts[constcount] = i;
+				constcount++;
+			}
+			break;
 		}
 	}
+
+	printf("%lu\n", constcount);
+	if (constcount >= sizeof consts / sizeof *consts)
+		constcount = 0;
 
 	for (size_t i = 0; i < constcount; i++) {
 		l.line   = f->lines[consts[i]];
 		allocated_regs[i] = 1;
 		a.op     = VASM_OP_SET;
 		a.rs.r   = i;
-		a.rs.str = l.a->value;
-		h_add(&tbl, l.a->var, a.rs.r);
+		char *k, *v;
+		char b[64];
+		static size_t bc = 0;
+		switch (l.line->type) {
+		case FUNC_LINE_ASSIGN:
+			k = l.a->var;
+			v = l.a->value;
+			break;
+		case FUNC_LINE_MATH:
+			snprintf(b, sizeof b, "_const_%d", bc);
+			bc++;
+			k = strclone(b);
+			if (isnum(*l.m->y)) {
+				v = l.m->y;
+				l.m->y = k;
+			} else {
+				v = l.m->z;
+				l.m->z = k;
+			}
+			break;
+		}
+		a.rs.str = v;
+		h_add(&tbl, k, i);
+		printf("%s\n", k);
+		is_const_reg_zero[i] =
+			!(isnum(*v) && strtol(v, NULL, 0) == 0);
 		vasms[vasmcount] = a.a;
 		vasmcount++;
-		is_const_reg_zero[i] =
-			!(isnum(*l.a->value) && strtol(l.a->value, NULL, 0) == 0);
 	}
 
-noconsts:
 	for (size_t i = 0; i < f->linecount; i++) {
 		union  func_line_all_p   fl = { .line = f->lines[i] };
 		struct func_line_assign *fla;
