@@ -12,9 +12,6 @@
 #include "vasm.h"
 
 
-#define streq(a,b) (strcmp(a,b) == 0)
-
-
 
 struct hashtbl {
 	size_t  len;

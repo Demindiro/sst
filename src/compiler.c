@@ -43,7 +43,7 @@
 #define MATH_XOR    VASM_OP_XOR
 
 
-//#define streq(x,y) (strcmp(x,y) == 0)
+#define streq(x,y) (strcmp(x,y) == 0)
 #define isnum(c) ('0' <= c && c <= '9')
 
 
@@ -1182,7 +1182,7 @@ static int func2vasm(struct func *f) {
 	memset(is_const_reg_zero, 0, sizeof is_const_reg_zero);
 
 	// Add constants first (if not too many)
-	size_t consts[4];
+	size_t consts[8];
 	size_t constcount = 0;
 	for (size_t i = 0; i < f->linecount && constcount < sizeof consts / sizeof *consts; i++) {
 		l.line = f->lines[i];
@@ -1210,14 +1210,16 @@ static int func2vasm(struct func *f) {
 	if (constcount >= sizeof consts / sizeof *consts)
 		constcount = 0;
 
+	struct hashtbl constvalh;
+	h_create(&constvalh, 16);
 	for (size_t i = 0; i < constcount; i++) {
 		l.line   = f->lines[consts[i]];
-		allocated_regs[i] = 1;
 		a.op     = VASM_OP_SET;
 		a.rs.r   = i;
 		char *k, *v;
 		char b[64];
 		static size_t bc = 0;
+		char use_y;
 		switch (l.line->type) {
 		case FUNC_LINE_ASSIGN:
 			k = l.a->var;
@@ -1228,21 +1230,41 @@ static int func2vasm(struct func *f) {
 			bc++;
 			k = strclone(b);
 			if (isnum(*l.m->y)) {
+				use_y = 1;
 				v = l.m->y;
 				l.m->y = k;
 			} else {
+				use_y = 0;
 				v = l.m->z;
 				l.m->z = k;
 			}
 			break;
 		}
-		a.rs.str = v;
-		h_add(&tbl, k, i);
-		printf("%s\n", k);
-		is_const_reg_zero[i] =
-			!(isnum(*v) && strtol(v, NULL, 0) == 0);
-		vasms[vasmcount] = a.a;
-		vasmcount++;
+		printf("%s\n", v);
+		char *ok = (char *)h_get(&constvalh, v);
+		if (ok != (char *)-1) {
+			printf("OLD %s\n", v);
+			switch (l.line->type) {
+			case FUNC_LINE_ASSIGN:
+				break;
+			case FUNC_LINE_MATH:
+				if (use_y)
+					l.m->y = ok;
+				else
+					l.m->z = ok;
+				break;
+			}
+		} else {
+			printf("NEW %s | %lx\n", v, k);
+			a.rs.str = v;
+			h_add(&tbl, k, i);
+			h_add(&constvalh, v, (size_t)k);
+			allocated_regs[i] = 1;
+			is_const_reg_zero[i] =
+				!(isnum(*v) && strtol(v, NULL, 0) == 0);
+			vasms[vasmcount] = a.a;
+			vasmcount++;
+		}
 	}
 
 	for (size_t i = 0; i < f->linecount; i++) {

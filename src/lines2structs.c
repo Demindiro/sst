@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include "vasm.h"
 #include "hashtbl.h"
+#include "macro.h"
 
 
 #define FUNC_LINE_NONE   0
