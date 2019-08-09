@@ -36,9 +36,13 @@ test: default
 	./build/linker /tmp/hello.sso /tmp/writeln.sso /tmp/_start.sso /tmp/hello.ss
 	./build/interpreter /tmp/hello.ss
 
-test-count: default
-	./build/assembler test/count.ssa /tmp/count.sso
-	./build/linker /tmp/count.sso /tmp/count.ss
+test/_start.sso:
+	./build/assembler   test/ssa/_start.ssa  /tmp/_start.sso
+
+test-count: default test/_start.sso
+	./build/compiler  test/sst/count.sst /tmp/count.ssa
+	./build/assembler /tmp/count.ssa /tmp/count.sso
+	./build/linker /tmp/_start.sso /tmp/count.sso /tmp/count.ss
 	sh -c 'time ./build/interpreter /tmp/count.ss'
 
 test-prime: default
@@ -49,7 +53,7 @@ test-prime: default
 	./build/linker      /tmp/_start.sso      /tmp/prime.sso   /tmp/writeln.sso   /tmp/prime.ss
 	sh -c 'time ./build/interpreter /tmp/prime.ss'
 
-test-writeln-num: default
+test-writeln_num: default
 	./build/compiler    test/sst/writeln-num.sst   /tmp/writeln-num.ssa
 	./build/assembler   /tmp/writeln-num.ssa       /tmp/writeln-num.sso
 	./build/assembler   test/ssa/writeln.ssa /tmp/writeln.sso

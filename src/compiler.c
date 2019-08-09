@@ -849,6 +849,34 @@ static int optimizefunc_replace(struct func *f)
 				j = strtol(fl.a->value, NULL, 0);
 				h_add(&h, fl.a->var, j);
 			}
+			char *v = fl.a->var;
+			for (size_t k = i + 1; k < f->linecount; k++) {
+				fl.line = f->lines[k];
+				switch (fl.line->type) {
+				case FUNC_LINE_ASSIGN:
+					if (streq(v, fl.a->value))
+						goto used;
+					if (streq(v, fl.a->var))
+						goto notused;
+					break;
+				case FUNC_LINE_IF:
+					if (streq(v, fl.i->var))
+						goto used;
+					break;
+				case FUNC_LINE_MATH:
+					if (streq(v, fl.m->y) ||
+					    (fl.m->z != NULL && streq(v, fl.m->z)))
+						goto used;
+					if (streq(v, fl.m->x))
+						goto notused;
+					break;
+				}
+			}
+		notused:
+			f->linecount--;
+			memmove(f->lines + i, f->lines + i + 1,
+				(f->linecount - i) * sizeof *f->lines);
+		used:
 			break;
 		case FUNC_LINE_IF:
 			if (h_get2(&h, fl.i->var, &j) >= 0) {
@@ -1427,16 +1455,72 @@ static int optimizevasm_replace(void)
 {
 	for (size_t i = 0; i < vasmcount; i++) {
 		union vasm_all a = { .a = vasms[i] };
+		size_t reg;
 		switch (a.op) {
 		case VASM_OP_SET:
-			/*
-			if (streq(a.rs.str, "0")) {
-				char reg = a.rs.r;
-				a.r3.op = VASM_OP_XOR;
-				a.r3.r[0] = a.r3.r[1] = a.r3.r[2] = reg;
-				vasms[i] = a.a;
+			break; // TODO
+			reg = a.r.r;
+			for (size_t j = i + 1; j < vasmcount; j++) {
+				a.a = vasms[j];
 			}
-			*/
+			break;
+		case VASM_OP_POP:
+			reg = a.r.r;
+			a.a = vasms[i + 1];
+			if (a.op == VASM_OP_PUSH && a.r.r == reg) {
+				for (size_t j = i + 2; j < vasmcount; j++) {
+					a.a = vasms[j];
+					switch (a.op) {
+					case VASM_OP_SET:
+						if (a.rs.r == reg)
+							goto unused;
+						break;
+					case VASM_OP_POP:
+						if (a.r.r == reg)
+							goto unused;
+						break;
+					case VASM_OP_PUSH:
+					case VASM_OP_JZ:
+					case VASM_OP_JNZ:
+					//case VASM_OP_JG:
+					//case VASM_OP_JGE:
+						printf("pokezkfopzpofezez\n");
+						if (a.r.r == reg)
+							goto used;
+						break;
+					case VASM_OP_ADD:
+					case VASM_OP_SUB:
+					case VASM_OP_MUL:
+					case VASM_OP_DIV:
+					case VASM_OP_MOD:
+					case VASM_OP_REM:
+					case VASM_OP_RSHIFT:
+					case VASM_OP_LSHIFT:
+					case VASM_OP_AND:
+					case VASM_OP_OR:
+					case VASM_OP_XOR:
+						if (a.r3.r[1] == reg || a.r3.r[2] == reg)
+							goto used;
+						if (a.r3.r[0] == reg)
+							goto unused;
+						break;
+					case VASM_OP_MOV:
+					case VASM_OP_NOT:
+					case VASM_OP_INV:
+						if (a.r3.r[1] == reg)
+							goto used;
+						if (a.r3.r[0] == reg)
+							goto unused;
+						break;
+					}
+				}
+			unused:
+				vasmcount -= 2;
+				memmove(vasms + i, vasms + i + 2, (vasmcount - i) * sizeof *vasms);
+				i -= 4;
+			used:
+				;
+			}
 			break;
 		}
 	}
@@ -1480,8 +1564,8 @@ static int optimizevasm_peephole3(void)
 				a0.op = (a0.op == VASM_OP_JZ) ? VASM_OP_JNZ : VASM_OP_JZ;
 				a0.rs.str = a1.s.str;
 				vasms[i] = a0.a;
-				vasmcount -= 2;
-				memmove(vasms + i + 1, vasms + i + 3, (vasmcount - i) * sizeof vasms[i]);
+				vasmcount--;
+				memmove(vasms + i + 1, vasms + i + 2, (vasmcount - i) * sizeof vasms[i]);
 				i -= 3;
 			}
 			break;
