@@ -49,8 +49,8 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 			vbinlen++;
 			break;
 		// 2 reg
-		case VASM_OP_STORE:
-		case VASM_OP_LOAD:
+		case VASM_OP_STOREL:
+		case VASM_OP_LOADL:
 		case VASM_OP_MOV:
 		case VASM_OP_NOT:
 		case VASM_OP_INV:

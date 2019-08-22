@@ -13,35 +13,57 @@
 #define VASM_OP_RAW_BYTE  (-8)
 #define VASM_OP_RAW_STR   (-9)
 #define VASM_OP_NOP         0
-#define VASM_OP_CALL        1
-#define VASM_OP_RET         2
-#define VASM_OP_LOAD        3
-#define VASM_OP_STORE       4
-#define VASM_OP_PUSH        5
-#define VASM_OP_POP         6
-#define VASM_OP_MOV         7
-#define VASM_OP_SET         8
-#define VASM_OP_ADD         9
-#define VASM_OP_SUB        10
-#define VASM_OP_MUL        11
-#define VASM_OP_DIV        12
-#define VASM_OP_MOD       113
-#define VASM_OP_REM       114
-#define VASM_OP_LSHIFT     13
-#define VASM_OP_RSHIFT     14
-#define VASM_OP_LROT       15
-#define VASM_OP_RROT       16
-#define VASM_OP_AND        17
-#define VASM_OP_OR         18
-#define VASM_OP_XOR        19
-#define VASM_OP_NOT       120
-#define VASM_OP_INV       121
-#define VASM_OP_SYSCALL    20
-#define VASM_OP_JMP        21
-#define VASM_OP_JZ         22
-#define VASM_OP_JNZ        23
-#define VASM_OP_JP         24
-#define VASM_OP_JPZ        25
+
+#define VASM_OP_JMP         1
+#define VASM_OP_JZ          2
+#define VASM_OP_JNZ         3
+#define VASM_OP_JP          4
+#define VASM_OP_JPZ         5
+#define VASM_OP_CALL        6
+#define VASM_OP_RET         7
+
+#define VASM_OP_LOADL      10
+#define VASM_OP_LOADI      11
+#define VASM_OP_LOADS      12
+#define VASM_OP_LOADB      13
+#define VASM_OP_STOREL     14
+#define VASM_OP_STOREI     15
+#define VASM_OP_STORES     16
+#define VASM_OP_STOREB     17
+
+#define VASM_OP_LOADLAT    20
+#define VASM_OP_LOADIAT    21
+#define VASM_OP_LOADSAT    22
+#define VASM_OP_LOADBAT    23
+#define VASM_OP_STORELAT   24
+#define VASM_OP_STOREIAT   25
+#define VASM_OP_STORESAT   26
+#define VASM_OP_STOREBAT   27
+
+#define VASM_OP_PUSH       30
+#define VASM_OP_POP        31
+#define VASM_OP_MOV        32
+#define VASM_OP_SET        33
+
+#define VASM_OP_ADD        40
+#define VASM_OP_SUB        41
+#define VASM_OP_MUL        42
+#define VASM_OP_DIV        43
+#define VASM_OP_MOD        44
+#define VASM_OP_REM        45
+#define VASM_OP_LSHIFT     46
+#define VASM_OP_RSHIFT     47
+#define VASM_OP_LROT       48
+#define VASM_OP_RROT       49
+#define VASM_OP_AND        50
+#define VASM_OP_OR         51
+#define VASM_OP_XOR        52
+#define VASM_OP_NOT        53
+#define VASM_OP_INV        54
+#define VASM_OP_LESS       55
+#define VASM_OP_LESSE      56
+
+#define VASM_OP_SYSCALL   100
 
 
 struct vasm {

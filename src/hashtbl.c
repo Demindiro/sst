@@ -161,7 +161,7 @@ void h_rem(struct hashtbl *tbl, const char *str)
 	for (size_t i = 0; i < lcount; i++) {
 		if (strcmp(a[1 + i * 2], str) == 0) {
 			lcount--;
-			memmove(a + 1 + i * 2, a + 1 + (i + 1) * 2, (lcount - i) * 2);
+			memmove(a + 1 + i * 2, a + 1 + (i + 1) * 2, (lcount - i) * 2 * sizeof *a);
 			l = (lcount << 32L) | (l & 0xFFFFFFFF);
 			*(size_t *)a = l;
 		}

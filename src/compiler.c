@@ -26,8 +26,9 @@
 #define FUNC_LINE_GOTO    5
 #define FUNC_LINE_IF      6
 #define FUNC_LINE_LABEL   7
-#define FUNC_LINE_MATH    8
-#define FUNC_LINE_RETURN  9
+#define FUNC_LINE_LOAD    8
+#define FUNC_LINE_MATH    9
+#define FUNC_LINE_RETURN 10
 
 #define MATH_ADD    VASM_OP_ADD
 #define MATH_SUB    VASM_OP_SUB
@@ -41,6 +42,9 @@
 #define MATH_AND    VASM_OP_AND
 #define MATH_OR     VASM_OP_OR
 #define MATH_XOR    VASM_OP_XOR
+#define MATH_LOADAT VASM_OP_LOADLAT
+#define MATH_LESS   VASM_OP_LESS
+#define MATH_LESSE  VASM_OP_LESSE
 
 
 #define streq(x,y) (strcmp(x,y) == 0)
@@ -71,9 +75,9 @@ struct func_line_declare {
 struct func_line_func {
 	struct func_line line;
 	unsigned char paramcount;
-	struct variable  assign;
 	char name[32];
 	char params[32][32];
+	char *var;
 };
 
 struct func_line_goto {
@@ -139,6 +143,8 @@ size_t stringcount;
 char *lines[4096];
 size_t linecount;
 
+struct hashtbl functbl;
+
 struct func funcs[4096];
 size_t funccount;
 
@@ -170,11 +176,13 @@ static const char *mathop2str(int op)
 	case MATH_MUL:    return "*";
 	case MATH_DIV:    return "/";
 	case MATH_MOD:    return "%";
-	case MATH_NOT:    return "~";
-	case MATH_INV:    return "!";
+	//case MATH_NOT:    return "~";
+	//case MATH_INV:    return "!";
 	case MATH_RSHIFT: return ">>";
 	case MATH_LSHIFT: return "<<";
 	case MATH_XOR:    return "^";
+	case MATH_LESS:   return "<";
+	case MATH_LESSE:  return "<=";
 	default: fprintf(stderr, "Invalid op (%d)\n", op); abort();
 	}
 }
@@ -190,11 +198,51 @@ static int text2lines(char *text) {
 		// EOL
 		if (*c == 0)
 			break;
+		// Comment
+		if (*c == '#') {
+			while (*c != '\n' && *c != 0)
+				c++;
+			continue;
+		}
 		// Copy line
 		char buf[256], *ptr = buf;
+
+		// Check if declaration + assignment
+		char *d = c;
+		while (*c != ' ' && *c != '\t' && *c != '\n')
+			c++;
+		char b[64];
+		size_t l = c - d;
+		memcpy(b, d, l);
+		b[l] = 0;
+		if (streq(b, "long") || streq(b, "char[]")) {
+			b[l] = ' ';
+			l++;
+			d = c + 1;
+			while (*d == ' ' || *d == '\t')
+				d++;
+			c = d;
+			while (*d != ' ' && *d != '\t' && *d != '\n') {
+				b[l] = *d;
+				l++, d++;
+			}
+			b[l] = 0;
+			lines[linecount] = strclone(b);
+			linecount++;
+		} else {
+			c = d;
+		}
 		while (*c != '\n' && *c != ';') {
-			*ptr = *c;
-			ptr++, c++;
+			if (*c == ' ' || *c == '\t') {
+				*ptr = ' ';
+				ptr++;
+				while (*c == ' ' || *c == '\t')
+					c++;
+				*ptr = *c;
+			} else {
+				*ptr = *c;
+				ptr++, c++;
+			}
 			if (*c == '"') {
 				memcpy(ptr, ".str_", sizeof ".str_" - 1);
 				ptr += sizeof ".str_" - 1;
@@ -213,8 +261,23 @@ static int text2lines(char *text) {
 				strings[stringcount] = p;
 				stringcount++;
 			}
-			if (*c == '\t')
-				*c = ' ';
+			if (*c == '\'') {
+				c++;
+				int v = *c;
+				c++;
+				if (v == '\\') {
+					c++;
+					switch (*c) {
+					case '0': v =  0; break;
+					case 'n': v = 10; break;
+					}
+				}
+				size_t l = sprintf(ptr, "%d", v);
+				ptr += l;
+				c++;
+			}
+			//if (*c == '\t')
+			//	*c = ' ';
 		}
 		char *m = malloc(ptr - buf + 1);
 		memcpy(m, buf, ptr - buf);
@@ -238,6 +301,9 @@ static int mathop_precedence(int op)
 	case '+':
 	case '-':
 		return 9;
+	case '<':
+	case '>':
+		return 8;
 	case '=':
 	case '!':
 		return 8;
@@ -248,7 +314,7 @@ static int mathop_precedence(int op)
 
 
 
-static char *parseexpr(const char *p, struct func *f, size_t *k)
+static char *parseexpr(const char *p, struct func *f, size_t *k, int *etemp)
 {
 	static int varcounter = 0;
 	char words[4][32];
@@ -280,15 +346,20 @@ static char *parseexpr(const char *p, struct func *f, size_t *k)
 	union func_line_all_p fl;
 	switch (i) {
 	case 0:
+		if (etemp)
+			*etemp = 0;
 		return strclone(words[0]);
 	case 1:
 		fprintf(stderr, "%d@%s: '%s' --> %d\n", __LINE__, __FILE__, p, i);
 		abort();
 	default: {
+		if (etemp)
+			*etemp = 1;
 		char var[32];
 		snprintf(var, sizeof var, "_var_%d", varcounter);
 		varcounter++;
 		char op;
+		char swap = 0;
 		switch (words[1][0]) {
 		case '+':
 			op = MATH_ADD;
@@ -304,6 +375,11 @@ static char *parseexpr(const char *p, struct func *f, size_t *k)
 			break;
 		case '%':
 			op = MATH_MOD;
+			break;
+		case '>':
+			swap = 1;
+		case '<':
+			op = MATH_LESS;
 			break;
 		case '=':
 		case '!':
@@ -349,7 +425,7 @@ static char *parseexpr(const char *p, struct func *f, size_t *k)
 			// Dragons
 			size_t ok = *k;
 			char *v = fl.m->x;
-			char *e = parseexpr(p, f, k);
+			char *e = parseexpr(p, f, k, NULL);
 			fl.line = f->lines[ok + 1]; // + 1 to skip DECLARE
 			fl.m->y = v;
 
@@ -364,7 +440,7 @@ static char *parseexpr(const char *p, struct func *f, size_t *k)
 				(*k)++;
 			}
 		} else {
-			char *e = parseexpr(p, f, k);
+			char *e = parseexpr(p, f, k, NULL);
 
 			fl.d            = calloc(sizeof *fl.d, 1);
 			fl.d->line.type = FUNC_LINE_DECLARE;
@@ -401,13 +477,11 @@ static char *parseexpr(const char *p, struct func *f, size_t *k)
 }
 
 
-static int parsefunc(size_t start, size_t end) {
 
+static int parsefunc_header(struct func *f, const char *line)
+{
 	size_t i = 0, j = 0;
-	char *line = lines[start];
-	struct func *f = &funcs[funccount];
-	
-	// Parse declaration
+
 	// Get type
 	while (line[j] != ' ')
 		j++;
@@ -429,8 +503,10 @@ static int parsefunc(size_t start, size_t end) {
 	i = j;
 
 	// Parse arguments
-	if (line[j] != '(')
+	if (line[j] != '(') {
+		fprintf(stderr, "Expected '('\n");
 		abort();
+	}
 	j++;
 	size_t k = 0;
 	for ( ; ; ) {
@@ -458,11 +534,21 @@ static int parsefunc(size_t start, size_t end) {
 			j++;
 	}
 	f->argcount = k;
+}
+
+
+static int parsefunc(size_t start)
+{
+	char *line = lines[start];
+	struct func *f = &funcs[funccount];
+	
+	// Parse declaration
+	parsefunc_header(f, line);
 
 	// Parse lines
 	start++;
 	line = lines[start];
-	k = 0;
+	size_t i = 0, j = 0, k = 0;
 	struct func_line_goto  *loopjmps[16];
 	struct func_line_math  *formath[16];
 	char *loopvars[16];
@@ -576,6 +662,7 @@ static int parsefunc(size_t start, size_t end) {
 			NEXTWORD;
 
 			char *var = strclone(word);
+			char *iterator = var;
 
 			NEXTWORD;
 
@@ -585,85 +672,120 @@ static int parsefunc(size_t start, size_t end) {
 			}
 
 			char *p = ptr;
+			char *fromarray = NULL;
+			char *fromval, *toval;
 			while (strncmp(ptr, " to ", 4) != 0) {
 				ptr++;
 				if (*ptr == 0) {
-					fprintf(stderr, "Expected 'to', got '%s'\n", p);
-					return -1;
+					fromarray = strclone(p);
+					char b[64];
+					snprintf(b, sizeof b, "%s.length", p);
+					fromval   = "0";
+					toval     = strclone(b);
+					static size_t iteratorcount = 0;
+					snprintf(b, sizeof b, "_for_iterator_%d", iteratorcount);
+					iteratorcount++;
+					iterator = strclone(b);
+					goto isfromarray;
 				}
 			}
 			memcpy(word, p, ptr - p);
 			word[ptr - p] = 0;
 
-			char *fromval = parseexpr(word, f, &k);
+			fromval = parseexpr(word, f, &k, NULL);
 
 			NEXTWORD;
 			NEXTWORD;
 
-			char *toval = parseexpr(ptr, f, &k);
+			toval = parseexpr(ptr, f, &k, NULL);
 
+		isfromarray:
+			// Set iterator
 			flp.d            = calloc(sizeof *flp.d, 1);
 			flp.d->line.type = FUNC_LINE_DECLARE;
-			flp.d->var       = var;
+			flp.d->var       = iterator;
 			f->lines[k]      = flp.line;
 			k++;
 
 			struct func_line_assign *fla = calloc(sizeof *fla, 1);
 			fla->line.type = FUNC_LINE_ASSIGN;
-			fla->var       = var;
+			fla->var       = iterator;
 			fla->value     = fromval;
 			f->lines[k]    = (struct func_line *)fla;
 			k++;
 
-			char lbl[16];
-		       	snprintf(lbl, sizeof lbl, ".for_%d", loopcounter);
+			// Create the labels
+			char lbl[16], lbll[16], lble[16];
+		       	snprintf(lbl , sizeof lbl , ".for_%d"     , loopcounter);
+		       	snprintf(lbll, sizeof lbll, ".for_%d_else", loopcounter);
+		       	snprintf(lble, sizeof lble, ".for_%d_end" , loopcounter);
 
-			struct func_line_label  *fll = calloc(sizeof *fll, 1);
-			fll->line.type = FUNC_LINE_LABEL;
-			fll->label     = strclone(lbl);
-			f->lines[k]    = (struct func_line *)fll;
+			// Indicate the start of the loop
+			fl.l            = calloc(sizeof *fl.l, 1);
+			fl.l->line.type = FUNC_LINE_LABEL;
+			fl.l->label     = strclone(lbl);
+			f->lines[k]     = fl.line;
 			k++;
 
-			formath[loopcount] = calloc(sizeof *formath[loopcount], 1);
-			formath[loopcount]->line.type = FUNC_LINE_MATH;
-			formath[loopcount]->op       = MATH_ADD;
-			formath[loopcount]->x        = fla->var;
-			formath[loopcount]->y        = fla->var;
-			formath[loopcount]->z        = "1";
-
-			loopjmps[loopcount] = calloc(sizeof *loopjmps[loopcount], 1);
-			loopjmps[loopcount]->line.type = FUNC_LINE_GOTO;
-			loopjmps[loopcount]->label     = fll->label;
-
-		       	snprintf(lbl, sizeof lbl, ".for_%d_else", loopcounter);
-			loopelse[loopcount] = calloc(sizeof *loopelse[loopcount], 1);
-			loopelse[loopcount]->line.type = FUNC_LINE_LABEL;
-			loopelse[loopcount]->label     = strclone(lbl);
-
-		       	snprintf(lbl, sizeof lbl, ".for_%d_end", loopcounter);
-			loopends[loopcount] = calloc(sizeof *loopends[loopcount], 1);
-			loopends[loopcount]->line.type = FUNC_LINE_LABEL;
-			loopends[loopcount]->label     = strclone(lbl);
-
+			// Test ending condition (fromval == toval)
 			fl.i = calloc(sizeof *fl.i, 1);
 			char expr[64];
 			snprintf(expr, sizeof expr, "%s == %s", fla->var, toval);
-			char *e = parseexpr(expr, f, &k);
+			char *e = parseexpr(expr, f, &k, NULL);
 			fl.i->line.type = FUNC_LINE_IF;
-			fl.i->label     = loopelse[loopcount]->label;
+			fl.i->label     = strclone(lbll);
 			fl.i->var       = e;
 			f->lines[k]     = fl.line;
 			k++;
 
+			// Set variable to be used by the inner body of the loop
+			// Only applies if fromarray is set
+			if (fromarray != NULL) {
+				fl.m          = calloc(sizeof *fl.m, 1);
+				fl.line->type = FUNC_LINE_MATH;
+				fl.m->op      = MATH_LOADAT;
+				fl.m->x       = var;
+				fl.m->y       = fromarray;
+				fl.m->z       = iterator;
+				f->lines[k]   = fl.line;
+				k++;
+			}
+
+			// Destroy redundant testing variable
 			fl.d = calloc(sizeof *fl.d, 1);
 			fl.d->line.type = FUNC_LINE_DESTROY;
 			fl.d->var       = e;
 			f->lines[k]     = fl.line;
 			k++;
 
+			// Set loop incrementer
+			formath[loopcount] = calloc(sizeof *formath[loopcount], 1);
+			formath[loopcount]->line.type = FUNC_LINE_MATH;
+			formath[loopcount]->op        = MATH_ADD;
+			formath[loopcount]->x         = iterator;
+			formath[loopcount]->y         = iterator;
+			formath[loopcount]->z         = "1";
+
+			// Set loop repeat goto
+			loopjmps[loopcount] = calloc(sizeof *loopjmps[loopcount], 1);
+			loopjmps[loopcount]->line.type = FUNC_LINE_GOTO;
+			loopjmps[loopcount]->label     = strclone(lbl);
+
+			// Set label for if the loop ended without interruption (break)
+			loopelse[loopcount] = calloc(sizeof *loopelse[loopcount], 1);
+			loopelse[loopcount]->line.type = FUNC_LINE_LABEL;
+			loopelse[loopcount]->label     = strclone(lbll);
+
+			// Set label for if the loop was interrupted
+			loopends[loopcount] = calloc(sizeof *loopends[loopcount], 1);
+			loopends[loopcount]->line.type = FUNC_LINE_LABEL;
+			loopends[loopcount]->label     = strclone(lble);
+
+			// Set the loop type
 			looptype[loopcount] = 1;
 			loopvars[loopcount] = toval;
 
+			// Increment counters
 			loopcount++;
 			loopcounter++;
 		} else if (streq(word, "while")) {
@@ -681,10 +803,10 @@ static int parsefunc(size_t start, size_t end) {
 			f->lines[k]      = flp.line;
 			k++;
 
-			char *v = parseexpr(ptr, f, &k);
+			char *v = parseexpr(ptr, f, &k, NULL);
 			char expr[64];
 			snprintf(expr, sizeof expr, "%s == 0", v);
-			char *e = parseexpr(expr, f, &k);
+			char *e = parseexpr(expr, f, &k, NULL);
 			flp.i = calloc(sizeof *flp.i, 1);
 			flp.i->line.type = FUNC_LINE_IF;
 			flp.i->label     = lbllc;
@@ -727,7 +849,7 @@ static int parsefunc(size_t start, size_t end) {
 			char expr[64];
 			snprintf(expr, sizeof expr, "%s == 0", ptr);
 
-			char *e = parseexpr(expr, f, &k);
+			char *e = parseexpr(expr, f, &k, NULL);
 			printf("%s -- %s\n", expr, e);
 			flp.i = calloc(sizeof *flp.i, 1);
 			flp.i->line.type = FUNC_LINE_IF;
@@ -766,7 +888,7 @@ static int parsefunc(size_t start, size_t end) {
 			flr->val = strclone(ptr);
 			f->lines[k] = (struct func_line *)flr;
 			k++;
-		} else if (streq(word, "long")) {
+		} else if (streq(word, "long") || /* TODO */ streq(word, "char[]")) {
 			NEXTWORD;
 			char *name = strclone(word);
 			fl.d            = calloc(sizeof *fl.d, 1);
@@ -789,23 +911,55 @@ static int parsefunc(size_t start, size_t end) {
 			NEXTWORD;
 
 			if (streq(word, "=")) {
-				flp.a = calloc(sizeof *flp.a, 1);
-				flp.a->line.type = FUNC_LINE_ASSIGN;
-				flp.a->var       = strclone(name);
-				flp.a->value     = strclone(ptr);
-				f->lines[k]      = flp.line;
+				char *p = ptr;
+				NEXTWORD;
+				printf("%s\n", word);
+				if (h_get(&functbl, word) != -1) {
+					fl.f          = calloc(sizeof *fl.f, 1);
+					fl.line->type = FUNC_LINE_FUNC;
+					fl.f->var     = strclone(name);
+					strcpy(fl.f->name, word);
+					NEXTWORD;
+					if (word[0] != 0) {
+						strcpy(fl.f->params[0], word);
+						fl.f->paramcount++;
+						while (1) {
+							NEXTWORD;
+							if (word[0] == 0)
+								break;
+							strcpy(fl.f->params[fl.f->paramcount], word);
+							fl.f->paramcount++;
+						}
+					}
+				} else {
+					fl.a = calloc(sizeof *fl.a, 1);
+					fl.a->line.type = FUNC_LINE_ASSIGN;
+					fl.a->var       = strclone(name);
+					fl.a->value     = strclone(p);
+				}
+				f->lines[k] = fl.line;
 				k++;
 			} else if (strchr("+-*/", word[0]) && word[1] == '=' &&
 			           word[2] == 0) {
+				int etemp;
+				// Do math
 				flp.m = calloc(sizeof *flp.m, 1);
 				flp.m->line.type = FUNC_LINE_MATH;
 				flp.m->op        = MATH_ADD; // TODO
 				flp.m->x         = strclone(name);
 				flp.m->y         = flp.m->x;
-				NEXTWORD;
-				flp.m->z         = strclone(word);
+				flp.m->z         = parseexpr(ptr, f, &k, &etemp);
+				char *v = flp.m->z;
 				f->lines[k]      = flp.line;
 				k++;
+				// Destroy expression variable if newly allocated
+				if (etemp) {
+					fl.d          = calloc(sizeof *fl.d, 1);
+					fl.line->type = FUNC_LINE_DESTROY;
+					fl.d->var     = v;
+					f->lines[k]   = fl.line;
+					k++;
+				}
 			} else {
 				struct func_line_func *flf = calloc(sizeof *flf, 1);
 				strcpy(flf->name, name);
@@ -1093,19 +1247,29 @@ static int optimizefunc_findconst(struct func *f)
 		union func_line_all_p l = { .line = f->lines[i] };
 		size_t j;
 		switch (l.line->type) {
+		case FUNC_LINE_DECLARE:
+			printf("D %s\n", l.d->var);
+			h_add(&h, l.d->var, 0);
+			break;
 		case FUNC_LINE_ASSIGN:
+			printf("A %s\n", l.a->var);
 			j = h_get(&h, l.a->var);
 			if (j == -1) {
-				h_add(&h, l.a->var, i);
+				// Is a function. Skip
+			} else if (j == 0) {
+				// Not assigned yet, so potentially constant
+				h_rem(&h, l.d->var);
+				h_add(&h, l.d->var, i);
 				l.a->cons = 1;
 			} else {
+				// Reassigned, so not constant
 				((struct func_line_assign *)f->lines[j])->cons = 0;
 				h_rem(&h, l.a->var);
 			}
 			break;
 		case FUNC_LINE_MATH:
 			j = h_get(&h, l.m->x);
-			if (j != -1) {
+			if (j != -1 && j != 0) {
 				((struct func_line_assign *)f->lines[j])->cons = 0;
 				h_rem(&h, l.m->x);
 			}
@@ -1114,9 +1278,12 @@ static int optimizefunc_findconst(struct func *f)
 	}
 	for (size_t i = 0; i < f->linecount; i++) {
 		union func_line_all_p l = { .line = f->lines[i] };
-		if (l.line->type == FUNC_LINE_DECLARE && h_get(&h, l.d->var) != -1) {
-			f->linecount--;
-			memmove(f->lines + i, f->lines + i + 1, (f->linecount - i) * sizeof *f->lines);
+		if (l.line->type == FUNC_LINE_DECLARE) {
+			size_t j = h_get(&h, l.d->var);
+			if (j != -1 && j != 0) {
+				f->linecount--;
+				memmove(f->lines + i, f->lines + i + 1, (f->linecount - i) * sizeof *f->lines);
+			}
 		}
 	}
 	return 0;
@@ -1142,19 +1309,56 @@ static int optimizefunc(struct func *f)
 
 static int lines2structs()
 {
+	h_create(&functbl, 4);
+	// Find all functions
 	for (size_t i = 0; i < linecount; i++) {
 		char *line = lines[i];
 		size_t l = strlen(line);
-		if (line[l - 1] == ')') {
-			size_t start = i;
+		struct func *f;
+		// External function
+		if (memcmp(line, "extern ", sizeof "extern " - 1) == 0) {
+			f = calloc(sizeof *f, 1);
+			parsefunc_header(f, line + sizeof "extern " - 1);
+			h_add(&functbl, f->name, (size_t)f);
+		// Internal function
+		} else if (line[l - 1] == ')') {
+			f = &funcs[funccount];
+			parsefunc_header(f, line);
+			h_add(&functbl, f->name, (size_t)f);
+			funccount++;
+			int nest = 1;
 			// Find end of func
-			while (strcmp(lines[i], "end") != 0)
+			do {
 				i++;
-			parsefunc(start, i);
+				if (streq(lines[i], "end"))
+					nest--;
+				else if (memcmp(lines[i], "for"  , sizeof "for"   - 1) == 0 ||
+				         memcmp(lines[i], "while", sizeof "while" - 1) == 0 ||
+				         memcmp(lines[i], "if"   , sizeof "if"    - 1) == 0)
+					nest++;
+			} while (nest > 0);
+		} else {
+			fprintf(stderr, "Invalid function declaration: '%s'\n", line);
+			abort();
+		}
+	}
+	// Parse defined functions
+	funccount = 0;
+	for (size_t i = 0; i < linecount; i++) {
+		char *line = lines[i];
+		size_t l = strlen(line);
+		// External function
+		if (memcmp(line, "extern ", sizeof "extern " - 1) == 0) {
+			continue;
+		} else if (line[l - 1] == ')') {
+			parsefunc(i);
+#ifndef NO_OPT
 			optimizefunc(&funcs[funccount]);
+#endif
 			funccount++;
 		}
 	}
+
 
 	return 0;
 }
@@ -1321,6 +1525,9 @@ static int func2vasm(struct func *f) {
 			}
 			break;
 		case FUNC_LINE_DESTROY:
+			// TODO
+			if (fl.d->var[1] == '.')
+				break;
 			reg = h_get(&tbl, fl.d->var);
 			if (reg == -1) {
 				fprintf(stderr, "Variable '%s' not declared\n", fl.d->var);
@@ -1440,7 +1647,7 @@ static int func2vasm(struct func *f) {
 					abort();
 				}
 			}
-			if (flm->op != MATH_INV) {
+			if (flm->op != MATH_INV && flm->op != MATH_NOT) {
 				if (isnum(*flm->z)) {
 					a.rs.op  = VASM_OP_SET;
 					a.rs.r   = rb = 21;
@@ -1448,10 +1655,35 @@ static int func2vasm(struct func *f) {
 					vasms[vasmcount] = a.a;
 					vasmcount++;
 				} else {
-					rb = h_get(&tbl, flm->z);
-					if (rb == -1) {
-						fprintf(stderr, "Variable '%s' not declared\n", flm->z);
-						abort();
+					// TODO
+					if (flm->z[1] == '.') {
+						char l[64], r[64];
+						memcpy(l, flm->z, 1);
+						l[1] = 0;
+						memcpy(r, flm->z + 2, strlen(flm->z) - 2);
+						r[strlen(flm->z) - 2] = 0;
+						printf("%s\n", r);
+
+						a.rs.op  = VASM_OP_SET;
+						a.rs.r   = 22;
+						a.rs.str = "-1";
+						vasms[vasmcount] = a.a;
+						vasmcount++;
+
+						rb = 21;
+						a.r3.op   = VASM_OP_LOADLAT;
+						a.r3.r[0] = rb;
+						a.r3.r[1] = h_get(&tbl, l);
+						a.r3.r[2] = 22;
+						vasms[vasmcount] = a.a;
+						vasmcount++;
+					} else {
+						// TODO
+						rb = h_get(&tbl, flm->z);
+						if (rb == -1) {
+							fprintf(stderr, "Variable '%s' not declared\n", flm->z);
+							abort();
+						}
 					}
 				}
 				a.r3.op   = flm->op;
@@ -1545,7 +1777,6 @@ static int optimizevasm_replace(void)
 					case VASM_OP_JNZ:
 					//case VASM_OP_JG:
 					//case VASM_OP_JGE:
-						printf("pokezkfopzpofezez\n");
 						if (a.r.r == reg)
 							goto used;
 						break;
@@ -1641,9 +1872,12 @@ static int optimizevasm_peephole3(void)
 static int structs2vasm() {
 	for (size_t i = 0; i < funccount; i++)
 		func2vasm(&funcs[i]);
+#ifndef NO_OPT
 	optimizevasm_replace();
 	optimizevasm_peephole2();
 	optimizevasm_peephole3();
+#endif
+	return 0;
 }
 
 
@@ -1708,8 +1942,8 @@ int main(int argc, char **argv) {
 			case FUNC_LINE_FUNC:
 				flf = (struct func_line_func *)f->lines[j];
 				printf("  Function:");
-				if (flf->assign.name[0] != 0)
-					printf(" %s %s =", flf->assign.name, flf->assign.type);
+				if (flf->var != NULL)
+					printf(" %s =", flf->var);
 				printf(" %s", flf->name);
 				if (flf->paramcount > 0)
 					printf(" %s", flf->params[0]);
@@ -1736,6 +1970,10 @@ int main(int argc, char **argv) {
 				flm = (struct func_line_math *)f->lines[j];
 				if (flm->op == MATH_INV)
 					printf("  Math: %s = !%s\n", flm->x, flm->y);
+				else if (flm->op == MATH_NOT)
+					printf("  Math: %s = ~%s\n", flm->x, flm->y);
+				else if (flm->op == MATH_LOADAT)
+					printf("  Math: %s = %s[%s]\n", flm->x, flm->y, flm->z);
 				else
 					printf("  Math: %s = %s %s %s\n", flm->x, flm->y, mathop2str(flm->op), flm->z);
 				break;
@@ -1810,6 +2048,12 @@ int main(int argc, char **argv) {
 		case VASM_OP_MOV:
 			teeprintf("\tmov\tr%d,r%d\n", a.r2.r[0], a.r2.r[1]);
 			break;
+		case VASM_OP_STORELAT:
+			teeprintf("\tstoreat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			break;
+		case VASM_OP_LOADLAT:
+			teeprintf("\tloadlat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			break;
 		case VASM_OP_PUSH:
 			teeprintf("\tpush\tr%d\n", a.r.r);
 			break;
@@ -1845,6 +2089,12 @@ int main(int argc, char **argv) {
 			break;
 		case VASM_OP_XOR:
 			teeprintf("\txor\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			break;
+		case VASM_OP_LESS:
+			teeprintf("\tless\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			break;
+		case VASM_OP_LESSE:
+			teeprintf("\tlesse\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 			break;
 		}
 	}

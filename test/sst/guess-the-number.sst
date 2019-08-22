@@ -1,0 +1,26 @@
+extern void   writeln(char[] text)
+extern char[] readln()
+extern long   rand()
+
+int main()
+	long num = rand
+	writeln "Guess a number between 1 and 10"
+	while 1
+		char[] s = readln
+		long n = 0
+		for c in s
+			n *= 10
+			n += c - '0'
+		end
+		if n == num
+			writeln "Yay! You found it!"
+		else
+			if n > num
+				writeln "Lower"
+			else
+				writeln "Higher"
+			end
+		end
+	end
+	return 0
+end

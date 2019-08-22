@@ -17,14 +17,26 @@ static long   regs[32];
 static size_t ip;
 
 
-#define REG3OP(op)        \
-	regi = mem[ip++]; \
-	regj = mem[ip++]; \
-	regk = mem[ip++]; \
-	regs[regi] = regs[regj] op regs[regk]
-
-#define REG32STR(m,op) DEBUG(m "\tr%d,r%d,r%d\t(%lu = %lu " op " %lu)", \
-                             regi, regj, regk, regs[regi], regs[regj], regs[regk])
+#ifdef NDEBUG
+# define REG3OP(m,op) \
+	do { \
+		regi = mem[ip++]; \
+		regj = mem[ip++]; \
+		regk = mem[ip++]; \
+		regs[regi] = regs[regj] op regs[regk]; \
+	} while (0)
+#else
+# define REG3OP(m,op) \
+	do {\
+		regi = mem[ip++]; \
+		regj = mem[ip++]; \
+		regk = mem[ip++]; \
+		size_t _v = regs[regj]; \
+		regs[regi] = regs[regj] op regs[regk]; \
+		DEBUG(m "\tr%d,r%d,r%d\t(%lu = %lu " #op " %lu)", \
+		      regi, regj, regk, regs[regi], _v, regs[regk]); \
+	} while (0)
+#endif
 
 #ifndef NDEBUG
 # define DEBUG(x, ...) fprintf(stderr, x "\n", ##__VA_ARGS__)
@@ -156,7 +168,7 @@ static void run() {
 				ip += sizeof ip;
 			}
 			break;
-		case VASM_OP_LOAD:
+		case VASM_OP_LOADL:
 			regi = mem[ip];
 			ip++;
 			regj = mem[ip];
@@ -165,13 +177,27 @@ static void run() {
 			regs[regi] = be64toh(regs[regi]);
 			DEBUG("load\tr%d,r%d\t(%lu)", regi, regj, regs[regi]);
 			break;
-		case VASM_OP_STORE:
+		case VASM_OP_LOADLAT:
+			regi = mem[ip++];
+			regj = mem[ip++];
+			regk = mem[ip++];
+			regs[regi] = *(size_t *)(mem + regs[regj] + regs[regk]);
+			DEBUG("loadat\tr%d,r%d,r%d\n(%lu <-- 0x%lx + 0x%lx)", regi, regj, regk, regs[regi], regs[regj], regs[regk]);
+			break;
+		case VASM_OP_STOREL:
 			regi = mem[ip];
 			ip++;
 			regj = mem[ip];
 			ip++;
 			*(size_t *)(mem + regs[regj]) = htobe64(regs[regi]);
 			DEBUG("store\tr%d,r%d\t(%lu)", regi, regj, be64toh(*(size_t *)(mem + regs[regj])));
+			break;
+		case VASM_OP_STORELAT:
+			regi = mem[ip++];
+			regj = mem[ip++];
+			regk = mem[ip++];
+			*(size_t *)(mem + regs[regj] + regs[regk]) = regs[regi];
+			DEBUG("storeat\tr%d,r%d,r%d\n(%lu --> 0x%lx + 0x%lx)", regi, regj, regk, regs[regi], regs[regj], regs[regk]);
 			break;
 		case VASM_OP_PUSH:
 			regi = mem[ip];
@@ -205,40 +231,31 @@ static void run() {
 			DEBUG("set\tr%d,%lu\t(%lu)", regi, val, regs[regi]);
 			break;
 		case VASM_OP_ADD:
-			REG3OP(+);
-			REG32STR("add", "+");
+			REG3OP("add", +);
 			break;
 		case VASM_OP_SUB:
-			REG3OP(-);
-			REG32STR("sub", "-");
+			REG3OP("sub", -);
 			break;
 		case VASM_OP_MUL:
-			REG3OP(*);
-			REG32STR("mul", "*");
+			REG3OP("mul", *);
 			break;
 		case VASM_OP_DIV:
-			REG3OP(/);
-			REG32STR("div", "/");
+			REG3OP("div", /);
 			break;
 		case VASM_OP_MOD:
-			REG3OP(%);
-			REG32STR("mod", "%%");
+			REG3OP("mod", %);
 			break;
 		case VASM_OP_REM:
-			REG3OP(%);
-			REG32STR("rem", "%%");
+			REG3OP("rem", %);
 			break;
 		case VASM_OP_LSHIFT:
-			REG3OP(<<);
-			REG32STR("lshift", "<<");
+			REG3OP("lshift", <<);
 			break;
 		case VASM_OP_RSHIFT:
-			REG3OP(>>);
-			REG32STR("rshift", ">>");
+			REG3OP("rshift", >>);
 			break;
 		case VASM_OP_XOR:
-			REG3OP(^);
-			REG32STR("xor", "^");
+			REG3OP("xor", ^);
 			break;
 		case VASM_OP_NOT:
 			regi = mem[ip];
