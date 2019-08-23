@@ -50,7 +50,13 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 			break;
 		// 2 reg
 		case VASM_OP_STOREL:
+		case VASM_OP_STOREI:
+		case VASM_OP_STORES:
+		case VASM_OP_STOREB:
 		case VASM_OP_LOADL:
+		case VASM_OP_LOADI:
+		case VASM_OP_LOADS:
+		case VASM_OP_LOADB:
 		case VASM_OP_MOV:
 		case VASM_OP_NOT:
 		case VASM_OP_INV:
@@ -77,6 +83,7 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		// 1 addr
 		case VASM_OP_JMP:
 		case VASM_OP_CALL:
+			val = -1;
 			if ('0' <= a.rs.str[0] && a.rs.str[0] <= '9')
 				val = strtol(a.rs.str, NULL, 0);
 			else 
@@ -86,14 +93,60 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 			break;
 		// 1 reg, 1 addr
 		case VASM_OP_SET:
+		case VASM_OP_SETB:
+		case VASM_OP_SETS:
+		case VASM_OP_SETI:
+		case VASM_OP_SETL:
 			vbin[vbinlen] = a.rs.r;
 			vbinlen++;
+			val = -1;
 			if ('0' <= a.rs.str[0] && a.rs.str[0] <= '9')
 				val = strtol(a.rs.str, NULL, 0);
 			else 
 				POS2LBL(a.rs.str);
-			*(size_t *)(vbin + vbinlen) = htobe64(val);
-			vbinlen += sizeof val;
+			if (a.op == VASM_OP_SET) {
+#ifndef FORCE_SETL
+				if (val <= 0xFF)
+					a.op = VASM_OP_SETB;
+				else if (val <= 0xFFFF)
+					a.op = VASM_OP_SETS;
+				else if (val <= 0xFFFFffff)
+					a.op = VASM_OP_SETI;
+				else if (val <= 0xFFFFffffFFFFffff)
+					a.op = VASM_OP_SETL;
+				else
+					abort();
+#else
+				a.op = VASM_OP_SETL;
+#endif
+				vbin[vbinlen-2] = a.op;
+			}
+			switch (a.op) {
+			case VASM_OP_SETB:
+				if (val > 0xFF)
+					abort();
+				*(uint8_t *)(vbin + vbinlen) = val;
+				vbinlen += 1;
+				break;
+			case VASM_OP_SETS:
+				if (val > 0xFFFF)
+					abort();
+				*(uint16_t *)(vbin + vbinlen) = htobe16(val);
+				vbinlen += 2;
+				break;
+			case VASM_OP_SETI:
+				if (val > 0xFFFFffff)
+					abort();
+				*(uint32_t *)(vbin + vbinlen) = htobe32(val);
+				vbinlen += 4;
+				break;
+			case VASM_OP_SETL:
+				if (val > 0xFFFFffffFFFFffff)
+					abort();
+				*(uint64_t *)(vbin + vbinlen) = htobe64(val);
+				vbinlen += 8;
+				break;
+			}
 			break;
 		// 2 reg, 1 addr
 		case VASM_OP_JZ:
@@ -102,6 +155,7 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		case VASM_OP_JPZ:
 			vbin[vbinlen] = a.rs.r;
 			vbinlen++;
+			val = -1;
 			if ('0' <= a.rs.str[0] && a.rs.str[0] <= '9')
 				val = strtol(a.rs.str, NULL, 0);
 			else 

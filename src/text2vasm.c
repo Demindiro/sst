@@ -54,6 +54,12 @@ static int getop(char *mnem)
 	case 'l':
 		if (streq("loadl", mnem))
 			return VASM_OP_LOADL;
+		if (streq("loadi", mnem))
+			return VASM_OP_LOADI;
+		if (streq("loads", mnem))
+			return VASM_OP_LOADS;
+		if (streq("loadb", mnem))
+			return VASM_OP_LOADB;
 		if (streq("lshift", mnem))
 			return VASM_OP_LSHIFT;
 		break;
@@ -82,8 +88,22 @@ static int getop(char *mnem)
 	case 's':
 		if (streq("set", mnem))
 			return VASM_OP_SET;
+		if (streq("setl", mnem))
+			return VASM_OP_SETL;
+		if (streq("seti", mnem))
+			return VASM_OP_SETI;
+		if (streq("sets", mnem))
+			return VASM_OP_SETS;
+		if (streq("setb", mnem))
+			return VASM_OP_SETB;
 		if (streq("storel", mnem))
 			return VASM_OP_STOREL;
+		if (streq("storei", mnem))
+			return VASM_OP_STOREI;
+		if (streq("stores", mnem))
+			return VASM_OP_STORES;
+		if (streq("storeb", mnem))
+			return VASM_OP_STOREB;
 		if (streq("sub", mnem))
 			return VASM_OP_SUB;
 		if (streq("syscall", mnem))
@@ -202,7 +222,13 @@ static int parse_op_args(union vasm_all *v, char *args)
 		break;
 	// 2 reg
 	case VASM_OP_STOREL:
+	case VASM_OP_STOREI:
+	case VASM_OP_STORES:
+	case VASM_OP_STOREB:
 	case VASM_OP_LOADL:
+	case VASM_OP_LOADI:
+	case VASM_OP_LOADS:
+	case VASM_OP_LOADB:
 	case VASM_OP_MOV:
 	case VASM_OP_NOT:
 	case VASM_OP_INV:

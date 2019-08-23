@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <endian.h>
 #include <x86intrin.h>
 #include "vasm.h"
@@ -17,24 +18,27 @@ static long   regs[32];
 static size_t ip;
 
 
+#define REG1 do { regi = mem[ip++]; } while (0)
+#define REG2 do { regi = mem[ip++]; regj = mem[ip++]; } while (0)
+#define REG3 do { regi = mem[ip++]; regj = mem[ip++]; regk = mem[ip++]; } while (0)
+#define REGI regs[regi]
+#define REGJ regs[regj]
+#define REGK regs[regk]
+
 #ifdef NDEBUG
 # define REG3OP(m,op) \
 	do { \
-		regi = mem[ip++]; \
-		regj = mem[ip++]; \
-		regk = mem[ip++]; \
-		regs[regi] = regs[regj] op regs[regk]; \
+		REG3; \
+		REGI = REGJ op REGK; \
 	} while (0)
 #else
 # define REG3OP(m,op) \
 	do {\
-		regi = mem[ip++]; \
-		regj = mem[ip++]; \
-		regk = mem[ip++]; \
+		REG3; \
 		size_t _v = regs[regj]; \
-		regs[regi] = regs[regj] op regs[regk]; \
+		REGI = REGJ op REGK; \
 		DEBUG(m "\tr%d,r%d,r%d\t(%lu = %lu " #op " %lu)", \
-		      regi, regj, regk, regs[regi], _v, regs[regk]); \
+		      regi, regj, regk, REGI, _v, REGK); \
 	} while (0)
 #endif
 
@@ -48,24 +52,33 @@ static size_t ip;
 
 
 #ifndef NOPROF
-__attribute__((always_inline))
-static inline unsigned long rdtsc()
-{
-    unsigned int lo,hi;
-    __asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
-    return ((unsigned long)hi << 32) | lo;
-}
 static size_t icounter;
 static size_t rstart;
 #endif
 
 
 
+// Would you believe me if I said not forcing no inlining would cause the
+// interpreter to be 3 times slower for _every_ instruction? (~2 seconds
+// vs 0.68 seconds)
+//
+// My theory as to what is happening: GCC inlines this function, the big
+// switch statement in the main loop gets a case that is too big for inlining
+// and no jump table is created, which results in tons of branches and
+// lots of branch misses.
+//
+// Evidence for suspicion: 163 905 110 branch misses without noinline,
+// 53 776 with (x3000 difference).
+//
+// Maybe I should add this bit of knowledge to Stack Overflow. Surely there are others
+// unknowingly leaving performance on the table due to this :P
+// Or maybe a bug report would be more appropriate. Oh well.
+__attribute__((noinline))
 static void vasm_syscall() {
 	switch (regs[0]) {
 	case 0:
 #ifndef NOPROF
-		; size_t r = rdtsc() - rstart;
+		; size_t r = _rdtsc() - rstart;
 		printf("\n");
 		printf("Instructions executed: %lu\n", icounter);
 		printf("Host CPU cycles: %lu\n", r);
@@ -74,10 +87,13 @@ static void vasm_syscall() {
 		exit(regs[1]);
 		break;
 	case 1:
-		regs[0] = write(regs[1],
-		                (char *)(mem + regs[2]),
-		                regs[3]);
+		regs[0] = write(regs[1], (char *)(mem + regs[2]), regs[3]);
 		DEBUG("write(%lu, 0x%lx, %lu) = %ld",
+		        regs[1], regs[2], regs[3], regs[0]);
+		break;
+	case 2:
+		regs[0] = read(regs[1], (char *)(mem + regs[2]), regs[3]);
+		DEBUG("read(%lu, 0x%lx, %lu) = %ld",
 		        regs[1], regs[2], regs[3], regs[0]);
 		break;
 	default:
@@ -93,7 +109,7 @@ static void run() {
 	sp = 0x10000;
 
 #ifndef NOPROF
-	rstart = rdtsc();
+	rstart = _rdtsc();
 #endif
 
 	while (1) {
@@ -133,102 +149,122 @@ static void run() {
 			DEBUG("jmp\t0x%lx", ip);
 			break;
 		case VASM_OP_JZ:
-			regi = mem[ip];
-			ip++;
-			if (!regs[regi]) {
+			REG1;
+			if (!REGI) {
 				ip = *(size_t *)(mem + ip);
 				ip = be64toh(ip);
 				DEBUG("jz\t0x%lx,r%d\t(%lu, true)",
-				      ip, regi, regs[regi]);
+				      ip, regi, REGI);
 			} else {
 #ifndef NDEBUG
 				size_t v = *(size_t *)(mem + ip);
 				v = be64toh(ip);
 #endif
 				DEBUG("jz\t0x%lx,r%d\t(%lu, false)",
-				      ip, regi, regs[regi]);
+				      ip, regi, REGI);
 				ip += sizeof ip;
 			}
 			break;
 		case VASM_OP_JNZ:
-			regi = mem[ip];
-			ip++;
-			if (regs[regi]) {
+			REG1;
+			if (REGI) {
 				ip = *(size_t *)(mem + ip);
 				ip = be64toh(ip);
 				DEBUG("jnz\t0x%lx,r%d\t(%lu, true)",
-				      ip, regi, regs[regi]);
+				      ip, regi, REGI);
 			} else {
 #ifndef NDEBUG
 				size_t v = *(size_t *)(mem + ip);
 				v = be64toh(ip);
 #endif
 				DEBUG("jnz\t0x%lx,r%d\t(%lu, false)",
-				      ip, regi, regs[regi]);
+				      ip, regi, REGI);
 				ip += sizeof ip;
 			}
 			break;
 		case VASM_OP_LOADL:
-			regi = mem[ip];
-			ip++;
-			regj = mem[ip];
-			ip++;
-			regs[regi] = *(size_t *)(mem + regs[regj]);
-			regs[regi] = be64toh(regs[regi]);
-			DEBUG("load\tr%d,r%d\t(%lu)", regi, regj, regs[regi]);
+			REG2;
+			REGI = *(size_t *)(mem + REGJ);
+			REGI = be64toh(REGI);
+			DEBUG("load\tr%d,r%d\t(%lu)", regi, regj, REGJ);
 			break;
 		case VASM_OP_LOADLAT:
-			regi = mem[ip++];
-			regj = mem[ip++];
-			regk = mem[ip++];
-			regs[regi] = *(size_t *)(mem + regs[regj] + regs[regk]);
-			DEBUG("loadat\tr%d,r%d,r%d\n(%lu <-- 0x%lx + 0x%lx)", regi, regj, regk, regs[regi], regs[regj], regs[regk]);
+			REG3;
+			REGI = *(size_t *)(mem + REGJ + REGK);
+			DEBUG("loadat\tr%d,r%d,r%d\n(%lu <-- 0x%lx + 0x%lx)", regi, regj, regk, REGI, REGJ, REGK);
 			break;
 		case VASM_OP_STOREL:
-			regi = mem[ip];
-			ip++;
-			regj = mem[ip];
-			ip++;
-			*(size_t *)(mem + regs[regj]) = htobe64(regs[regi]);
-			DEBUG("store\tr%d,r%d\t(%lu)", regi, regj, be64toh(*(size_t *)(mem + regs[regj])));
+			REG2;
+			*(uint64_t *)(mem + REGJ) = htobe64(REGI);
+			DEBUG("storel\tr%d,r%d\t(%lu)", regi, regj, be64toh(*(uint64_t *)(mem + REGJ)));
+			break;
+		case VASM_OP_STOREI:
+			REG2;
+			*(uint32_t *)(mem + REGJ) = htobe32(REGI);
+			DEBUG("storei\tr%d,r%d\t(%lu)", regi, regj, be32toh(*(uint32_t *)(mem + REGJ)));
+			break;
+		case VASM_OP_STORES:
+			REG2;
+			*(uint16_t *)(mem + REGJ) = htobe16(REGI);
+			DEBUG("stores\tr%d,r%d\t(%lu)", regi, regj, be16toh(*(uint16_t *)(mem + REGJ)));
+			break;
+		case VASM_OP_STOREB:
+			REG2;
+			*(uint8_t *)(mem + REGJ) = REGI;
+			DEBUG("storeb\tr%d,r%d\t(%lu)", regi, regj, *(uint8_t *)(mem + REGJ));
 			break;
 		case VASM_OP_STORELAT:
-			regi = mem[ip++];
-			regj = mem[ip++];
-			regk = mem[ip++];
-			*(size_t *)(mem + regs[regj] + regs[regk]) = regs[regi];
-			DEBUG("storeat\tr%d,r%d,r%d\n(%lu --> 0x%lx + 0x%lx)", regi, regj, regk, regs[regi], regs[regj], regs[regk]);
+			REG3;
+			*(size_t *)(mem + REGJ + REGK) = REGI;
+			DEBUG("storeat\tr%d,r%d,r%d\n(%lu --> 0x%lx + 0x%lx)", regi, regj, regk, REGI, REGJ, REGK);
 			break;
 		case VASM_OP_PUSH:
-			regi = mem[ip];
-			ip++;
-			*(size_t *)(mem + sp) = regs[regi];
+			REG1;
+			*(size_t *)(mem + sp) = REGI;
 			DEBUG("push\tr%d\t(%lu)", regi, mem[sp]);
 			sp += sizeof regs[regi];
 			break;
 		case VASM_OP_POP:
-			regi = mem[ip];
-			ip++;
-			sp -= sizeof regs[regi];
+			REG1;
+			sp -= sizeof REGI;
 			DEBUG("pop\tr%d", regi);
-			regs[regi] = *(size_t *)(mem + sp);
+			REGI = *(size_t *)(mem + sp);
 			break;
 		case VASM_OP_MOV:
-			regi = mem[ip];
-			ip++;
-			regj = mem[ip];
-			ip++;
-			regs[regi] = regs[regj];
-			DEBUG("mov\tr%d,r%d\t(%lu)", regi, regj, regs[regi]);
+			REG2;
+			REGI = REGJ;
+			DEBUG("mov\tr%d,r%d\t(%lu)", regi, regj, REGI);
 			break;
-		case VASM_OP_SET:
-			regi = mem[ip];
-			ip++;
-			val = *(size_t *)(mem + ip);
+		case VASM_OP_SETL:
+			REG1;
+			val = *(uint64_t *)(mem + ip);
 			val = be64toh(val);
-			ip += sizeof val;
-			regs[regi] = val;
-			DEBUG("set\tr%d,%lu\t(%lu)", regi, val, regs[regi]);
+			ip += 8;
+			REGI = val;
+			DEBUG("setl\tr%d,%lu\t(%lu)", regi, val, REGI);
+			break;
+		case VASM_OP_SETI:
+			REG1;
+			val = *(uint32_t *)(mem + ip);
+			val = be32toh(val);
+			ip += 4;
+			REGI = val;
+			DEBUG("seti\tr%d,%lu\t(%lu)", regi, val, REGI);
+			break;
+		case VASM_OP_SETS:
+			REG1;
+			val = *(uint16_t *)(mem + ip);
+			val = be16toh(val);
+			ip += 2;
+			REGI = val;
+			DEBUG("sets\tr%d,%lu\t(%lu)", regi, val, REGI);
+			break;
+		case VASM_OP_SETB:
+			REG1;
+			val = *(uint8_t *)(mem + ip);
+			ip += 1;
+			REGI = val;
+			DEBUG("setb\tr%d,%lu\t(%lu)", regi, val, REGI);
 			break;
 		case VASM_OP_ADD:
 			REG3OP("add", +);
@@ -258,27 +294,26 @@ static void run() {
 			REG3OP("xor", ^);
 			break;
 		case VASM_OP_NOT:
-			regi = mem[ip];
-			ip++;
-			regj = mem[ip];
-			ip++;
-			regs[regi] = ~regs[regj];
-			DEBUG("not\tr%d,r%d\t(%lu)", regi, regj, regs[regi]);
+			REG2;
+			REGI = ~REGJ;
+			DEBUG("not\tr%d,r%d\t(%lu)", regi, regj, REGI);
 			break;
 		case VASM_OP_INV:
-			regi = mem[ip];
-			ip++;
-			regj = mem[ip];
-			ip++;
-			regs[regi] = !regs[regj];
-			DEBUG("inv\tr%d,r%d\t(%lu)", regi, regj, regs[regi]);
+			REG3;
+			REGI = !REGJ;
+			DEBUG("inv\tr%d,r%d\t(%lu)", regi, regj, REGI);
 			break;
 		case VASM_OP_SYSCALL:
 			DEBUG("syscall");
 			vasm_syscall();
 			break;
 		default:
-			DEBUG("ERROR: invalid opcode (%lu)", op);
+			// Did you know that this print instruction can make all other
+			// instructions 22% slower?
+			// I wish I were kidding.
+#ifndef NDEBUG
+			fprintf(stderr, "ERROR: invalid opcode (%lu)\n", op);
+#endif
 			abort();
 		}
 	}

@@ -1,0 +1,7 @@
+int main()
+	while true
+		char[] s = readln
+		writeln s
+		writeln "---"
+	end
+end

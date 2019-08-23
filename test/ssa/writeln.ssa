@@ -2,7 +2,7 @@
 #  - r0: The string (array with length) to write
 writeln:
 	set	r1,1		# stdout
-	load	r3,r0		# Load the length
+	loadl	r3,r0		# Load the length
 	set	r4,8
 	add	r2,r0,r4	# Point to the string
 	set	r0,1		# SYSCALL_write
@@ -22,8 +22,6 @@ writeln_num:
 	set	r1,64
 	add	r31,r31,r1
 	mov	r2,r31
-	set	r1,80
-	add	r31,r31,r1
 	# Parse number
 	set	r10,10	# The base (decimal)
 	set	r11,0	# The length
@@ -32,13 +30,15 @@ writeln_num:
 .loop0:
 	mod	r20,r0,r10
 	add	r20,r20,r13
-	store	r20,r2
+	storeb	r20,r2
 	add	r11,r11,r12
 	sub	r2,r2,r12
 	div	r0,r0,r10
 	jnz	.loop0,r0
 	# Store length
-	store	r11,r2
+	set	r0,7
+	sub	r2,r2,r0
+	storel	r11,r2
 	# Print the line
 	mov	r0,r2
 	call	writeln

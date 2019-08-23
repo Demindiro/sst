@@ -2,8 +2,8 @@ CC = cc
 LD = ld
 AS = as
 
-INCLUDE = -Iinclude/
-CFLAGS  = -O0 -g
+INCLUDE := -Iinclude/
+CFLAGS   = -O0 -g
 
 cc = $(CC) $(INCLUDE) $(CFLAGS) $+ -o $@
 ld = $(LD) $< -o $@
@@ -21,10 +21,12 @@ build/assembler:	src/assembler.c	src/vasm2vbin.c src/text2vasm.c | \
 			include/vasm.h include/vasm2vbin.h include/text2vasm.h
 	$(cc)
 
-build/interpreter:	src/interpreter.c				| include/vasm.h
+build/interpreter:	src/interpreter.c | \
+			include/vasm.h
 	$(cc)
 
-build/linker:		src/linker.c src/hashtbl.c | include/hashtbl.h
+build/linker:		src/linker.c src/hashtbl.c | \
+			include/hashtbl.h
 	$(cc)
 
 
@@ -51,7 +53,7 @@ test-prime: default
 	./build/assembler   test/ssa/writeln.ssa /tmp/writeln.sso
 	./build/assembler   test/ssa/_start.ssa  /tmp/_start.sso
 	./build/linker      /tmp/_start.sso      /tmp/prime.sso   /tmp/writeln.sso   /tmp/prime.ss
-	sh -c 'time ./build/interpreter /tmp/prime.ss'
+	#sh -c 'time ./build/interpreter /tmp/prime.ss'
 
 test-writeln_num: default
 	./build/compiler    test/sst/writeln-num.sst   /tmp/writeln-num.ssa
@@ -60,3 +62,12 @@ test-writeln_num: default
 	./build/assembler   test/ssa/_start.ssa  /tmp/_start.sso
 	./build/linker      /tmp/_start.sso      /tmp/writeln-num.sso   /tmp/writeln.sso   /tmp/writeln-num.ss
 	./build/interpreter /tmp/writeln-num.ss
+
+test-readln: default
+	./build/compiler    test/sst/readln.sst        /tmp/readln.ssa
+	./build/assembler   /tmp/readln.ssa      /tmp/readln2.sso
+	./build/assembler   test/ssa/readln.ssa  /tmp/readln.sso
+	./build/assembler   test/ssa/writeln.ssa /tmp/writeln.sso
+	./build/assembler   test/ssa/_start.ssa  /tmp/_start.sso
+	./build/linker	    /tmp/_start.sso /tmp/writeln.sso /tmp/readln.sso /tmp/readln2.sso /tmp/readln.ss
+	./build/interpreter /tmp/readln.ss

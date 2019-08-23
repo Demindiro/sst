@@ -1,0 +1,10 @@
+.memptr:	.long	0
+
+
+alloc:
+	push	r1
+	loadl	r1,.memptr
+	add	r0,r1,r0
+	storel	r1,.memptr
+	pop	r1
+	ret

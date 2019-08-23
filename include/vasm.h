@@ -43,7 +43,11 @@
 #define VASM_OP_PUSH       30
 #define VASM_OP_POP        31
 #define VASM_OP_MOV        32
-#define VASM_OP_SET        33
+#define VASM_OP_SETL       33
+#define VASM_OP_SETI       34
+#define VASM_OP_SETS       35
+#define VASM_OP_SETB       36
+#define VASM_OP_SET      (-30)
 
 #define VASM_OP_ADD        40
 #define VASM_OP_SUB        41
