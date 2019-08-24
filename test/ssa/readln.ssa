@@ -1,33 +1,73 @@
-.lnbuf:		.long	0
+.lnbuf_index:	.long	0
 .lnbuf_len: 	.long	0
+.lnbuf:		.long	0
+.ret:		.long	0
 
 
 # Read up to 1024 bytes from stdin
 readln:
-	# Continue with .lnbuf if .lnbuf_len is not 0, otherwise read
-	load	r5,.lnbuf_len
-	jnz	.findnl,r5
-	# Allocate 1K+8 buffer
-	set	r0,1032
+	# Load constants
+	set	r20,.lnbuf_index
+	set	r21,.lnbuf_len
+	set	r22,.lnbuf
+	set	r23,.ret
+	set	r24,1
+	# Load read buffer pointer
+	loadl	r2,r22
+	# Allocate buffers if not already allocated
+	jnz	.allocated,r2
+	set	r0,1024
 	call	alloc
-	# Increase pointer
-	set	r4,8
-	add	r0,r0,r1
-	# Read
+	storel	r0,r22
+	mov	r2,r0
+	set	r0,4096
+	push	r2
+	call	alloc
+	pop	r2
+	storel	r0,r23
+	mov	r9,r0
+.allocated:
+	# Find end of line
+	loadl	r6,r20	# read buffer index
+	loadl	r7,r21	# current read buffer length
+	set	r8,8	# return buffer index
+.findnl:
+	# Check if at end of return buffer and should return
+	set	r3,4096
+	sub	r1,r3,r8
+	jz	.findnl_end,r1
+	# Check if at end of read buffer and new data should be read
+	sub	r1,r7,r6
+	jnz	.noread,r1
 	set	r3,1024		# Length of buffer
-	mov	r2,r0		# Buffer
-	xor	r1,r1,r1	# stdin ( = 0)
+	mov	r2,r2		# Buffer
+	set	r1,0		# stdin
 	set	r0,2		# SYS_read
 	syscall
-	# Find end of line
-	#xor	r1,r1,r1	# r1 is already 0
-.findnl:
-	
-	loadb	r7,r0
+	# Return if end of input
+	jz	.findnl_end,r0
+	# Set read buffer index and length
+	set	r6,0
+	mov	r7,r0
+.noread:
+	# Check and jump if \n
+	loadbat	r10,r2,r6
+	set	r11,10
+	sub	r11,r11,r10
+	add	r6,r6,r24	# Increase read buffer index
+	jz	.findnl_end,r11
+	# Write byte to return buffer
+	storebat	r10,r9,r8
+	add	r8,r8,r24	# Increase return buffer index
+	# Loop
 	jmp	.findnl
-	# Decrease pointer and store length
-	sub	r1,r2,r4
-	storel	r0,r1
-	# Return array 
-	mov	r0,r1
+.findnl_end:
+	# Store length and index of lnbuf
+	storel	r6,r20
+	storel	r7,r21
+	# Store length of array and return
+	set	r25,8
+	sub	r8,r8,r25
+	storel	r8,r9
+	mov	r0,r9
 	ret

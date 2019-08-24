@@ -1,3 +1,5 @@
+extern char[] readln()
+
 int main()
 	while true
 		char[] s = readln

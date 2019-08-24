@@ -243,7 +243,15 @@ static int text2lines(char *text) {
 				*ptr = *c;
 				ptr++, c++;
 			}
-			if (*c == '"') {
+			if (strncmp(c, "true", 4) == 0 && (c[4] == 0 || strchr("\n \t", c[4]))) {
+				*ptr = '1';
+				ptr += 1;
+				c   += 4;
+			} else if (strncmp(c, "false ", 5) == 0 && (c[5] == 0 || strchr("\n \t", c[5]))) {
+				*ptr = '0';
+				ptr += 1;
+				c   += 5;
+			} else if (*c == '"') {
 				memcpy(ptr, ".str_", sizeof ".str_" - 1);
 				ptr += sizeof ".str_" - 1;
 				*ptr = '0' + stringcount;
@@ -999,13 +1007,15 @@ static int optimizefunc_replace(struct func *f)
 	for (size_t i = 0; i < f->linecount; i++) {
 		union func_line_all_p fl = { .line = f->lines[i] };
 		size_t j;
+		char  *v;
+		size_t lastk;
 		switch (fl.line->type) {
 		case FUNC_LINE_ASSIGN:
 			if (fl.a->cons && isnum(*fl.a->value)) {
 				j = strtol(fl.a->value, NULL, 0);
 				h_add(&h, fl.a->var, j);
 			}
-			char *v = fl.a->var;
+			v = fl.a->var;
 			for (size_t k = i + 1; k < f->linecount; k++) {
 				fl.line = f->lines[k];
 				switch (fl.line->type) {
@@ -1034,6 +1044,67 @@ static int optimizefunc_replace(struct func *f)
 				(f->linecount - i) * sizeof *f->lines);
 		used:
 			break;
+		case FUNC_LINE_DECLARE:
+			// Find the last occurence of the variable
+			lastk = i;
+			v     = fl.d->var;
+			for (size_t k = lastk + 1; k < f->linecount; k++) {
+				fl.line = f->lines[k];
+				switch(fl.line->type) {
+				case FUNC_LINE_ASSIGN:
+					if (streq(v, fl.a->value) || streq(v, fl.a->var))
+						lastk = k + 1;
+					break;
+				case FUNC_LINE_DECLARE:
+					if (streq(v, fl.d->var)) {
+						// This shouldn't happen before a destroy statement is encountered
+						fprintf(stderr, "Double declare for variable '%s'\n", v);
+						abort();
+					}
+				case FUNC_LINE_DESTROY:
+					// Can the destroy statement be moved up?
+					if (lastk + 1 != k) {
+						f->linecount--;
+						memmove(f->lines + k, f->lines + k + 1,
+							(f->linecount - k) * sizeof *f->lines);
+						goto move_destroy;
+					} else {
+						goto already_destroyed;
+					}
+				case FUNC_LINE_FUNC:
+					if (fl.f->var != NULL && streq(v, fl.f->var)) {
+						lastk = k + 1;
+					} else {
+						for (size_t p = 0; p < fl.f->paramcount; p++) {
+							if (streq(v, fl.f->params[p])) {
+								lastk = k + 1;
+								break;
+							}
+						}
+					}
+					break;
+				case FUNC_LINE_IF:
+					if (streq(v, fl.i->var))
+						lastk = k;
+					break;
+				case FUNC_LINE_MATH:
+					if (streq(v, fl.m->x) || streq(v, fl.m->y) ||
+					    (fl.m->z != NULL && streq(v, fl.m->z)))
+						lastk = k + 1;
+					break;
+				}
+			}
+			// No destroy line found, so create one
+			fl.line       = calloc(sizeof *fl.d, 1);
+			fl.line->type = FUNC_LINE_DESTROY;
+			fl.d->var     = v;
+		move_destroy:
+			memmove(f->lines + lastk + 1, f->lines + lastk,
+				(f->linecount - lastk) * sizeof *f->lines);
+			f->linecount++;
+			f->lines[lastk] = fl.line;
+		already_destroyed:
+			break;
 		case FUNC_LINE_IF:
 			if (h_get2(&h, fl.i->var, &j) >= 0) {
 				if ((j == 0) == fl.i->inv) {
@@ -1048,7 +1119,6 @@ static int optimizefunc_replace(struct func *f)
 				}
 			}
 		case FUNC_LINE_MATH:
-
 			if (0 && fl.m->z != NULL && isnum(*fl.m->z)) {
 				if (fl.m->op == MATH_DIV) {
 					size_t n = 0, l;
@@ -1539,7 +1609,7 @@ static int func2vasm(struct func *f) {
 		case FUNC_LINE_FUNC:
 			flf = (struct func_line_func *)f->lines[i];
 
-			for (size_t j = 0; j < 32; j++) {
+			for (size_t j = flf->var ? 1 : 0; j < 32; j++) {
 				if (allocated_regs[j]) {
 					a.r.op = VASM_OP_PUSH;
 					a.r.r  = j;
@@ -1548,16 +1618,12 @@ static int func2vasm(struct func *f) {
 				}
 			}
 			for (size_t j = 0; j < flf->paramcount; j++) {
-				if (isnum(*flf->params[j])) {
+				size_t r = h_get(&tbl, flf->params[j]);
+				if (r == -1) {
 					a.rs.op  = VASM_OP_SET;
 					a.rs.r   = j;
 					a.rs.str = flf->params[j];
 				} else {
-					size_t r = h_get(&tbl, flf->params[j]);
-					if (r == -1) {
-						fprintf(stderr, "Var akakaka %s\n", flf->params[j]);
-						break;
-					}
 					a.r2.op   = VASM_OP_MOV;
 					a.r2.r[0] = j;
 					a.r2.r[1] = r;
@@ -1573,7 +1639,7 @@ static int func2vasm(struct func *f) {
 			vasmcount++;
 
 			// Pop registers
-			for (int j = 31; j >= 0; j--) {
+			for (int j = 31; j >= (flf->var ? 1 : 0); j--) {
 				if (allocated_regs[j]) {
 					a.r.op = VASM_OP_POP;
 					a.r.r  = j;
@@ -1814,6 +1880,13 @@ static int optimizevasm_replace(void)
 				;
 			}
 			break;
+		case VASM_OP_MOV:
+			if (a.r2.r[0] == a.r2.r[1]) {
+				vasmcount--;
+				memmove(vasms + i, vasms + i + 1, (vasmcount - i) * sizeof *vasms);
+				i--;
+			}
+			break;
 		}
 	}
 
@@ -1868,14 +1941,50 @@ static int optimizevasm_peephole3(void)
 }
 
 
+static int optimizevasm_peephole4(void)
+{
+	for (size_t i = 0; i < vasmcount - 3; i++) {
+		union vasm_all a0 = { .a = vasms[i + 0] },
+		               a1 = { .a = vasms[i + 1] },
+		               a2 = { .a = vasms[i + 2] },
+		               a3 = { .a = vasms[i + 3] };
+		switch (a0.op) {
+		case VASM_OP_PUSH:
+			if (a1.op == VASM_OP_CALL &&
+			    a2.op == VASM_OP_POP  &&
+			    a0.r.r == a2.r.r) {
+				switch (a3.op) {
+				case VASM_OP_SET:
+					if (a3.rs.r == a0.r.r)
+						goto remove_push;
+					goto dont_remove_push;
+				}
+			}
+			goto dont_remove_push;
+		remove_push:
+			vasmcount -= 2;
+			vasms[i] = vasms[i + 1];
+			memmove(vasms + i + 1, vasms + i + 3, (vasmcount - i) * sizeof vasms[i]);
+		dont_remove_push:
+			break;
+		}
+	}
+
+	return 0;
+}
+
+
 
 static int structs2vasm() {
 	for (size_t i = 0; i < funccount; i++)
 		func2vasm(&funcs[i]);
 #ifndef NO_OPT
-	optimizevasm_replace();
-	optimizevasm_peephole2();
-	optimizevasm_peephole3();
+	for (size_t i = 0; i < 5; i++) {
+		optimizevasm_replace();
+		optimizevasm_peephole2();
+		optimizevasm_peephole3();
+		optimizevasm_peephole4();
+	}
 #endif
 	return 0;
 }

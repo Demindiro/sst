@@ -69,5 +69,6 @@ test-readln: default
 	./build/assembler   test/ssa/readln.ssa  /tmp/readln.sso
 	./build/assembler   test/ssa/writeln.ssa /tmp/writeln.sso
 	./build/assembler   test/ssa/_start.ssa  /tmp/_start.sso
-	./build/linker	    /tmp/_start.sso /tmp/writeln.sso /tmp/readln.sso /tmp/readln2.sso /tmp/readln.ss
+	./build/assembler   test/ssa/alloc.ssa   /tmp/alloc.sso
+	./build/linker	    /tmp/_start.sso /tmp/writeln.sso /tmp/readln.sso /tmp/readln2.sso /tmp/alloc.sso /tmp/readln.ss
 	./build/interpreter /tmp/readln.ss

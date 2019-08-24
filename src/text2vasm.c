@@ -60,6 +60,14 @@ static int getop(char *mnem)
 			return VASM_OP_LOADS;
 		if (streq("loadb", mnem))
 			return VASM_OP_LOADB;
+		if (streq("loadlat", mnem))
+			return VASM_OP_LOADLAT;
+		if (streq("loadiat", mnem))
+			return VASM_OP_LOADIAT;
+		if (streq("loadsat", mnem))
+			return VASM_OP_LOADSAT;
+		if (streq("loadbat", mnem))
+			return VASM_OP_LOADBAT;
 		if (streq("lshift", mnem))
 			return VASM_OP_LSHIFT;
 		break;
@@ -104,6 +112,14 @@ static int getop(char *mnem)
 			return VASM_OP_STORES;
 		if (streq("storeb", mnem))
 			return VASM_OP_STOREB;
+		if (streq("storelat", mnem))
+			return VASM_OP_STORELAT;
+		if (streq("storeiat", mnem))
+			return VASM_OP_STOREIAT;
+		if (streq("storesat", mnem))
+			return VASM_OP_STORESAT;
+		if (streq("storebat", mnem))
+			return VASM_OP_STOREBAT;
 		if (streq("sub", mnem))
 			return VASM_OP_SUB;
 		if (streq("syscall", mnem))
@@ -246,6 +262,14 @@ static int parse_op_args(union vasm_all *v, char *args)
 	case VASM_OP_RSHIFT:
 	case VASM_OP_LSHIFT:
 	case VASM_OP_XOR:
+	case VASM_OP_STORELAT:
+	case VASM_OP_STOREIAT:
+	case VASM_OP_STORESAT:
+	case VASM_OP_STOREBAT:
+	case VASM_OP_LOADLAT:
+	case VASM_OP_LOADIAT:
+	case VASM_OP_LOADSAT:
+	case VASM_OP_LOADBAT:
 		REG(v->r3.r[0]);
 		SKIP;
 		REG(v->r3.r[1]);
