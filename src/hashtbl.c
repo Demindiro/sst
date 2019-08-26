@@ -48,7 +48,7 @@ int h_resize(struct hashtbl *tbl, size_t newlen)
 		if (a == NULL)
 			continue;
 		size_t l = *(size_t *)a;
-		size_t lcap = l & 0xffffffff, lcount = l >> 32L;
+		size_t /*lcap = l & 0xffffffff,*/ lcount = l >> 32L;
 		for (size_t j = 0; j < lcount; j++) {
 			if (h_add(&ntbl, (char *)a[1 + l * 2], (size_t)a[1 + l * 2 + 1]) < 0) {
 				h_destroy(&ntbl);

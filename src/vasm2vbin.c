@@ -218,6 +218,7 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 	// TODO
 
 	*vbinlen_p = vbinlen;
+	return 0;
 }
 
 

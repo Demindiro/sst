@@ -31,6 +31,7 @@ static size_t ip;
 		REG3; \
 		REGI = REGJ op REGK; \
 	} while (0)
+# define REG3OPSTR(m,op,opstr) REG3OP(m,op)
 #else
 # define REG3OP(m,op) \
 	do {\
@@ -38,6 +39,14 @@ static size_t ip;
 		size_t _v = regs[regj]; \
 		REGI = REGJ op REGK; \
 		DEBUG(m "\tr%d,r%d,r%d\t(%lu = %lu " #op " %lu)", \
+		      regi, regj, regk, REGI, _v, REGK); \
+	} while (0)
+# define REG3OPSTR(m,op,opstr) \
+	do {\
+		REG3; \
+		size_t _v = regs[regj]; \
+		REGI = REGJ op REGK; \
+		DEBUG(m "\tr%d,r%d,r%d\t(%lu = %lu " opstr " %lu)", \
 		      regi, regj, regk, REGI, _v, REGK); \
 	} while (0)
 #endif
@@ -105,7 +114,6 @@ static void vasm_syscall() {
 
 static void run() {
 
-	void *code  = mem;
 	sp = 0x10000;
 
 #ifndef NOPROF
@@ -156,10 +164,6 @@ static void run() {
 				DEBUG("jz\t0x%lx,r%d\t(%lu, true)",
 				      ip, regi, REGI);
 			} else {
-#ifndef NDEBUG
-				size_t v = *(size_t *)(mem + ip);
-				v = be64toh(ip);
-#endif
 				DEBUG("jz\t0x%lx,r%d\t(%lu, false)",
 				      ip, regi, REGI);
 				ip += sizeof ip;
@@ -173,10 +177,6 @@ static void run() {
 				DEBUG("jnz\t0x%lx,r%d\t(%lu, true)",
 				      ip, regi, REGI);
 			} else {
-#ifndef NDEBUG
-				size_t v = *(size_t *)(mem + ip);
-				v = be64toh(ip);
-#endif
 				DEBUG("jnz\t0x%lx,r%d\t(%lu, false)",
 				      ip, regi, REGI);
 				ip += sizeof ip;
@@ -254,7 +254,7 @@ static void run() {
 		case VASM_OP_PUSH:
 			REG1;
 			*(size_t *)(mem + sp) = REGI;
-			DEBUG("push\tr%d\t(%lu)", regi, mem[sp]);
+			DEBUG("push\tr%d\t(%lu)", regi, *(size_t *)(mem + sp));
 			sp += sizeof regs[regi];
 			break;
 		case VASM_OP_POP:
@@ -312,10 +312,10 @@ static void run() {
 			REG3OP("div", /);
 			break;
 		case VASM_OP_MOD:
-			REG3OP("mod", %);
+			REG3OPSTR("mod", %, "%%");
 			break;
 		case VASM_OP_REM:
-			REG3OP("rem", %);
+			REG3OPSTR("rem", %, "%%");
 			break;
 		case VASM_OP_LSHIFT:
 			REG3OP("lshift", <<);
@@ -332,7 +332,7 @@ static void run() {
 			DEBUG("not\tr%d,r%d\t(%lu)", regi, regj, REGI);
 			break;
 		case VASM_OP_INV:
-			REG3;
+			REG2;
 			REGI = !REGJ;
 			DEBUG("inv\tr%d,r%d\t(%lu)", regi, regj, REGI);
 			break;
@@ -345,7 +345,7 @@ static void run() {
 			// instructions 22% slower?
 			// I wish I were kidding.
 #ifndef NDEBUG
-			fprintf(stderr, "ERROR: invalid opcode (%lu)\n", op);
+			fprintf(stderr, "ERROR: invalid opcode (%u)\n", op);
 #endif
 			abort();
 		}

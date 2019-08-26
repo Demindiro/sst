@@ -27,6 +27,11 @@ writeln_num:
 	set	r11,0	# The length
 	set	r12,1	# To decrease r2 and increase r11
 	set	r13,48	# '0'
+	# Decrease pointer on stack to prevent
+	# overlap with return address on call
+	# (Analogy: a[a.length - 1] for the last
+	# element)
+	sub	r2,r2,r12
 .loop0:
 	mod	r20,r0,r10
 	add	r20,r20,r13

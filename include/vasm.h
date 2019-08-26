@@ -2,7 +2,6 @@
 #define VASM_H
 
 
-
 #define VASM_OP_NONE      (-1)
 #define VASM_OP_COMMENT   (-2)
 #define VASM_OP_LABEL     (-3)

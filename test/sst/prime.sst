@@ -1,7 +1,6 @@
 int main(string[] args)
 	writeln_num 2
 	writeln_num 3
-	long true = 1
 	long i = 3
 	while true
 		i += 2

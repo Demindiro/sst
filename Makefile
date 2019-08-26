@@ -3,7 +3,7 @@ LD = ld
 AS = as
 
 INCLUDE := -Iinclude/
-CFLAGS   = -O0 -g
+CFLAGS   = -O0 -g -Wall
 
 cc = $(CC) $(INCLUDE) $(CFLAGS) $+ -o $@
 ld = $(LD) $< -o $@
@@ -13,8 +13,12 @@ as = $(AS) $< -o $@
 default: build/compiler build/assembler build/interpreter build/linker
 
 
-build/compiler:		src/compiler.c src/text2lines.c src/lines2structs.c src/structs2vasm.c src/hashtbl.c | \
-			include/vasm.h include/text2lines.h include/lines2structs.h include/structs2vasm.h include/hashtbl.h
+build/compiler:		src/compiler.c src/text2lines.c src/lines2func.c \
+			src/func2vasm.c src/hashtbl.c \
+			src/optimize/lines.c src/optimize/vasm.c | \
+			include/util.h include/vasm.h include/text2lines.h \
+			include/func2vasm.h include/hashtbl.h \
+			include/optimize/lines.h include/optimize/vasm.h
 	$(cc)
 
 build/assembler:	src/assembler.c	src/vasm2vbin.c src/text2vasm.c | \
@@ -53,7 +57,7 @@ test-prime: default
 	./build/assembler   test/ssa/writeln.ssa /tmp/writeln.sso
 	./build/assembler   test/ssa/_start.ssa  /tmp/_start.sso
 	./build/linker      /tmp/_start.sso      /tmp/prime.sso   /tmp/writeln.sso   /tmp/prime.ss
-	#sh -c 'time ./build/interpreter /tmp/prime.ss'
+	sh -c 'time ./build/interpreter /tmp/prime.ss'
 
 test-writeln_num: default
 	./build/compiler    test/sst/writeln-num.sst   /tmp/writeln-num.ssa
