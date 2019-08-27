@@ -1,4 +1,5 @@
 #include "text2lines.h"
+#include <assert.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
@@ -9,73 +10,218 @@
 #include "util.h"
 
 
+typedef struct pos2 {
+	pos_t p;
+	size_t c;
+} pos2_t;
+
+
+static int is_control_word(const char *c)
+{
+	const char *words[] = {
+		"break", "end", "for", "if", "in", "include",
+		"return", "to", "while", NULL
+	};
+	for (const char **w = words; *w != NULL; w++) {
+		size_t l = strlen(*w);
+		if (memcmp(c, *w, l) == 0 && (c[l] == ' ' || c[l] == '\n'))
+			return 1;
+	}
+	return 0;
+}
+
+
+static int is_decl_and_assign(const char *c)
+{
+	// decl + assign format: type name = ...
+	// Make sure the 'type' isn't a control word (e.g. 'if')
+	if (is_control_word(c))
+		return 0;
+	// Skip type
+	while (*c != '\t' && *c != ' ') {
+		c++;
+		if (*c == 0 || *c == '\n')
+			return 0;
+	}
+	// Skip whitespace
+	while (*c == '\t' || *c == ' ') {
+		c++;
+		if (*c == '\n')
+			return 0;
+	}
+	// Skip name
+	while (('a' <= *c && *c <= 'z') ||
+	       ('A' <= *c && *c <= 'Z') ||
+	       ('0' <= *c && *c <= '9') ||
+	       (*c == '_')) {
+		c++;
+		if (*c == 0 || *c == '\n')
+			return 0;
+	}
+	// Skip whitespace
+	while (*c == '\t' || *c == ' ')
+		c++;
+
+	return *c == '=';
+}
+
+
+static char *_trim(const char *text, pos2_t **pos, size_t *poscount)
+{
+	size_t l = strlen(text) + 1;
+	char *buf = malloc(l);
+	memcpy(buf, text, l);
+	char *d = buf, *s = buf;
+
+	size_t pc = 0, pl = 1024;
+	pos2_t *p = malloc(pl * sizeof *p);
+
+	size_t c = 0;
+	int x = 1, y = 1;
+
+	int instring = 0;
+
+#define INCS do {		\
+	s++, x++;		\
+	if (*s == '\n')		\
+		y++, x = 0;	\
+} while (0)
+#define INCD do {		\
+	d++, c++;		\
+} while (0)
+#define MARK do {		\
+	p[pc].p.c = s - buf;	\
+	p[pc].p.x = x;		\
+	p[pc].p.y = y;		\
+	p[pc].c   = c;		\
+	pc++;			\
+} while(0)
+
+	while (1) {
+		assert(x >= 0);
+		assert(y >  0);
+		// Skip whitespace
+		while (*s == ' ' || *s == '\t' || *s == '\n')
+			INCS;
+		// EOL
+		if (*s == 0)
+			break;
+		// ';' has the same meaning as '\n'
+		if (*s == ';') {
+			*s = '\n';
+			s++, x++;
+			continue;
+		}
+		// Insert position marker
+		MARK;
+		// Copy non-whitespace
+		while (instring || (*s != ' ' && *s != '\t' && *s != '\n')) {
+			*d = *s;
+			INCD;
+			INCS;
+			if (*s == 0)
+				break;
+			// Include strings fully
+			if (*s == '"')
+				instring = !instring;
+		}
+		// Insert ' ' or '\n'
+		*d = *s == '\n' ? '\n' : ' ';
+		INCD;
+	}
+
+#undef INCS
+#undef INCD
+#undef MARK
+
+	d[-1] = '\n'; // Make sure the last line ends with a newline
+	d[ 0] = 0; // Make sure the text ends with a null terminator
+
+	*pos = realloc(p, pc * sizeof *p);
+	*poscount = pc;
+
+	return realloc(buf, d - buf + 1);
+}
+
+
+static pos2_t _getpos(pos2_t *p, size_t pc, size_t c)
+{
+	for (size_t i = pc; i > 0; i--) {
+		pos2_t n = p[i - 1];
+		if (n.c <= c) {
+		       	n.p.x += c - n.c;
+			//n.p.c  = c;
+			return n;
+		}
+	}
+	assert(0);
+}
+
+
 int text2lines(const char *text,
                line_t **lines  , size_t *linecount,
                char ***strings, size_t *stringcount) {
+
+	pos2_t *pos;
+	size_t poscount;
+	text = _trim(text, &pos, &poscount);
+	DEBUG("Trimmed text:\n%s", text);
+
 	size_t ls     = 64, lc = 0;
 	line_t *lns    = malloc(ls * sizeof *lns);
 	size_t ss     = 4, sc = 0;
 	char **strs   = malloc(ss * sizeof *strs);
 	const char *c = text;
 
-	while (1) {
-		// Skip whitespace
-		while (*c == '\n' || *c == ';' || *c == ' ' || *c == '\t')
-			c++;
+	while (*c != 0) {
+
 		// EOL
 		if (*c == 0)
 			break;
-		// Comment
+
+		// Skip comments
 		if (*c == '#') {
-			while (*c != '\n' && *c != 0)
+			while (*c != '\n')
 				c++;
 			continue;
 		}
-		// Copy line
-		char buf[256], *ptr = buf;
 
-		// Check if declaration + assignment
-		const char *d = c;
-		while (*c != ' ' && *c != '\t' && *c != '\n')
-			c++;
-		char b[64];
-		size_t l = c - d;
-		memcpy(b, d, l);
-		b[l] = 0;
-		if (streq(b, "long") || streq(b, "char[]")) {
-			b[l] = ' ';
-			l++;
-			d = c + 1;
-			while (*d == ' ' || *d == '\t')
+		// Split declaration + assignment
+		if (is_decl_and_assign(c)) {
+			char        b[256];
+			size_t      l = 0;
+			const char *s = c;
+			// Include type
+			while (*c != ' ')
+				b[l++] = *c++;
+			b[l++] = ' ';
+			// Skip whitespace
+			while (*c == ' ')
+				c++;
+			// Include name (don't use c because the name is needed later)
+			const char *d = c;
+			while (!strchr(" \t=+-*/%<>", *d)) {
+				b[l++] = *d;
 				d++;
-			c = d;
-			while (*d != ' ' && *d != '\t' && *d != '\n') {
-				b[l] = *d;
-				l++, d++;
 			}
+			pos2_t p = _getpos(pos, poscount, s - text);
 			b[l] = 0;
 			lns[lc].text = strclone(b);
-			lns[lc].row  = 9999;
+			lns[lc].pos  = p.p;
 			lc++;
-		} else {
-			c = d;
 		}
-		while (*c != '\n' && *c != ';') {
-			if (*c == ' ' || *c == '\t') {
-				*ptr = ' ';
-				ptr++;
-				while (*c == ' ' || *c == '\t')
-					c++;
-				*ptr = *c;
-			} else {
-				*ptr = *c;
-				ptr++, c++;
-			}
-			if (strncmp(c, "true", 4) == 0 && (c[4] == 0 || strchr("\n \t", c[4]))) {
+
+		// Copy line
+		char buf[256], *ptr = buf;
+		const char *d = c;
+
+		while (*c != '\n') {
+			*ptr++ = *c++;
+			if (strncmp(c, "true", 4) == 0 && (c[4] == 0 || strchr("\n ", c[4]))) {
 				*ptr = '1';
 				ptr += 1;
 				c   += 4;
-			} else if (strncmp(c, "false ", 5) == 0 && (c[5] == 0 || strchr("\n \t", c[5]))) {
+			} else if (strncmp(c, "false ", 5) == 0 && (c[5] == 0 || strchr("\n ", c[5]))) {
 				*ptr = '0';
 				ptr += 1;
 				c   += 5;
@@ -88,7 +234,8 @@ int text2lines(const char *text,
 				c++;
 				while (*c != '"') {
 					*ptr2 = *c;
-					ptr2++, c++;
+					ptr2++;
+					c++;
 				}
 				c++;
 				char *p = malloc(ptr2 - buf2);
@@ -116,8 +263,9 @@ int text2lines(const char *text,
 		char *m = malloc(ptr - buf + 1);
 		memcpy(m, buf, ptr - buf);
 		m[ptr - buf] = 0;
+		pos2_t p = _getpos(pos, poscount, d - text);
 		lns[lc].text = m;
-		lns[lc].row  = 9999;
+		lns[lc].pos  = p.p;
 		lc++;
 		c++;
 	}

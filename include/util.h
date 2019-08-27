@@ -22,6 +22,14 @@ static char *strclone(const char *text) {
 #define strstart(x,y) (strncmp(x,y,strlen(y)) == 0)
 #define isnum(c) ('0' <= c && c <= '9')
 
-#define ERROR(m, ...) fprintf(stderr, m "\n", ##__VA_ARGS__)
+#ifndef NDEBUG
+# define ERROR(m, ...) fprintf(stderr, "ERROR: " m "\n", ##__VA_ARGS__)
+# define DEBUG(m, ...) fprintf(stderr, "DEBUG: " m "\n", ##__VA_ARGS__)
+#else
+# define ERROR(m, ...) fprintf(stderr, m "\n", ##__VA_ARGS__)
+# define DEBUG(m, ...) NULL
+#endif
+
+#define EXIT(c) abort()
 
 #endif

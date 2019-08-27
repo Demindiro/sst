@@ -198,7 +198,7 @@ static char *parseexpr(const char *p, struct func *f, size_t *k, int *etemp)
 
 
 
-int parsefunc_header(struct func *f, const line_t line)
+int parsefunc_header(struct func *f, const line_t line, const char *text)
 {
 	size_t i = 0, j = 0;
 	const char *t = line.text;
@@ -210,8 +210,14 @@ int parsefunc_header(struct func *f, const line_t line)
 	j = i;
 
 	// Get type
-	while (t[j] != ' ')
+	while (t[j] != ' ') {
 		j++;
+		if (t[j] == 0) {
+			ERROR("Expected function name");
+			PRINTLINEX(line, j, text);
+			EXIT(1);
+		}
+	}
 	memcpy(f->type, t + i, j - i);
 
 	// Skip whitespace
@@ -220,8 +226,14 @@ int parsefunc_header(struct func *f, const line_t line)
 	i = j;
 
 	// Get name
-	while (t[j] != ' ' && t[j] != '(')
+	while (t[j] != ' ' && t[j] != '(') {
 		j++;
+		if (t[j] == 0) {
+			ERROR("Expected '('");
+			PRINTLINEX(line, j, text);
+			EXIT(1);
+		}
+	}
 	memcpy(f->name, t + i, j - i);
 
 	// Skip whitespace
@@ -232,8 +244,8 @@ int parsefunc_header(struct func *f, const line_t line)
 	// Parse arguments
 	if (t[j] != '(') {
 		ERROR("Expected '('");
-		PRINTLINE(line);
-		abort();
+		PRINTLINEX(line, j, text);	
+		EXIT(1);
 	}
 	j++;
 	size_t k = 0;

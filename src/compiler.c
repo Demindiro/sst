@@ -35,19 +35,17 @@ static const char *mathop2str(int op)
 }
 
 
-static int _text2lines(char *buf,
+static int _text2lines(const char *buf,
                        line_t **lines , size_t *linecount,
 		       char ***strings, size_t *stringcount)
 {
-	printf("=== text2lines ===\n");
+	DEBUG("Converting text to lines");
 	text2lines(buf, lines, linecount, strings, stringcount);
-	printf("\n");
+	line_t *l = *lines;
 	for (size_t i = 0; i < *stringcount; i++)
-		printf(".str_%lu = \"%s\"\n", i, (*strings)[i]);
-	printf("\n");
+		DEBUG(".str_%lu = \"%s\"", i, (*strings)[i]);
 	for (size_t i = 0; i < *linecount; i++)
-		printf("%4lu | %s\n", i + 1, (*lines)[i].text);
-	printf("\n");
+		DEBUG("%4u:%-2u | %s", l[i].pos.y, l[i].pos.x, l[i].text);
 	return 0;
 }
 
@@ -55,12 +53,12 @@ static int _text2lines(char *buf,
 
 static void _printfunc(struct func *f)
 {
-	printf("Name:   %s\n", f->name);
-	printf("Return: %s\n", f->type);
-	printf("Args:   %d\n", f->argcount);
+	DEBUG("Name:   %s", f->name);
+	DEBUG("Return: %s", f->type);
+	DEBUG("Args:   %d", f->argcount);
 	for (size_t j = 0; j < f->argcount; j++)
-		printf("  %s -> %s\n", f->args[j].name, f->args[j].type);
-	printf("Lines:  %d\n", f->linecount);
+		DEBUG("  %s -> %s", f->args[j].name, f->args[j].type);
+	DEBUG("Lines:  %d", f->linecount);
 	for (size_t j = 0; j < f->linecount; j++) {
 		union  func_line_all_p   fl = { .line = f->lines[j] } ;
 		struct func_line_func   *flf;
@@ -72,60 +70,64 @@ static void _printfunc(struct func *f)
 		switch (f->lines[j]->type) {
 		case FUNC_LINE_ASSIGN:
 			if (fl.a->cons)
-				printf("  Assign: %s = %s (const)\n", fl.a->var, fl.a->value);
+				DEBUG("  Assign: %s = %s (const)", fl.a->var, fl.a->value);
 			else
-				printf("  Assign: %s = %s\n", fl.a->var, fl.a->value);
+				DEBUG("  Assign: %s = %s", fl.a->var, fl.a->value);
 			break;
 		case FUNC_LINE_DECLARE:
-			printf("  Declare: %s\n", fl.d->var);
+			DEBUG("  Declare: %s", fl.d->var);
 			break;
 		case FUNC_LINE_DESTROY:
-			printf("  Destroy: %s\n", fl.d->var);
+			DEBUG("  Destroy: %s", fl.d->var);
 			break;
 		case FUNC_LINE_FUNC:
 			flf = (struct func_line_func *)f->lines[j];
-			printf("  Function:");
+#ifndef NDEBUG
+			fprintf(stderr, "DEBUG:   Function:");
+#else
+			fprintf(stderr, "  Function:");
+#endif
 			if (flf->var != NULL)
-				printf(" %s =", flf->var);
-			printf(" %s", flf->name);
+				fprintf(stderr, " %s =", flf->var);
+			fprintf(stderr, " %s", flf->name);
 			if (flf->paramcount > 0)
-				printf(" %s", flf->params[0]);
+				fprintf(stderr, " %s", flf->params[0]);
 			for (size_t k = 1; k < flf->paramcount; k++)
-				printf(",%s", flf->params[k]);
-			printf("\n");
+				fprintf(stderr, ",%s", flf->params[k]);
+			fprintf(stderr, "\n");
 			break;
 		case FUNC_LINE_GOTO:
 			flg = (struct func_line_goto *)f->lines[j];
-			printf("  Goto: %s\n", flg->label);
+			DEBUG("  Goto: %s", flg->label);
 			break;
 		case FUNC_LINE_IF:
 			fli = (struct func_line_if *)f->lines[j];
 			if (fli->inv)
-				printf("  If not %s then %s\n", fli->var, fli->label);
+				DEBUG("  If not %s then %s", fli->var, fli->label);
 			else
-				printf("  If %s then %s\n", fli->var, fli->label);
+				DEBUG("  If %s then %s", fli->var, fli->label);
 			break;
 		case FUNC_LINE_LABEL:
 			fll = (struct func_line_label *)f->lines[j];
-			printf("  Label: %s\n", fll->label);
+			DEBUG("  Label: %s", fll->label);
 			break;
 		case FUNC_LINE_MATH:
 			flm = (struct func_line_math *)f->lines[j];
 			if (flm->op == MATH_INV)
-				printf("  Math: %s = !%s\n", flm->x, flm->y);
+				DEBUG("  Math: %s = !%s", flm->x, flm->y);
 			else if (flm->op == MATH_NOT)
-				printf("  Math: %s = ~%s\n", flm->x, flm->y);
+				DEBUG("  Math: %s = ~%s", flm->x, flm->y);
 			else if (flm->op == MATH_LOADAT)
-				printf("  Math: %s = %s[%s]\n", flm->x, flm->y, flm->z);
+				DEBUG("  Math: %s = %s[%s]", flm->x, flm->y, flm->z);
 			else
-				printf("  Math: %s = %s %s %s\n", flm->x, flm->y, mathop2str(flm->op), flm->z);
+				DEBUG("  Math: %s = %s %s %s", flm->x, flm->y, mathop2str(flm->op), flm->z);
 			break;
 		case FUNC_LINE_RETURN:
 			flr = (struct func_line_return *)f->lines[j];
-			printf("  Return: %s\n", flr->val);
+			DEBUG("  Return: %s", flr->val);
 			break;
 		default:
-			printf("  Unknown line type (%d)\n", f->lines[j]->type);
+			DEBUG("  Unknown line type (%d)", f->lines[j]->type);
 			abort();
 		}
 	}
@@ -135,23 +137,23 @@ static void _printfunc(struct func *f)
 
 static int _lines2funcs(const line_t *lines , size_t linecount,
 		        struct func **funcs, size_t *funccount,
-		        struct hashtbl *functbl)
+		        struct hashtbl *functbl, const char *text)
 {
 	size_t fc = 0, fs = 16;
 	struct func *f = malloc(fs * sizeof *f);
 	h_create(functbl, 4);
-	printf("=== lines2funcs ===\n");
+	DEBUG("Converting lines to functions");
 	for (size_t i = 0; i < linecount; i++) {
 		line_t line = lines[i];
 		if (strncmp(line.text, "extern ", sizeof "extern") == 0) {
 			struct func *g = &f[fc++];
-			parsefunc_header(g, line);
+			parsefunc_header(g, line, text);
 			if (g == NULL)
 				return -1;
 			h_add(functbl, g->name, (size_t)g);
 		} else {
 			struct func *g = &f[fc++];
-			parsefunc_header(g, line);
+			parsefunc_header(g, line, text);
 			i++;
 			size_t nestlvl = 1, nestlines[256];
 			size_t j = i;
@@ -173,7 +175,7 @@ static int _lines2funcs(const line_t *lines , size_t linecount,
 				ERROR("Missing %lu 'end' statements", nestlvl);
 				for (size_t k = 0; k < nestlvl; k++) {
 					size_t l = nestlines[k];
-					ERROR("%4lu | %s", lines[l].row, lines[l].text);
+					PRINTLINE(lines[l]);
 				}	
 				return -1;
 			}
@@ -221,7 +223,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (_lines2funcs(lines, linecount, &funcs, &funccount, &functbl) < 0) {
+	if (_lines2funcs(lines, linecount, &funcs, &funccount, &functbl, buf) < 0) {
 		ERROR("Failed lines to functions stage");
 		return 1;
 	}
@@ -229,12 +231,12 @@ int main(int argc, char **argv)
 
 	union vasm_all **vasms = malloc(funccount * sizeof *vasms);
 	size_t *vasmcount = malloc(funccount * sizeof *vasmcount);
-	printf("=== structs2vasm ===\n");
+	DEBUG("=== structs2vasm ===");
 	for (size_t i = 0; i < funccount; i++) {
 		func2vasm(&vasms[i], &vasmcount[i], &funcs[i]);
 		optimizevasm(vasms[i], &vasmcount[i]);
 	}
-	printf("\n");
+	DEBUG("");
 	FILE *_f = fopen(argv[2], "w");
 	#define teeprintf(...) do {             \
 		fprintf(stderr, ##__VA_ARGS__); \
@@ -245,7 +247,7 @@ int main(int argc, char **argv)
 			union vasm_all a = vasms[h][i];
 			switch (a.a.op) {
 			default:
-				fprintf(stderr, "Unknown OP (%d)\n", vasms[h][i].op);
+				ERROR("Unknown OP (%d)", vasms[h][i].op);
 				abort();
 			case VASM_OP_NONE:
 				teeprintf("\n");

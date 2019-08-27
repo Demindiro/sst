@@ -10,7 +10,7 @@
 #include "util.h"
 
 
-int parsefunc_header(struct func *f, const line_t line);
+int parsefunc_header(struct func *f, const line_t line, const char *text);
 
 
 int lines2func(const line_t *lines, size_t linecount,
