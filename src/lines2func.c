@@ -72,8 +72,8 @@ static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etem
 			*etemp = 0;
 		return strclone(words[0]);
 	case 1:
-		ERROR("%d@%s: '%s' --> %lu", __LINE__, __FILE__, p, i);
-		abort();
+		ERROR("This situation is impossible");
+		EXIT(1);
 	default: {
 		if (etemp)
 			*etemp = 1;

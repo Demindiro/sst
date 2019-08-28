@@ -161,6 +161,18 @@ static pos2_t _getpos(pos2_t *p, size_t pc, size_t c)
 }
 
 
+static int can_extend_inc_or_dec(const char *c)
+{
+	while (*c != '-' && *c != '+') {
+		c++;
+		if (*c == '\n')
+			return 0;
+	}
+	c++;
+	return *c == '-' || *c == '+';
+}
+
+
 int text2lines(const char *text,
                line_t **lines  , size_t *linecount,
                char ***strings, size_t *stringcount) {
@@ -214,13 +226,35 @@ int text2lines(const char *text,
 			lc++;
 		}
 
+		// Extend var++ and var-- if applicable
+		if (can_extend_inc_or_dec(c)) {
+			const char *d = c;
+			while (*c != '-' && *c != '+')
+				c++;
+			char buf0[256], buf1[1024];
+			memcpy(buf0, d, c - d);
+			buf0[c - d] = 0;
+			snprintf(buf1, sizeof buf1, "%s = %s %c 1", buf0, buf0, *c);
+			pos2_t p = _getpos(pos, poscount, *c);
+			lns[lc].text = strclone(buf1);
+			lns[lc].pos  = p.p;
+			lc++;
+			c += 3;
+			continue;
+		}
+
 		// Copy line
 		char buf[256], *ptr = buf;
 		const char *d = c;
 
 		while (*c != '\n') {
 			*ptr++ = *c++;
-			if (strncmp(c, "true", 4) == 0 && (c[4] == 0 || strchr("\n ", c[4]))) {
+			if (*c == '=' && (*(c + 2) == '+' || *(c + 2) == '-')) {
+				*ptr++ = '=';
+				*ptr++ = ' ';
+				*ptr++ = '0';
+				c++;
+			} else if (strncmp(c, "true", 4) == 0 && (c[4] == 0 || strchr("\n ", c[4]))) {
 				*ptr = '1';
 				ptr += 1;
 				c   += 4;
@@ -228,6 +262,10 @@ int text2lines(const char *text,
 				*ptr = '0';
 				ptr += 1;
 				c   += 5;
+			} else if (strchr("+-*/%<>", *(c-1))) {
+				if (strchr(" =+-*/%<>", *c))
+					continue;
+				*ptr++ = ' ';
 			} else if (*c == '"') {
 				memcpy(ptr, ".str_", sizeof ".str_" - 1);
 				ptr += sizeof ".str_" - 1;
