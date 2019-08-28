@@ -32,7 +32,8 @@ static int mathop_precedence(int op)
 }
 
 
-static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etemp)
+static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etemp,
+                             const char *temptype, struct hashtbl *vartypes)
 {
 	// TODO
 	if (strstart(p, "new "))
@@ -121,7 +122,9 @@ static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etem
 		if (precdl >= precdr) {
 			fl.d            = calloc(sizeof *fl.d, 1);
 			fl.d->line.type = FUNC_LINE_DECLARE;
+			fl.d->type      = temptype;
 			fl.d->var       = strclone(var);
+			h_add(vartypes, fl.d->var, (size_t)fl.d->type);
 			f->lines[*k]    = fl.line;
 			(*k)++;
 
@@ -149,7 +152,7 @@ static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etem
 			// Dragons
 			size_t ok = *k;
 			const char *v = fl.m->x;
-			const char *e = parseexpr(p, f, k, NULL);
+			const char *e = parseexpr(p, f, k, NULL, temptype, vartypes);
 			fl.line = f->lines[ok + 1]; // + 1 to skip DECLARE
 			fl.m->y = v;
 
@@ -163,11 +166,13 @@ static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etem
 				(*k)++;
 			}
 		} else {
-			const char *e = parseexpr(p, f, k, NULL);
+			const char *e = parseexpr(p, f, k, NULL, temptype, vartypes);
 
 			fl.d            = calloc(sizeof *fl.d, 1);
 			fl.d->line.type = FUNC_LINE_DECLARE;
+			fl.d->type      = temptype;
 			fl.d->var       = strclone(var);
+			h_add(vartypes, fl.d->var, (size_t)fl.d->type);
 			f->lines[*k]    = fl.line;
 			(*k)++;
 
@@ -296,6 +301,13 @@ int lines2func(const line_t *lines, size_t linecount,
 	char looptype[16];
 	int  loopcounter = 0;
 	int  loopcount   = 0;
+	struct hashtbl vartypes;
+	h_create(&vartypes, 16);
+
+	// Add function parameters to vartypes
+	for (size_t i = 0; i < f->argcount; i++)
+		h_add(&vartypes, f->args[i].name, (size_t)f->args[i].type);
+
 	for ( ; ; ) {
 
 		#define NEXTWORD do { \
@@ -431,18 +443,20 @@ int lines2func(const line_t *lines, size_t linecount,
 			memcpy(word, p, ptr - p);
 			word[ptr - p] = 0;
 
-			fromval = parseexpr(word, f, &k, NULL);
+			fromval = parseexpr(word, f, &k, NULL, "long", &vartypes);
 
 			NEXTWORD;
 			NEXTWORD;
 
-			toval = parseexpr(ptr, f, &k, NULL);
+			toval = parseexpr(ptr, f, &k, NULL, "long", &vartypes);
 
 		isfromarray:
 			// Set iterator
 			flp.d            = calloc(sizeof *flp.d, 1);
 			flp.d->line.type = FUNC_LINE_DECLARE;
+			flp.d->type      = "long";
 			flp.d->var       = iterator;
+			h_add(&vartypes, flp.d->var, (size_t)flp.d->type);
 			f->lines[k]      = flp.line;
 			k++;
 
@@ -470,7 +484,7 @@ int lines2func(const line_t *lines, size_t linecount,
 			fl.i = calloc(sizeof *fl.i, 1);
 			char expr[64];
 			snprintf(expr, sizeof expr, "%s == %s", fla->var, toval);
-			const char *e = parseexpr(expr, f, &k, NULL);
+			const char *e = parseexpr(expr, f, &k, NULL, "long", &vartypes);
 			fl.i->line.type = FUNC_LINE_IF;
 			fl.i->label     = strclone(lbll);
 			fl.i->var       = e;
@@ -542,10 +556,10 @@ int lines2func(const line_t *lines, size_t linecount,
 			f->lines[k]      = flp.line;
 			k++;
 
-			const char *v = parseexpr(ptr, f, &k, NULL);
+			const char *v = parseexpr(ptr, f, &k, NULL, "bool", &vartypes);
 			char expr[64];
 			snprintf(expr, sizeof expr, "%s == 0", v);
-			const char *e = parseexpr(expr, f, &k, NULL);
+			const char *e = parseexpr(expr, f, &k, NULL, "bool", &vartypes);
 			flp.i = calloc(sizeof *flp.i, 1);
 			flp.i->line.type = FUNC_LINE_IF;
 			flp.i->label     = lbllc;
@@ -584,11 +598,10 @@ int lines2func(const line_t *lines, size_t linecount,
 			const char *lbllc = strclone(lbll);
 			const char *lblec = strclone(lble);
 
-			//char *v = parseexpr(ptr, f, &k);
 			char expr[64];
 			snprintf(expr, sizeof expr, "%s == 0", ptr);
 
-			const char *e = parseexpr(expr, f, &k, NULL);
+			const char *e = parseexpr(expr, f, &k, NULL, "bool", &vartypes);
 			flp.i = calloc(sizeof *flp.i, 1);
 			flp.i->line.type = FUNC_LINE_IF;
 			flp.i->var   = e;
@@ -629,11 +642,14 @@ int lines2func(const line_t *lines, size_t linecount,
 		} else if (
 			streq(word, "bool") || streq(word, "char") ||
 			streq(word, "long") || /* TODO */ streq(word, "char[]")) {
+			char *type = strclone(word);
 			NEXTWORD;
 			char *name = strclone(word);
 			fl.d            = calloc(sizeof *fl.d, 1);
 			fl.d->line.type = FUNC_LINE_DECLARE;
+			fl.d->type      = type;
 			fl.d->var       = name;
+			h_add(&vartypes, fl.d->var, (size_t)fl.d->type);
 			f->lines[k]     = fl.line;
 			k++;
 		} else {
@@ -670,10 +686,15 @@ int lines2func(const line_t *lines, size_t linecount,
 					f->lines[k++]   = fl.line;
 				} else {
 					int etemp;
+					const char *type;
+					if (h_get2(&vartypes, name, (size_t *)&type) < 0) {
+						ERROR("Variable '%s' not declared", name);
+						EXIT(1);
+					}
 					fl.a = calloc(sizeof *fl.a, 1);
 					fl.a->line.type = FUNC_LINE_ASSIGN;
 					fl.a->var       = strclone(name);
-					fl.a->value     = parseexpr(p, f, &k, &etemp);
+					fl.a->value     = parseexpr(p, f, &k, &etemp, type, &vartypes);
 					const char *v   = fl.a->value;
 					f->lines[k++]   = fl.line;
 					// Destroy expression variable if newly allocated
@@ -688,13 +709,18 @@ int lines2func(const line_t *lines, size_t linecount,
 			} else if (strchr("+-*/%<>", word[0]) && word[1] == '=' &&
 			           word[2] == 0) {
 				int etemp;
+				const char *type;
+				if (h_get2(&vartypes, name, (size_t *)&type) < 0) {
+					ERROR("Variable '%s' not declared", name);
+					EXIT(1);
+				}
 				// Do math
 				flp.m = calloc(sizeof *flp.m, 1);
 				flp.m->line.type = FUNC_LINE_MATH;
 				flp.m->op        = MATH_ADD; // TODO
 				flp.m->x         = strclone(name);
 				flp.m->y         = flp.m->x;
-				flp.m->z         = parseexpr(ptr, f, &k, &etemp);
+				flp.m->z         = parseexpr(ptr, f, &k, &etemp, type, &vartypes);
 				const char *v    = flp.m->z;
 				f->lines[k]      = flp.line;
 				k++;

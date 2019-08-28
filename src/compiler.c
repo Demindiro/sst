@@ -85,7 +85,7 @@ static void _printfunc(struct func *f)
 				DEBUG("  Assign: %s = %s", fl.a->var, fl.a->value);
 			break;
 		case FUNC_LINE_DECLARE:
-			DEBUG("  Declare: %s", fl.d->var);
+			DEBUG("  Declare: %s %s", fl.d->type, fl.d->var);
 			break;
 		case FUNC_LINE_DESTROY:
 			DEBUG("  Destroy: %s", fl.d->var);

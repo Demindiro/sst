@@ -46,9 +46,12 @@ static int is_decl_and_assign(const char *c)
 	// Skip whitespace
 	while (*c == '\t' || *c == ' ') {
 		c++;
-		if (*c == '\n')
+		if (*c == 0 || *c == '\n')
 			return 0;
 	}
+	// Definitely not a declaration if there is already a '='
+	if (*c == '=')
+		return 0;
 	// Skip name
 	while (('a' <= *c && *c <= 'z') ||
 	       ('A' <= *c && *c <= 'Z') ||

@@ -44,6 +44,7 @@ struct func_line_assign {
 
 struct func_line_declare {
 	struct func_line line;
+	const char *type;
 	const char *var;
 };
 
