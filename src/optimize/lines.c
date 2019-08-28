@@ -55,6 +55,16 @@ static int _remove_unused_assign(struct func *f, size_t *i, struct hashtbl *h_co
 			if (streq(v, l.m->x))
 				goto notused;
 			break;
+		case FUNC_LINE_RETURN:
+			if (streq(v, l.r->val))
+				goto used;
+			break;
+		case FUNC_LINE_STORE:
+			if (streq(v, l.s->var) ||
+			    streq(v, l.s->val) ||
+			    streq(v, l.s->index))
+				goto used;
+			break;
 		}
 	}
 notused:
@@ -73,6 +83,7 @@ used:
 
 
 /**
+ * TODO: Labels & goto statements should also be checked
  * Move a destroy statement as much up as possible without altering program
  * behaviour to potentially free up registers and make other optimizations
  * feasible.

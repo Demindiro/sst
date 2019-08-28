@@ -70,8 +70,11 @@ static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etem
                              const char *temptype, struct hashtbl *vartypes)
 {
 	// TODO
-	if (strstart(p, "new "))
+	if (strstart(p, "new ")) {
+		if (etemp)
+			*etemp = 0;
 		return "99999"; //"TODO(new)";
+	}
 	static int varcounter = 0;
 	char words[4][32];
 	memset(words, 0, sizeof words);
