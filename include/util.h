@@ -16,6 +16,16 @@ static char *strclone(const char *text) {
 	memcpy(m, text, l + 1);
 	return m;
 }
+static char *strnclone(const char *text, size_t max) {
+	size_t l = strlen(text);
+	l = l > max ? max : l;
+	char *m = malloc(l + 1);
+	if (m == NULL)
+		return m;
+	memcpy(m, text, l + 1);
+	m[l] = 0;
+	return m;
+}
 #pragma GCC diagnostic pop
 
 #define streq(x,y) (strcmp(x,y) == 0)

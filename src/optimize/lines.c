@@ -296,7 +296,7 @@ static int _substitute_var(struct func *f, size_t *i)
 				case FUNC_LINE_FUNC:
 					for (size_t k = 0; k < l.f->paramcount; k++) {
 						if (streq(l.f->params[k], v))
-							strcpy(l.f->params[k], w);
+							l.f->params[k] = w;
 					}
 					break;
 				case FUNC_LINE_IF:

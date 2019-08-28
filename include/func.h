@@ -50,9 +50,9 @@ struct func_line_declare {
 struct func_line_func {
 	struct func_line line;
 	unsigned char paramcount;
-	char name[32];
-	char params[32][32];
-	const char *var;
+	const char  *name;
+	const char **params;
+	const char  *var;
 };
 
 struct func_line_goto {
@@ -97,14 +97,14 @@ union func_line_all_p {
 
 
 struct func_arg {
-	char type[32];
-	char name[32];
+	const char *type;
+	const char *name;
 };
 
 
 struct func {
-	char type[32];
-	char name[32];
+	const char *type;
+	const char *name;
 	unsigned char argcount;
 	unsigned char linecount;
 	struct func_arg   args[16];

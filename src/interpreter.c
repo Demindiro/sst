@@ -185,17 +185,17 @@ static void run() {
 		case VASM_OP_JMPRB:
 #ifndef NDEBUG
 			{
-				signed char c = mem[ip];
+				int8_t c = mem[ip];
 				if (c >= 0)
-					DEBUG("jmprb\t0x%lx\t(0x%lx = 0x%lx + 0x%x)",
-					      (unsigned char)c, ip + c, ip, c);
+					DEBUG("jmprb\t0x%x\t(0x%lx = 0x%lx + 0x%x)",
+					      (uint8_t)c, ip + c, ip, c);
 				else
-					DEBUG("jmprb\t0x%lx\t(0x%lx = 0x%lx - 0x%x)",
-					      (unsigned char)c, ip + c, ip, -c);
+					DEBUG("jmprb\t0x%x\t(0x%lx = 0x%lx - 0x%x)",
+					      (uint8_t)c, ip + c, ip, -c);
 				ip += c;
 			}
 #else
-			ip += (signed char)mem[ip];
+			ip += (int8_t)mem[ip];
 #endif
 			break;
 		case VASM_OP_JZB:

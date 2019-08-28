@@ -221,7 +221,7 @@ int parsefunc_header(struct func *f, const line_t line, const char *text)
 			EXIT(1);
 		}
 	}
-	memcpy(f->type, t + i, j - i);
+	f->type = strnclone(t + i, j - i);
 
 	// Skip whitespace
 	while (t[j] == ' ')
@@ -237,7 +237,7 @@ int parsefunc_header(struct func *f, const line_t line, const char *text)
 			EXIT(1);
 		}
 	}
-	memcpy(f->name, t + i, j - i);
+	f->name = strnclone(t + i, j - i);
 
 	// Skip whitespace
 	while (t[j] == ' ')
@@ -263,7 +263,7 @@ int parsefunc_header(struct func *f, const line_t line, const char *text)
 		// Get type
 		while (t[j] != ' ')
 			j++;
-		memcpy(f->args[k].type, t + i, j - i);
+		f->args[k].type = strnclone(t + i, j - i);
 		// Skip whitespace
 		while (t[j] == ' ')
 			j++;
@@ -271,7 +271,7 @@ int parsefunc_header(struct func *f, const line_t line, const char *text)
 		// Get type
 		while (t[j] != ' ' && t[j] != ')')
 			j++;
-		memcpy(f->args[k].name, t + i, j - i);
+		f->args[k].name = strnclone(t + i, j - i);
 		// Skip whitespace
 		while (t[j] == ' ')
 			j++;
@@ -648,14 +648,15 @@ int lines2func(const line_t *lines, size_t linecount,
 					fl.f          = calloc(sizeof *fl.f, 1);
 					fl.line->type = FUNC_LINE_FUNC;
 					fl.f->var     = strclone(name);
-					strcpy(fl.f->name, word);
+					fl.f->name    = strclone(word);
 					NEXTWORD;
 					if (word[0] != 0) {
+						fl.f->params = malloc(16 * sizeof *fl.f->params);
 						size_t l = strlen(word);
 						if (word[l - 1] == ',')
 							word[l - 1] = 0; // Exclude ','
-						strcpy(fl.f->params[0], word);
-						fl.f->paramcount++;
+						fl.f->params[0] = strclone(word);
+						fl.f->paramcount = 1;
 						while (1) {
 							NEXTWORD;
 							if (word[0] == 0)
@@ -663,8 +664,7 @@ int lines2func(const line_t *lines, size_t linecount,
 							size_t l = strlen(word);
 							if (word[l - 1] == ',')
 								word[l - 1] = 0; // Exclude ','
-							strcpy(fl.f->params[fl.f->paramcount], word);
-							fl.f->paramcount++;
+							fl.f->params[fl.f->paramcount++] = strclone(word);
 						}
 					}
 					f->lines[k++]   = fl.line;
@@ -708,13 +708,14 @@ int lines2func(const line_t *lines, size_t linecount,
 				}
 			} else {
 				struct func_line_func *flf = calloc(sizeof *flf, 1);
-				strcpy(flf->name, name);
+				flf->name = strclone(name);
 				if (word[0] != 0) {
+					flf->params = malloc(16 * sizeof *fl.f->params);
 					size_t l = strlen(word);
 					if (word[l - 1] == ',')
 						word[l - 1] = 0; // Exclude ','
-					strcpy(flf->params[0], word);
-					flf->paramcount++;
+					flf->params[0] = strclone(word);
+					flf->paramcount = 1;
 					while (1) {
 						NEXTWORD;
 						if (word[0] == 0)
@@ -722,7 +723,7 @@ int lines2func(const line_t *lines, size_t linecount,
 						size_t l = strlen(word);
 						if (word[l - 1] == ',')
 							word[l - 1] = 0; // Exclude ','
-						strcpy(flf->params[flf->paramcount], word);
+						flf->params[flf->paramcount++] = strclone(word);
 						flf->paramcount++;
 					}
 				}
