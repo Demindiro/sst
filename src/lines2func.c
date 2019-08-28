@@ -32,12 +32,46 @@ static int mathop_precedence(int op)
 }
 
 
+static const char *deref_arr(const char *w, struct func *f, size_t *k,
+                             struct hashtbl *vartypes, int *etemp)
+{
+	static int counter = 0;
+	const char *p = strchr(w, '[');
+	if (p != NULL) {
+		p++;
+		char *q = strchr(p, ']');
+		char var[16];
+		snprintf(var, sizeof var, "_elem_%d", counter++);
+		char *v = strclone(var);
+		struct func_line_declare *d = malloc(sizeof *d);
+		d->line.type = FUNC_LINE_DECLARE;
+		d->var = v;
+		f->lines[*k] = (struct func_line *)d;
+		(*k)++;
+		struct func_line_math *m = malloc(sizeof *m);
+		m->line.type = FUNC_LINE_MATH;
+		m->op = MATH_LOADAT;
+		m->x  = v;
+		m->y  = strnclone(w, p - w - 1);
+		m->z  = strnclone(p, q - p);
+		f->lines[*k] = (struct func_line *)m;
+		(*k)++;
+		if (etemp)
+			*etemp = 1;
+		return v;
+	}
+	if (etemp)
+		*etemp = 0;
+	return w;
+}
+
+
 static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etemp,
                              const char *temptype, struct hashtbl *vartypes)
 {
 	// TODO
 	if (strstart(p, "new "))
-		return strclone("TODO(new)");
+		return "99999"; //"TODO(new)";
 	static int varcounter = 0;
 	char words[4][32];
 	memset(words, 0, sizeof words);
@@ -68,9 +102,7 @@ static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etem
 	union func_line_all_p fl;
 	switch (i) {
 	case 0:
-		if (etemp)
-			*etemp = 0;
-		return strclone(words[0]);
+		return deref_arr(strclone(words[0]), f, k, vartypes, etemp);
 	case 1:
 		ERROR("This situation is impossible");
 		EXIT(1);
@@ -659,6 +691,7 @@ int lines2func(const line_t *lines, size_t linecount,
 			k++;
 		} else if (
 			streq(word, "bool") || streq(word, "char") || streq(word, "char[21]") ||
+			streq(word, "char[4096]") ||
 			streq(word, "long") || /* TODO */ streq(word, "char[]")) {
 			char *type = strclone(word);
 			NEXTWORD;
@@ -785,7 +818,6 @@ int lines2func(const line_t *lines, size_t linecount,
 						if (word[l - 1] == ',')
 							word[l - 1] = 0; // Exclude ','
 						flf->params[flf->paramcount++] = strclone(word);
-						flf->paramcount++;
 					}
 				}
 				flf->line.type = FUNC_LINE_FUNC;

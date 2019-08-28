@@ -274,7 +274,6 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			} else {
 				ra = h_get(&tbl, flm->y);
 				if (ra == -1) {
-					printf("aaa\n");
 					ERROR("Variable '%s' not declared", flm->y);
 					EXIT(1);
 				}
@@ -293,7 +292,6 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 						l[1] = 0;
 						memcpy(r, flm->z + 2, strlen(flm->z) - 2);
 						r[strlen(flm->z) - 2] = 0;
-						printf("%s\n", r);
 
 						a.rs.op  = VASM_OP_SET;
 						a.rs.r   = 22;
@@ -355,6 +353,44 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			a.rs.str = flr->val;
 			v[vc++] = a;
 			v[vc++].op = VASM_OP_RET;
+			break;
+		case FUNC_LINE_STORE:
+			if (isnum(*fl.s->var)) {
+				ERROR("You can't index a number");
+				EXIT(1);
+			}
+			if (isnum(*fl.s->val)) {
+				a.rs.op  = VASM_OP_SET;
+				a.rs.r   = ra = 20;
+				a.rs.str = fl.s->val;
+				v[vc++] = a;
+			} else {
+				ra = h_get(&tbl, fl.s->val);
+				if (ra == -1) {
+					ERROR("Variable '%s' not declared", fl.s->val);
+					EXIT(1);
+				}
+			}
+			if (isnum(*fl.s->index)) {
+				a.rs.op  = VASM_OP_SET;
+				a.rs.r   = rb = 21;
+				a.rs.str = fl.s->val;
+				v[vc++] = a;
+			} else {
+				rb = h_get(&tbl, fl.s->index);
+				if (rb == -1) {
+					ERROR("Variable '%s' not declared", fl.s->index);
+					EXIT(1);
+				}
+			}
+			a.r2.op = VASM_OP_STOREBAT; // TODO determine required length
+			a.r2.r[0] = ra;
+			a.r2.r[1] = h_get(&tbl, fl.s->var);
+			a.r2.r[2] = rb;
+			if (a.r2.r[1] == -1) {
+				ERROR("Variable '%s' not declared", fl.s->var);
+				EXIT(1);
+			}
 			break;
 		default:
 			ERROR("Unknown line type (%d)", f->lines[i]->type);

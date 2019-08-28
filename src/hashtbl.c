@@ -6,6 +6,7 @@
 #include <endian.h>
 #include <stdint.h>
 #include "hashtbl.h"
+#include "util.h"
 
 
 static size_t h_hash_str(const char *str)

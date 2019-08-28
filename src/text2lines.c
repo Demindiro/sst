@@ -284,6 +284,9 @@ int text2lines(const char *text,
 				p[ptr2 - buf2] = 0;
 				strs[sc] = p;
 				sc++;
+			} else if (*c == ',' && *(c + 1) == ' ') {
+				*ptr++ = ',';
+				c += 2;
 			}
 			if (*c == '\'') {
 				c++;

@@ -29,7 +29,7 @@ end
 char[] readln()
 	char[4096] buf
 	long n = read 0, buf, buf.length
-	char str = new char[n]
+	char[] str = new char[n]
 	for i in 0 to n
 		str[i] = buf[i]
 	end
