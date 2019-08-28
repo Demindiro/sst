@@ -18,9 +18,20 @@ static long   regs[32];
 static size_t ip;
 
 
-#define REG1 do { regi = mem[ip++]; } while (0)
-#define REG2 do { regi = mem[ip++]; regj = mem[ip++]; } while (0)
-#define REG3 do { regi = mem[ip++]; regj = mem[ip++]; regk = mem[ip++]; } while (0)
+#ifdef NDEBUG
+# undef assert
+# define assert(c, ...) if (c) __builtin_unreachable()
+#endif
+
+
+#ifdef UNSAFE
+# define _CHECKREG assert(regi < 32 && regj < 32 && regk < 32)
+#else
+# define _CHECKREG NULL
+#endif
+#define REG1 do { regi = mem[ip++]; _CHECKREG; } while (0)
+#define REG2 do { regi = mem[ip++]; regj = mem[ip++]; _CHECKREG; } while (0)
+#define REG3 do { regi = mem[ip++]; regj = mem[ip++]; regk = mem[ip++]; _CHECKREG; } while (0)
 #define REGI regs[regi]
 #define REGJ regs[regj]
 #define REGK regs[regk]
@@ -36,7 +47,7 @@ static size_t ip;
 # define REG3OP(m,op) \
 	do {\
 		REG3; \
-		size_t _v = regs[regj]; \
+		size_t _v = REGJ; \
 		REGI = REGJ op REGK; \
 		DEBUG(m "\tr%d,r%d,r%d\t(%lu = %lu " #op " %lu)", \
 		      regi, regj, regk, REGI, _v, REGK); \
@@ -44,7 +55,7 @@ static size_t ip;
 # define REG3OPSTR(m,op,opstr) \
 	do {\
 		REG3; \
-		size_t _v = regs[regj]; \
+		size_t _v = REGJ; \
 		REGI = REGJ op REGK; \
 		DEBUG(m "\tr%d,r%d,r%d\t(%lu = %lu " opstr " %lu)", \
 		      regi, regj, regk, REGI, _v, REGK); \
@@ -411,7 +422,12 @@ static void run() {
 #ifndef NDEBUG
 			fprintf(stderr, "ERROR: invalid opcode (%u)\n", op);
 #endif
+#ifdef UNSAFE
+			assert(0);
+#else
 			abort();
+#endif
+			break;
 		}
 #ifdef THROTTLE
 		usleep(THROTTLE * 1000);
