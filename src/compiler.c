@@ -136,6 +136,9 @@ static void _printfunc(struct func *f)
 			flr = (struct func_line_return *)f->lines[j];
 			DEBUG("  Return: %s", flr->val);
 			break;
+		case FUNC_LINE_STORE:
+			DEBUG("  Store: %s[%s] = %s", fl.s->var, fl.s->index, fl.s->val);
+			break;
 		default:
 			DEBUG("  Unknown line type (%d)", f->lines[j]->type);
 			abort();

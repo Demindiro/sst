@@ -13,6 +13,7 @@
 #define FUNC_LINE_LOAD    8
 #define FUNC_LINE_MATH    9
 #define FUNC_LINE_RETURN 10
+#define FUNC_LINE_STORE  11
 
 #define MATH_ADD    VASM_OP_ADD
 #define MATH_SUB    VASM_OP_SUB
@@ -84,6 +85,13 @@ struct func_line_return {
 	const char *val;
 };
 
+struct func_line_store {
+	struct func_line line;
+	const char *var;
+	const char *val;
+	const char *index;
+};
+
 union func_line_all_p {
 	struct func_line *line;
 	struct func_line_assign  *a;
@@ -94,6 +102,7 @@ union func_line_all_p {
 	struct func_line_label   *l;
 	struct func_line_math    *m;
 	struct func_line_return  *r;
+	struct func_line_store   *s;
 };
 
 

@@ -205,6 +205,24 @@ static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etem
 }
 
 
+static int is_array_dereference(const char *str, const char **arr, const char **index)
+{
+	const char *p = strchr(str, '[');
+	if (p != NULL) {
+		p++;
+		const char *q = strchr(p, ']');
+		if (q == NULL) {
+			ERROR("Expected ']'");
+			EXIT(1);
+		}
+		*arr   = strnclone(str, p - str - 1);
+		*index = strnclone(p, q - p);
+		return 1;
+	}
+	return 0;
+}
+
+
 
 int parsefunc_header(struct func *f, const line_t line, const char *text)
 {
@@ -640,7 +658,7 @@ int lines2func(const line_t *lines, size_t linecount,
 			f->lines[k] = (struct func_line *)flr;
 			k++;
 		} else if (
-			streq(word, "bool") || streq(word, "char") ||
+			streq(word, "bool") || streq(word, "char") || streq(word, "char[21]") ||
 			streq(word, "long") || /* TODO */ streq(word, "char[]")) {
 			char *type = strclone(word);
 			NEXTWORD;
@@ -687,15 +705,32 @@ int lines2func(const line_t *lines, size_t linecount,
 				} else {
 					int etemp;
 					const char *type;
-					if (h_get2(&vartypes, name, (size_t *)&type) < 0) {
-						ERROR("Variable '%s' not declared", name);
-						EXIT(1);
+					const char *arr, *index;
+					const char *v;
+					if (is_array_dereference(name, &arr, &index)) {
+						if (h_get2(&vartypes, arr, (size_t *)&type) < 0) {
+							ERROR("Variable '%s' not declared", arr);
+							EXIT(1);
+						}
+						fl.s = malloc(sizeof *fl.s);
+						fl.s->line.type = FUNC_LINE_STORE;
+						fl.s->var   = arr;
+						fl.s->index = index;
+						fl.s->val   = parseexpr(p, f, &k, &etemp,
+								type, &vartypes);
+						v = fl.s->val;
+					} else {
+						if (h_get2(&vartypes, name, (size_t *)&type) < 0) {
+							ERROR("Variable '%s' not declared", name);
+							EXIT(1);
+						}
+						fl.a = malloc(sizeof *fl.a);
+						fl.a->line.type = FUNC_LINE_ASSIGN;
+						fl.a->var       = strclone(name);
+						fl.a->value     = parseexpr(p,
+								f, &k, &etemp, type, &vartypes);
+						v = fl.a->value;
 					}
-					fl.a = calloc(sizeof *fl.a, 1);
-					fl.a->line.type = FUNC_LINE_ASSIGN;
-					fl.a->var       = strclone(name);
-					fl.a->value     = parseexpr(p, f, &k, &etemp, type, &vartypes);
-					const char *v   = fl.a->value;
 					f->lines[k++]   = fl.line;
 					// Destroy expression variable if newly allocated
 					if (etemp) {
