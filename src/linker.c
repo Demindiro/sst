@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
 		char *ptr = buf + 4;
 
 		printf("  lbl2pos:\n");
-		uint32_t l = be32toh(*(uint32_t *)ptr);
+		uint32_t l = le32toh(*(uint32_t *)ptr);
 		ptr += sizeof l;
 		for (size_t i = 0; i < l; i++) {
 			uint8_t strl = *ptr;
@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
 			s[strl] = 0;
 			ptr += strl;
 			uint64_t pos = *(uint64_t *)ptr;
-			pos = be64toh(pos);
+			pos = le64toh(pos);
 			ptr += sizeof pos;
 			printf("    %s = %lu (%lu + %lu)\n", s, pos + vbinlen,
 			       vbinlen, pos);
@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
 		}
 
 		printf("  pos2lbl:\n");
-		l = be32toh(*(uint32_t *)ptr);
+		l = le32toh(*(uint32_t *)ptr);
 		ptr += sizeof l;
 		for (size_t i = 0; i < l; i++) {
 			uint8_t strl = *ptr;
@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
 			s[strl] = 0;
 			ptr += strl;
 			uint64_t pos = *(uint64_t *)ptr;
-			pos = be64toh(pos);
+			pos = le64toh(pos);
 			ptr += sizeof pos;
 			printf("    %lu (%lu + %lu) = %s\n", pos + vbinlen, vbinlen, pos, s);
 			pos2lbl[pos2lblcount].lbl = s;
@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
 	printf("%s\n", argv[argc - 1]);
 	for (size_t i = 0; i < pos2lblcount; i++) {
 		size_t pos = h_get(&lbl2pos, pos2lbl[i].lbl);
-		*(size_t *)(vbin + pos2lbl[i].pos) = htobe64(pos);
+		*(size_t *)(vbin + pos2lbl[i].pos) = htole64(pos);
 		printf("  %s @ %lu (0x%lx)--> %lu (0x%lx)\n", pos2lbl[i].lbl,
 		       pos2lbl[i].pos, pos2lbl[i].pos, pos, pos);
 	}

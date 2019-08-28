@@ -252,19 +252,19 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 			case VASM_OP_SETS:
 				if (val > 0xFFFF)
 					abort();
-				*(uint16_t *)(vbin + vbinlen) = htobe16(val);
+				*(uint16_t *)(vbin + vbinlen) = htole16(val);
 				vbinlen += 2;
 				break;
 			case VASM_OP_SETI:
 				if (val > 0xFFFFffff)
 					abort();
-				*(uint32_t *)(vbin + vbinlen) = htobe32(val);
+				*(uint32_t *)(vbin + vbinlen) = htole32(val);
 				vbinlen += 4;
 				break;
 			case VASM_OP_SETL:
 				if (val > 0xFFFFffffFFFFffff)
 					abort();
-				*(uint64_t *)(vbin + vbinlen) = htobe64(val);
+				*(uint64_t *)(vbin + vbinlen) = htole64(val);
 				vbinlen += 8;
 				break;
 			}
@@ -332,19 +332,19 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		case VASM_OP_RAW_LONG:
 			vbinlen--;
 			val = strtol(a.s.str, NULL, 0);
-						*(unsigned long *)(vbin + vbinlen) = htobe64(val);
+						*(unsigned long *)(vbin + vbinlen) = htole64(val);
 			vbinlen += sizeof (unsigned long);
 			break;
 		case VASM_OP_RAW_INT:
 			vbinlen--;
 			val = strtol(a.s.str, NULL, 0);
-			*(unsigned int *)(vbin + vbinlen) = htobe32(val);
+			*(unsigned int *)(vbin + vbinlen) = htole32(val);
 			vbinlen += sizeof (unsigned int);
 			break;
 		case VASM_OP_RAW_SHORT:
 			vbinlen--;
 			val = strtol(a.s.str, NULL, 0);
-			*(unsigned short*)(vbin + vbinlen) = htobe16(val);
+			*(unsigned short*)(vbin + vbinlen) = htole16(val);
 			vbinlen += sizeof (unsigned short);
 			break;
 		case VASM_OP_RAW_BYTE:
@@ -399,7 +399,7 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 
 int dumplbl(int fd, struct lblmap *map)
 {
-	uint32_t v32 = htobe32(map->lbl2poscount);
+	uint32_t v32 = htole32(map->lbl2poscount);
 	write(fd, &v32, sizeof v32);
 	for (size_t i = 0; i < map->lbl2poscount; i++) {
 		char b[260];
@@ -409,13 +409,13 @@ int dumplbl(int fd, struct lblmap *map)
 			return -1;
 		}
 		b[0] = l;
-		uint64_t pos = htobe64(map->lbl2pos[i].pos);
+		uint64_t pos = htole64(map->lbl2pos[i].pos);
 		memcpy(b + 1, map->lbl2pos[i].lbl, l);
 		memcpy(b + 1 + l, &pos, sizeof pos);
 		write(fd, b, 1 + l + sizeof pos);
 	}
 	
-	v32 = htobe32(map->pos2lblcount);
+	v32 = htole32(map->pos2lblcount);
 	write(fd, &v32, sizeof v32);
 	for (size_t i = 0; i < map->pos2lblcount; i++) {
 		char b[260];
@@ -425,7 +425,7 @@ int dumplbl(int fd, struct lblmap *map)
 			return -1;
 		}
 		b[0] = l;
-		uint64_t pos = htobe64(map->pos2lbl[i].pos);
+		uint64_t pos = htole64(map->pos2lbl[i].pos);
 		memcpy(b + 1, map->pos2lbl[i].lbl, l);
 		memcpy(b + 1 + l, &pos, sizeof pos);
 		write(fd, b, 1 + l + sizeof pos);

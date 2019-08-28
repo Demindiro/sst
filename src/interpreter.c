@@ -149,29 +149,29 @@ static void run() {
 			DEBUG("nop");
 			break;
 		case VASM_OP_CALL:
-			addr = htobe64(ip + sizeof ip);
+			addr = htole64(ip + sizeof ip);
 			*(size_t *)(mem + sp) = addr;
 			sp += sizeof ip;
 			ip = *(size_t *)(mem + ip);
-			ip = be64toh(ip);
+			ip = le64toh(ip);
 			DEBUG("call\t0x%lx", ip);
 			break;
 		case VASM_OP_RET: 
 			sp -= sizeof ip;
 			ip = *(size_t *)(mem + sp);
-			ip = htobe64(ip);
+			ip = htole64(ip);
 			DEBUG("ret\t\t(0x%lx)", ip);
 			break;
 		case VASM_OP_JMP:
 			ip = *(size_t *)(mem + ip);
-			ip = be64toh(ip);
+			ip = le64toh(ip);
 			DEBUG("jmp\t0x%lx", ip);
 			break;
 		case VASM_OP_JZ:
 			REG1;
 			if (!REGI) {
 				ip = *(size_t *)(mem + ip);
-				ip = be64toh(ip);
+				ip = le64toh(ip);
 				DEBUG("jz\t0x%lx,r%d\t(%lu, true)",
 				      ip, regi, REGI);
 			} else {
@@ -184,7 +184,7 @@ static void run() {
 			REG1;
 			if (REGI) {
 				ip = *(size_t *)(mem + ip);
-				ip = be64toh(ip);
+				ip = le64toh(ip);
 				DEBUG("jnz\t0x%lx,r%d\t(%lu, true)",
 				      ip, regi, REGI);
 			} else {
@@ -260,25 +260,25 @@ static void run() {
 		case VASM_OP_LOADL:
 			REG2;
 			REGI = *(uint64_t *)(mem + REGJ);
-			REGI = be64toh(REGI);
+			REGI = le64toh(REGI);
 			DEBUG("loadl\tr%d,r%d\t(%lu <-- 0x%lx)", regi, regj, REGI, REGJ);
 			break;
 		case VASM_OP_LOADLAT:
 			REG3;
 			REGI = *(uint64_t *)(mem + REGJ + REGK);
-			REGI = be64toh(REGI);
+			REGI = le64toh(REGI);
 			DEBUG("loadlat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)", regi, regj, regk, REGI, REGJ, REGK);
 			break;
 		case VASM_OP_LOADIAT:
 			REG3;
 			REGI = *(uint32_t *)(mem + REGJ + REGK);
-			REGI = be32toh(REGI);
+			REGI = le32toh(REGI);
 			DEBUG("loadiat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)", regi, regj, regk, REGI, REGJ, REGK);
 			break;
 		case VASM_OP_LOADSAT:
 			REG3;
 			REGI = *(uint16_t *)(mem + REGJ + REGK);
-			REGI = be16toh(REGI);
+			REGI = le16toh(REGI);
 			DEBUG("loadsat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)", regi, regj, regk, REGI, REGJ, REGK);
 			break;
 		case VASM_OP_LOADBAT:
@@ -288,17 +288,17 @@ static void run() {
 			break;
 		case VASM_OP_STOREL:
 			REG2;
-			*(uint64_t *)(mem + REGJ) = htobe64(REGI);
+			*(uint64_t *)(mem + REGJ) = htole64(REGI);
 			DEBUG("storel\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
 			break;
 		case VASM_OP_STOREI:
 			REG2;
-			*(uint32_t *)(mem + REGJ) = htobe32(REGI);
+			*(uint32_t *)(mem + REGJ) = htole32(REGI);
 			DEBUG("storei\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
 			break;
 		case VASM_OP_STORES:
 			REG2;
-			*(uint16_t *)(mem + REGJ) = htobe16(REGI);
+			*(uint16_t *)(mem + REGJ) = htole16(REGI);
 			DEBUG("stores\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
 			break;
 		case VASM_OP_STOREB:
@@ -308,17 +308,17 @@ static void run() {
 			break;
 		case VASM_OP_STORELAT:
 			REG3;
-			*(uint64_t *)(mem + REGJ + REGK) = htobe64(REGI);
+			*(uint64_t *)(mem + REGJ + REGK) = htole64(REGI);
 			DEBUG("storelat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)", regi, regj, regk, REGI, REGJ, REGK);
 			break;
 		case VASM_OP_STOREIAT:
 			REG3;
-			*(uint32_t *)(mem + REGJ + REGK) = htobe32(REGI);
+			*(uint32_t *)(mem + REGJ + REGK) = htole32(REGI);
 			DEBUG("storeiat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)", regi, regj, regk, REGI, REGJ, REGK);
 			break;
 		case VASM_OP_STORESAT:
 			REG3;
-			*(uint16_t *)(mem + REGJ + REGK) = htobe16(REGI);
+			*(uint16_t *)(mem + REGJ + REGK) = htole16(REGI);
 			DEBUG("storesat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)", regi, regj, regk, REGI, REGJ, REGK);
 			break;
 		case VASM_OP_STOREBAT:
@@ -346,7 +346,7 @@ static void run() {
 		case VASM_OP_SETL:
 			REG1;
 			val = *(uint64_t *)(mem + ip);
-			val = be64toh(val);
+			val = le64toh(val);
 			ip += 8;
 			REGI = val;
 			DEBUG("setl\tr%d,%lu\t(%lu)", regi, val, REGI);
@@ -354,7 +354,7 @@ static void run() {
 		case VASM_OP_SETI:
 			REG1;
 			val = *(uint32_t *)(mem + ip);
-			val = be32toh(val);
+			val = le32toh(val);
 			ip += 4;
 			REGI = val;
 			DEBUG("seti\tr%d,%lu\t(%lu)", regi, val, REGI);
@@ -362,7 +362,7 @@ static void run() {
 		case VASM_OP_SETS:
 			REG1;
 			val = *(uint16_t *)(mem + ip);
-			val = be16toh(val);
+			val = le16toh(val);
 			ip += 2;
 			REGI = val;
 			DEBUG("sets\tr%d,%lu\t(%lu)", regi, val, REGI);
