@@ -116,14 +116,14 @@ static char *_trim(const char *text, pos2_t **pos, size_t *poscount)
 		MARK;
 		// Copy non-whitespace
 		while (instring || (*s != ' ' && *s != '\t' && *s != '\n')) {
+			// Include strings fully
+			if (*s == '"')
+				instring = !instring;
 			*d = *s;
 			INCD;
 			INCS;
 			if (*s == 0)
 				break;
-			// Include strings fully
-			if (*s == '"')
-				instring = !instring;
 		}
 		// Insert ' ' or '\n'
 		*d = *s == '\n' ? '\n' : ' ';

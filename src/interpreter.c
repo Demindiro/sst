@@ -182,6 +182,70 @@ static void run() {
 				ip += sizeof ip;
 			}
 			break;
+		case VASM_OP_JMPRB:
+#ifndef NDEBUG
+			{
+				signed char c = mem[ip];
+				if (c >= 0)
+					DEBUG("jmprb\t0x%lx\t(0x%lx = 0x%lx + 0x%x)",
+					      (unsigned char)c, ip + c, ip, c);
+				else
+					DEBUG("jmprb\t0x%lx\t(0x%lx = 0x%lx - 0x%x)",
+					      (unsigned char)c, ip + c, ip, -c);
+				ip += c;
+			}
+#else
+			ip += (signed char)mem[ip];
+#endif
+			break;
+		case VASM_OP_JZB:
+			REG1;
+			if (!REGI) {
+				ip += (signed char)mem[ip];
+				DEBUG("jzb\t0x%lx,r%d\t(%lu, true)",
+				      ip, regi, REGI);
+			} else {
+				DEBUG("jzb\t0x%lx,r%d\t(%lu, false)",
+				      ip, regi, REGI);
+				ip += 1;
+			}
+			break;
+		case VASM_OP_JNZB:
+			REG1;
+			if (REGI) {
+				ip += (signed char)mem[ip];
+				DEBUG("jnzb\t0x%lx,r%d\t(%lu, true)",
+				      ip, regi, REGI);
+			} else {
+				DEBUG("jnzb\t0x%lx,r%d\t(%lu, false)",
+				      ip, regi, REGI);
+				ip += 1;
+			}
+			break;
+		case VASM_OP_JPB:
+			REG1;
+			if ((ssize_t)REGI > 0) {
+				ip += (signed char)mem[ip];
+				DEBUG("jpb\t0x%lx,r%d\t(%lu, true)",
+				      ip, regi, REGI);
+			} else {
+				DEBUG("jpb\t0x%lx,r%d\t(%lu, false)",
+				      ip, regi, REGI);
+				ip += 1;
+			}
+			break;
+		case VASM_OP_JPZB:
+			REG1;
+			if ((ssize_t)REGI >= 0) {
+				ip += (signed char)mem[ip];
+				DEBUG("jpzb\t0x%lx,r%d\t(%lu, true)",
+				      ip, regi, REGI);
+			} else {
+				DEBUG("jpzb\t0x%lx,r%d\t(%lu, false)",
+				      ip, regi, REGI);
+				ip += 1;
+			}
+			break;
 		case VASM_OP_LOADL:
 			REG2;
 			REGI = *(uint64_t *)(mem + REGJ);

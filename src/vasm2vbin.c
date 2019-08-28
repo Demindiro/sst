@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
@@ -5,8 +6,20 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <endian.h>
+#include "util.h"
 #include "vasm.h"
 #include "vasm2vbin.h"
+
+
+
+static size_t _getlblpos(const char *lbl, struct lblmap *map)
+{
+	for (size_t i = 0; i < map->lbl2poscount; i++) {
+		if (streq(lbl, map->lbl2pos[i].lbl))
+			return map->lbl2pos[i].pos;
+	}
+	return -1;
+}
 
 
 int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t *vbinlen_p, struct lblmap *map)
@@ -90,6 +103,15 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 			break;
 		// 1 addr
 		case VASM_OP_JMP:
+			val = _getlblpos(a.rs.str, map);
+			if (val != -1) {
+				ssize_t d = (ssize_t)val - (ssize_t)vbinlen;
+				if (-0x80 <= d && d <= 0x7F) {
+					vbin[vbinlen - 1] = VASM_OP_JMPRB;
+					vbin[vbinlen++  ] = (char)d;
+					break;
+				}
+			}
 		case VASM_OP_CALL:
 			val = -1;
 			if ('0' <= a.rs.str[0] && a.rs.str[0] <= '9')
@@ -163,6 +185,23 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		case VASM_OP_JPZ:
 			vbin[vbinlen] = a.rs.r;
 			vbinlen++;
+			val = _getlblpos(a.rs.str, map);
+			if (val != -1) {
+				ssize_t d = (ssize_t)val - (ssize_t)vbinlen;
+				if (-0x80 <= d && d <= 0x7F) {
+					char op;
+					switch (a.op) {
+					case VASM_OP_JZ : op = VASM_OP_JZB ; break;
+					case VASM_OP_JNZ: op = VASM_OP_JNZB; break;
+					case VASM_OP_JP : op = VASM_OP_JPB ; break;
+					case VASM_OP_JPZ: op = VASM_OP_JPZB; break;
+					default: assert(0);
+					}
+					vbin[vbinlen - 2] = op;
+					vbin[vbinlen++  ] = (char)d;
+					break;
+				}
+			}
 			val = -1;
 			if ('0' <= a.rs.str[0] && a.rs.str[0] <= '9')
 				val = strtol(a.rs.str, NULL, 0);

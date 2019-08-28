@@ -20,6 +20,11 @@
 #define VASM_OP_JPZ         5
 #define VASM_OP_CALL        6
 #define VASM_OP_RET         7
+#define VASM_OP_JMPRB      60
+#define VASM_OP_JZB        61
+#define VASM_OP_JNZB       62
+#define VASM_OP_JPB        63
+#define VASM_OP_JPZB       64
 
 #define VASM_OP_LOADL      10
 #define VASM_OP_LOADI      11
