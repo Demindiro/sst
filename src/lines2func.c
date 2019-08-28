@@ -720,25 +720,46 @@ int lines2func(const line_t *lines, size_t linecount,
 					fl.line->type = FUNC_LINE_FUNC;
 					fl.f->var     = strclone(name);
 					fl.f->name    = strclone(word);
-					NEXTWORD;
+					int         etemp[64];
+					const char *evars[64];
 					if (word[0] != 0) {
+						char b[256];
+						ptr = oldptr;
+						while (*ptr != ',' && *ptr != 0)
+							ptr++;
 						fl.f->params = malloc(16 * sizeof *fl.f->params);
-						size_t l = strlen(word);
-						if (word[l - 1] == ',')
-							word[l - 1] = 0; // Exclude ','
-						fl.f->params[0] = strclone(word);
+						size_t l = ptr - oldptr;
+						ptr++;
+						memcpy(b, oldptr, l);
+						b[l] = 0;
+						fl.f->params[0] = parseexpr(b, f, &k, &etemp[0], "TODO", &vartypes);
+						evars[0] = fl.f->params[0];
 						fl.f->paramcount = 1;
-						while (1) {
-							NEXTWORD;
-							if (word[0] == 0)
-								break;
-							size_t l = strlen(word);
-							if (word[l - 1] == ',')
-								word[l - 1] = 0; // Exclude ','
-							fl.f->params[fl.f->paramcount++] = strclone(word);
+						while (*ptr != 0) {
+							oldptr = ptr;
+							while (*ptr != ',' && *ptr != 0)
+								ptr++;
+							size_t l = ptr - oldptr;
+							ptr++;
+							memcpy(b, oldptr, l);
+							b[l] = 0;
+							fl.f->params[fl.f->paramcount] =
+								parseexpr(b, f, &k,
+								&etemp[fl.f->paramcount],
+								"TODO", &vartypes);
+							evars[fl.f->paramcount] = fl.f->params[fl.f->paramcount];
+							fl.f->paramcount++;
 						}
 					}
 					f->lines[k++]   = fl.line;
+					for (size_t i = 0; i < fl.f->paramcount; i++) {
+						if (etemp[i]) {
+							fl.d = malloc(sizeof *fl.d);
+							fl.d->line.type = FUNC_LINE_DESTROY;
+							fl.d->var = evars[i];
+							f->lines[k++] = fl.line;
+						}
+					}
 				} else {
 					int etemp;
 					const char *type;
@@ -813,7 +834,7 @@ int lines2func(const line_t *lines, size_t linecount,
 				if (word[0] != 0) {
 					char b[256];
 					ptr = oldptr;
-					while (*ptr != ',')
+					while (*ptr != ',' && *ptr != 0)
 						ptr++;
 					flf->params = malloc(16 * sizeof *fl.f->params);
 					size_t l = ptr - oldptr;
@@ -823,13 +844,10 @@ int lines2func(const line_t *lines, size_t linecount,
 					flf->params[0] = parseexpr(b, f, &k, &etemp[0], "TODO", &vartypes);
 					evars[0] = flf->params[0];
 					flf->paramcount = 1;
-					while (1) {
+					while (*ptr != 0) {
 						oldptr = ptr;
-						while (*ptr != ',') {
-							if (*ptr == 0)
-								goto done;
+						while (*ptr != ',' && *ptr != 0)
 							ptr++;
-						}
 						size_t l = ptr - oldptr;
 						ptr++;
 						memcpy(b, oldptr, l);
@@ -842,7 +860,6 @@ int lines2func(const line_t *lines, size_t linecount,
 						flf->paramcount++;
 					}
 				}
-			done:
 				flf->line.type = FUNC_LINE_FUNC;
 				f->lines[k++] = (struct func_line *)flf;
 				for (size_t i = 0; i < flf->paramcount; i++) {

@@ -22,6 +22,93 @@ static size_t _getlblpos(const char *lbl, struct lblmap *map)
 }
 
 
+static size_t _getoplen(char op)
+{
+	switch (op) {
+	// No args
+	case VASM_OP_SYSCALL:
+	case VASM_OP_RET:
+	// 1 byte
+	case VASM_OP_RAW_BYTE:
+		return 1;
+	// 1 reg
+	case VASM_OP_PUSH:
+	case VASM_OP_POP:
+	// 1 short
+	case VASM_OP_RAW_SHORT:
+		return 2;
+	// 2 reg
+	case VASM_OP_STOREL:
+	case VASM_OP_STOREI:
+	case VASM_OP_STORES:
+	case VASM_OP_STOREB:
+	case VASM_OP_LOADL:
+	case VASM_OP_LOADI:
+	case VASM_OP_LOADS:
+	case VASM_OP_LOADB:
+	case VASM_OP_MOV:
+	case VASM_OP_NOT:
+	case VASM_OP_INV:
+	// 1 reg, 1 byte
+	case VASM_OP_SETB:
+	case VASM_OP_SETS:
+	case VASM_OP_SETI:
+	case VASM_OP_SETL:
+	case VASM_OP_JZB:
+	case VASM_OP_JNZB:
+	case VASM_OP_JPB:
+	case VASM_OP_JPZB:
+		return 3;
+	// 3 reg
+	case VASM_OP_ADD:
+	case VASM_OP_SUB:
+	case VASM_OP_MUL:
+	case VASM_OP_DIV:
+	case VASM_OP_MOD:
+	case VASM_OP_REM:
+	case VASM_OP_RSHIFT:
+	case VASM_OP_LSHIFT:
+	case VASM_OP_XOR:
+	case VASM_OP_STORELAT:
+	case VASM_OP_STOREIAT:
+	case VASM_OP_STORESAT:
+	case VASM_OP_STOREBAT:
+	case VASM_OP_LOADLAT:
+	case VASM_OP_LOADIAT:
+	case VASM_OP_LOADSAT:
+	case VASM_OP_LOADBAT:
+	// 1 int
+	case VASM_OP_RAW_INT:
+		return 4;
+	// 1 long
+	case VASM_OP_RAW_LONG:
+		return 8;
+	// 1 addr
+	case VASM_OP_JMP:
+	case VASM_OP_CALL:
+		return 9;
+	// 1 reg, 1 addr
+	case VASM_OP_SET:
+	case VASM_OP_JZ:
+	case VASM_OP_JNZ:
+	case VASM_OP_JP:
+	case VASM_OP_JPZ:
+		return 10;
+	// string
+	case VASM_OP_RAW_STR:
+		ERROR("TODO");
+		EXIT(1);
+		//return strlen(a.s.str);
+	// none
+	case VASM_OP_LABEL:
+		return 0;
+	default:
+		ERROR("Unknown length for op '%d'", op);
+		EXIT(1);
+	}
+}
+
+
 int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t *vbinlen_p, struct lblmap *map)
 {
 	size_t vbinlen = 0;
@@ -30,6 +117,10 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		map->pos2lbl[map->pos2lblcount].pos = vbinlen; \
 		map->pos2lblcount++;                           \
 	} while (0)
+
+	// Used for forward relative jumps
+	struct lblpos jmprelmap[256];
+	size_t        jmprelmapcount = 0;
 
 	// Generate binary
 	for (size_t i = 0; i < vasmcount; i++) {
@@ -178,7 +269,7 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 				break;
 			}
 			break;
-		// 2 reg, 1 addr
+		// 1 reg, 1 addr
 		case VASM_OP_JZ:
 		case VASM_OP_JNZ:
 		case VASM_OP_JP:
@@ -199,7 +290,33 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 					}
 					vbin[vbinlen - 2] = op;
 					vbin[vbinlen++  ] = (char)d;
-					break;
+					goto shortop;
+				}
+			} else {
+				// Estimate distance
+				size_t d = 3; // op (1) + reg (1) + offset (1)
+				for (size_t j = i + 1; j < vasmcount; j++) {
+					union vasm_all b = vasms[j];
+					d += _getoplen(b.op);
+					if (d > 0x7F)
+						break;
+					if (b.op == VASM_OP_LABEL &&
+					    streq(a.rs.str, b.s.str)) {
+						char op;
+						switch (a.op) {
+						case VASM_OP_JZ : op = VASM_OP_JZB ; break;
+						case VASM_OP_JNZ: op = VASM_OP_JNZB; break;
+						case VASM_OP_JP : op = VASM_OP_JPB ; break;
+						case VASM_OP_JPZ: op = VASM_OP_JPZB; break;
+						default: assert(0);
+						}
+						vbin[vbinlen - 2] = op;
+						vbin[vbinlen++  ] = 0xFF;
+						jmprelmap[jmprelmapcount].lbl = a.rs.str;
+						jmprelmap[jmprelmapcount].pos = vbinlen - 1;
+						jmprelmapcount++;
+						goto shortop;
+					}
 				}
 			}
 			val = -1;
@@ -209,6 +326,7 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 				POS2LBL(a.rs.str);
 			*(size_t *)(vbin + vbinlen) = val;
 			vbinlen += sizeof val;
+		shortop:
 			break;
 		// Other
 		case VASM_OP_RAW_LONG:
@@ -246,6 +364,24 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 			map->lbl2pos[map->lbl2poscount].lbl = a.s.str;
 			map->lbl2pos[map->lbl2poscount].pos = vbinlen;
 			map->lbl2poscount++;
+			// Fill in short jumps
+			for (size_t j = 0; j < jmprelmapcount; j++) {
+				const char *lbl = jmprelmap[j].lbl;
+				if (streq(a.s.str, lbl)) {
+					size_t pos = jmprelmap[j].pos;
+					DEBUG("Filling in '%s'\t@ 0x%02lx (0x%02lx)", lbl, pos, vbinlen - pos);
+					if (vbinlen - pos > 0x7F) {
+						ERROR("Underestimated distance between label and relative"
+						      " jump (%lu)", vbinlen - pos);
+						EXIT(1);
+					}
+					vbin[pos] = vbinlen - pos;
+					jmprelmapcount--;
+					memmove(jmprelmap + j, jmprelmap + j + 1,
+					        (jmprelmapcount - j) * sizeof *jmprelmap);
+					j--;
+				}
+			}
 			break;
 		default:
 			printf("IDK lol (%d)\n", a.op);
