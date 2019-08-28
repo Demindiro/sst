@@ -279,6 +279,7 @@ static void _lines2funcs(const line_t *lines, size_t linecount,
 	DEBUG("Parsing lines between function boundaries");
 	for (size_t i = 0; i < funclnc; i++) {
 		struct linerange l = funclns[i];
+		DEBUG("  Parsing '%s'", l.func->name);
 		lines2func(l.lines, l.count, l.func, functbl);
 		optimizefunc(l.func);
 	}

@@ -69,6 +69,7 @@ static const char *deref_arr(const char *w, struct func *f, size_t *k,
 static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etemp,
                              const char *temptype, struct hashtbl *vartypes)
 {
+	const char *orgptr = p;
 	// TODO
 	if (strstart(p, "new ")) {
 		if (etemp)
@@ -108,6 +109,7 @@ static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etem
 		return deref_arr(strclone(words[0]), f, k, vartypes, etemp);
 	case 1:
 		ERROR("This situation is impossible");
+		ERROR("Expression: '%s'", orgptr);
 		EXIT(1);
 	default: {
 		if (etemp)
@@ -720,6 +722,8 @@ int lines2func(const line_t *lines, size_t linecount,
 					fl.line->type = FUNC_LINE_FUNC;
 					fl.f->var     = strclone(name);
 					fl.f->name    = strclone(word);
+					const char *oldptr = ptr;
+					NEXTWORD;
 					int         etemp[64];
 					const char *evars[64];
 					if (word[0] != 0) {
