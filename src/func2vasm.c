@@ -32,10 +32,16 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 	memset(allocated_regs, 0, sizeof allocated_regs);
 	memset(is_const_reg_zero, 0, sizeof is_const_reg_zero);
 
-	// Add constants first (if not too many)
+	// Add function arguments
+	for (size_t i = 0; i < f->argcount; i++) {
+		h_add(&tbl, f->args[i].name, i);
+		allocated_regs[i] = 1;
+	}
+
+	// Add constants (if not too many)
 	size_t consts[8];
 	size_t constcount = 0;
-	for (size_t i = 0; i < f->linecount && constcount < sizeof consts / sizeof *consts; i++) {
+	for (size_t i = f->argcount; i < f->linecount && constcount < sizeof consts / sizeof *consts; i++) {
 		l.line = f->lines[i];
 		switch (l.line->type) {
 		case FUNC_LINE_ASSIGN:
@@ -62,11 +68,11 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 
 	struct hashtbl constvalh;
 	h_create(&constvalh, 16);
-	for (size_t i = 0; i < constcount; i++) {
+	for (size_t i = f->argcount; i < constcount; i++) {
 		l.line   = f->lines[consts[i]];
 		a.op     = VASM_OP_SET;
 		a.rs.r   = i;
-		char *key, *val;
+		const char *key, *val;
 		char b[64];
 		static size_t bc = 0;
 		char use_y;
@@ -90,7 +96,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			}
 			break;
 		}
-		char *ok = (char *)h_get(&constvalh, val);
+		const char *ok = (const char *)h_get(&constvalh, val);
 		if (ok != (char *)-1) {
 			switch (l.line->type) {
 			case FUNC_LINE_ASSIGN:
@@ -128,12 +134,12 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				break;
 			reg = h_get(&tbl, fl.a->var);
 			if (reg == -1) {
-				fprintf(stderr, "Variable '%s' not declared\n", fl.a->var);
-				abort();
+				ERROR("Variable '%s' not declared", fl.a->var);
+				EXIT(1);
 			}
 			if ('0' <= *fl.a->var && *fl.a->var <= '9') {
-				fprintf(stderr, "You can't assign to a number\n");
-				abort();
+				ERROR("You can't assign to a number");
+				EXIT(1);
 			}
 			if ('0' <= *fl.a->value && *fl.a->value <= '9') {
 				a.rs.op  = VASM_OP_SET;
@@ -144,8 +150,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				a.r2.r[0] = reg;
 				reg = h_get(&tbl, fl.a->value);
 				if (reg == -1) {
-					fprintf(stderr, "Variable '%s' not declared\n", fl.a->value);
-					abort();
+					ERROR("Variable '%s' not declared", fl.a->value);
+					EXIT(1);
 				}
 				a.r2.r[1] = reg;
 			}
@@ -159,8 +165,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				}
 			}
 			if (h_add(&tbl, fl.d->var, reg) < 0) {
-				fprintf(stderr, "Failed to add variable to hashtable\n");
-				abort();
+				ERROR("Failed to add variable to hashtable");
+				EXIT(1);
 			}
 			break;
 		case FUNC_LINE_DESTROY:
@@ -169,8 +175,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				break;
 			reg = h_get(&tbl, fl.d->var);
 			if (reg == -1) {
-				fprintf(stderr, "Variable '%s' not declared\n", fl.d->var);
-				abort();
+				ERROR("Variable '%s' not declared", fl.d->var);
+				EXIT(1);
 			}
 			allocated_regs[reg] = 0;
 			h_rem(&tbl, fl.d->var);
@@ -229,8 +235,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			} else {
 				ra = h_get(&tbl, fli->var);
 				if (ra == -1) {
-					fprintf(stderr, "Variable '%s' not declared\n", fl.i->var);
-					abort();
+					ERROR("Variable '%s' not declared", fl.i->var);
+					EXIT(1);
 				}
 			}
 			if (ra < constcount) {
@@ -257,8 +263,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 		case FUNC_LINE_MATH:
 			flm = (struct func_line_math *)f->lines[i];
 			if (isnum(*flm->x)) {
-				fprintf(stderr, "You can't assign to a number\n");
-				abort();
+				ERROR("You can't assign to a number");
+				EXIT(1);
 			}
 			if (isnum(*flm->y)) {
 				a.rs.op  = VASM_OP_SET;
@@ -269,8 +275,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				ra = h_get(&tbl, flm->y);
 				if (ra == -1) {
 					printf("aaa\n");
-					fprintf(stderr, "Variable '%s' not declared\n", flm->y);
-					abort();
+					ERROR("Variable '%s' not declared", flm->y);
+					EXIT(1);
 				}
 			}
 			if (flm->op != MATH_INV && flm->op != MATH_NOT) {
@@ -304,8 +310,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 						// TODO
 						rb = h_get(&tbl, flm->z);
 						if (rb == -1) {
-							fprintf(stderr, "Variable '%s' not declared\n", flm->z);
-							abort();
+							ERROR("Variable '%s' not declared", flm->z);
+							EXIT(1);
 						}
 					}
 				}
@@ -351,8 +357,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			v[vc++].op = VASM_OP_RET;
 			break;
 		default:
-			fprintf(stderr, "Unknown line type (%d)\n", f->lines[i]->type);
-			abort();
+			ERROR("Unknown line type (%d)", f->lines[i]->type);
+			EXIT(1);
 		}
 	}
 	a.op       = VASM_OP_RET;

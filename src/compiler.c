@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include "vasm.h"
 #include "func.h"
 #include "lines.h"
@@ -13,6 +14,15 @@
 #include "util.h"
 #include "optimize/lines.h"
 #include "optimize/vasm.h"
+
+
+
+struct linerange {
+	struct func  *func;
+	const line_t *lines;
+	size_t        count;
+};
+
 
 
 static const char *mathop2str(int op)
@@ -45,7 +55,7 @@ static int _text2lines(const char *buf,
 	for (size_t i = 0; i < *stringcount; i++)
 		DEBUG(".str_%lu = \"%s\"", i, (*strings)[i]);
 	for (size_t i = 0; i < *linecount; i++)
-		DEBUG("%4u:%-2u | %s", l[i].pos.y, l[i].pos.x, l[i].text);
+		DEBUG("%4u:%-2u (%6lu) | %s", l[i].pos.y, l[i].pos.x, l[i].pos.c, l[i].text);
 	return 0;
 }
 
@@ -131,66 +141,150 @@ static void _printfunc(struct func *f)
 			abort();
 		}
 	}
+	DEBUG("");
 }
 
 
-
-static int _lines2funcs(const line_t *lines , size_t linecount,
-		        struct func **funcs, size_t *funccount,
-		        struct hashtbl *functbl, const char *text)
+static size_t _find_func_length(const line_t *lines, size_t linecount, const char *text)
 {
-	size_t fc = 0, fs = 16;
-	struct func *f = malloc(fs * sizeof *f);
-	h_create(functbl, 4);
-	DEBUG("Converting lines to functions");
-	for (size_t i = 0; i < linecount; i++) {
-		line_t line = lines[i];
-		if (strncmp(line.text, "extern ", sizeof "extern") == 0) {
-			struct func *g = &f[fc++];
-			parsefunc_header(g, line, text);
-			if (g == NULL)
-				return -1;
-			h_add(functbl, g->name, (size_t)g);
-		} else {
-			struct func *g = &f[fc++];
-			parsefunc_header(g, line, text);
-			i++;
-			size_t nestlvl = 1, nestlines[256];
-			size_t j = i;
-			for ( ; j < linecount; j++) {
-				if (nestlvl == 0)
-					break;
-				const char *t = lines[j].text;
-				if (streq(t, "end")) {
-					nestlvl--;
-				} else if (
-				    strstart(t, "for "  ) ||
-				    strstart(t, "if "   ) ||
-				    strstart(t, "while ")) {
-					nestlines[nestlvl] = j;
-					nestlvl++;
-				}
-			}
-			if (nestlvl > 0) {
-				ERROR("Missing %lu 'end' statements", nestlvl);
-				for (size_t k = 0; k < nestlvl; k++) {
-					size_t l = nestlines[k];
-					PRINTLINE(lines[l]);
-				}	
-				return -1;
-			}
-			lines2func(lines + i, j - i + 1, g, functbl);
-			optimizefunc(g);
-			i = j;
+	DEBUG("Searching for function boundaries");
+	size_t nestlvl = 1, nestlines[256];
+	size_t i = 0;
+	for ( ; i < linecount; i++) {
+		if (nestlvl == 0)
+			break;
+		const char *t = lines[i].text;
+		if (streq(t, "end")) {
+			nestlvl--;
+		} else if (
+		    strstart(t, "for "  ) ||
+		    strstart(t, "if "   ) ||
+		    strstart(t, "while ")) {
+			nestlines[nestlvl] = i;
+			nestlvl++;
 		}
 	}
-	printf("\n");
-	for (size_t i = 0; i < fc; i++)
-		_printfunc(&f[i]);
-	printf("\n");
-	*funccount = fc;
-	*funcs     = realloc(f, fc * sizeof *f);
-	return 0;
+	if (nestlvl > 0) {
+		ERROR("Missing %lu 'end' statements", nestlvl);
+		for (size_t j = 0; j < nestlvl; j++) {
+			size_t k = nestlines[j];
+			PRINTLINE(lines[k]);
+		}	
+		EXIT(1);
+	}
+	return i;
+}
+
+
+static void _include(const char *f, struct hashtbl *functbl,
+                     struct linerange **funclns, size_t *funclncount,
+		     struct hashtbl *incltbl);
+
+
+static void _findboundaries(const line_t *lines, size_t linecount,
+			    struct hashtbl *functbl,
+                            struct linerange **funclns, size_t *funclncount,
+			    struct hashtbl *incltbl,
+                            const char *text)
+{
+	h_create(functbl, 4);
+	DEBUG("Parsing lines to functions");
+	DEBUG("Searching for function boundaries");
+	for (size_t i = 0; i < linecount; i++) {
+		line_t line = lines[i];
+		if (strstart(line.text, "extern ")) {
+			struct func *g = malloc(sizeof *g);
+			parsefunc_header(g, line, text);
+			DEBUG("Adding external function '%s'", g->name);
+			h_add(functbl, g->name, (size_t)g);
+		} else if (strstart(line.text, "include ")) {
+			char f[256];
+			strncpy(f, line.text + strlen("include "), sizeof f); 
+			_include(f, functbl, funclns, funclncount, incltbl);
+		} else {
+			struct func *g = malloc(sizeof *g);
+			parsefunc_header(g, line, text);
+			DEBUG("Adding function '%s'", g->name);
+			h_add(functbl, g->name, (size_t)g);
+			i++;
+			size_t l = _find_func_length(lines + i, linecount - i, text);
+			(*funclns)[*funclncount].func  = g;
+			(*funclns)[*funclncount].lines = lines + i;
+			(*funclns)[*funclncount].count = l;
+			(*funclncount)++;
+			i += l - 1;
+		}
+	}
+}
+
+
+static void _include(const char *f, struct hashtbl *functbl,
+                     struct linerange **funclns, size_t *funclncount,
+		     struct hashtbl *incltbl)
+{
+	DEBUG("Including %s", f);
+	char buf[0x10000];
+	char *b = buf;
+	for (const char *c = f; *c != 0; b++, c++) {
+		if (*c == '.')
+			*b = '/';
+		else
+			*b = *c;
+	}
+	strcpy(b, ".sst");
+	char cwd[4096];
+	getcwd(cwd, sizeof cwd);
+	chdir("lib"); // TODO
+	int fd = open(buf, O_RDONLY);
+	if (fd == -1) {
+		ERROR("Couldn't open '%s': %s", buf, strerror(errno));
+		EXIT(1);
+	}
+	read(fd, buf, sizeof buf);
+	close(fd);
+	chdir(cwd);
+
+	char  **strings;
+	line_t *lines;
+	size_t stringcount, linecount;
+
+	if (_text2lines(buf, &lines, &linecount, &strings, &stringcount) < 0) {
+		ERROR("Failed text to lines stage");
+		EXIT(1);
+	}
+
+	_findboundaries(lines, linecount, functbl,
+			funclns, funclncount, incltbl, buf);
+}
+
+
+static void _lines2funcs(const line_t *lines, size_t linecount,
+                         struct func **funcs, size_t *funccount,
+                         struct hashtbl *functbl, const char *text)
+{
+	h_create(functbl, 4);
+	struct linerange funclns[1024];
+	size_t funclnc = 0;
+	DEBUG("Parsing lines to functions");
+	struct hashtbl incltbl;
+	h_create(&incltbl, 4);
+	struct linerange *_f = funclns;
+	_findboundaries(lines, linecount, functbl,
+	                &_f, &funclnc,
+			&incltbl, text);
+	DEBUG("%lu functions to be parsed", funclnc);
+	DEBUG("Parsing lines between function boundaries");
+	for (size_t i = 0; i < funclnc; i++) {
+		struct linerange l = funclns[i];
+		lines2func(l.lines, l.count, l.func, functbl);
+		optimizefunc(l.func);
+	}
+	for (size_t i = 0; i < funclnc; i++)
+		_printfunc(funclns[i].func);
+	*funccount = funclnc;
+	*funcs     = malloc(funclnc * sizeof **funcs);
+	for (size_t i = 0; i < funclnc; i++)
+		(*funcs)[i] = *funclns[i].func;
 }
 
 
@@ -223,16 +317,13 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (_lines2funcs(lines, linecount, &funcs, &funccount, &functbl, buf) < 0) {
-		ERROR("Failed lines to functions stage");
-		return 1;
-	}
-
+	_lines2funcs(lines, linecount, &funcs, &funccount, &functbl, buf);
 
 	union vasm_all **vasms = malloc(funccount * sizeof *vasms);
 	size_t *vasmcount = malloc(funccount * sizeof *vasmcount);
-	DEBUG("=== structs2vasm ===");
+	DEBUG("Converting functions to assembly");
 	for (size_t i = 0; i < funccount; i++) {
+		DEBUG("  Converting '%s'", funcs[i].name);
 		func2vasm(&vasms[i], &vasmcount[i], &funcs[i]);
 		optimizevasm(vasms[i], &vasmcount[i]);
 	}

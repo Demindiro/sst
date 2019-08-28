@@ -1,0 +1,2 @@
+extern char[] read (int fd, long   length)
+extern long   write(int fd, char[] data  )

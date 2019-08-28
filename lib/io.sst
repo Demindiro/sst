@@ -1,0 +1,25 @@
+include core.io
+
+
+void writeln(long num)
+	char buf[4096]
+	long n = 0
+	for n in 
+	write 1, buf, n
+end
+
+
+void writeln(char[] str)
+	write 1, str, str.length
+end
+
+
+char[] readln()
+	char[4096] buf
+	long n = read 0, buf, buf.length
+	char str = new char[n]
+	for i in 0 to n
+		str[i] = buf[i]
+	end
+	return str
+end

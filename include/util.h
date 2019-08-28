@@ -30,6 +30,12 @@ static char *strclone(const char *text) {
 # define DEBUG(m, ...) NULL
 #endif
 
-#define EXIT(c) abort()
+#define _STR(x) #x
+#define STR(x) _STR(x)
+
+#define EXIT(c) do {				\
+	ERROR(STR(__LINE__) "@" __FILE__);	\
+	exit(c);				\
+} while (0)
 
 #endif

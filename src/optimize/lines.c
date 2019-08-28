@@ -160,7 +160,7 @@ static int _constant_if(struct func *f, size_t *i, struct hashtbl *h_const)
 	union func_line_all_p fl = { .line = f->lines[*i] };
 	if (h_get2(h_const, fl.i->var, &j) >= 0) {
 		if ((j == 0) == fl.i->inv) {
-			char *lbl    = fl.i->label;
+			const char *lbl = fl.i->label;
 			struct func_line_goto *g;
 			g            = calloc(sizeof *fl.g, 1);
 			g->line.type = FUNC_LINE_GOTO;
@@ -242,8 +242,8 @@ static int _nop_math(struct func *f, size_t *i)
 	} else {
 		return 0;
 	}
-	char *var = l->x,
-	     *val = streq(l->y, "0") ? l->z : l->y;
+	const char *var = l->x,
+	           *val = streq(l->y, "0") ? l->z : l->y;
 	struct func_line_assign *a;
 	a            = calloc(sizeof *a, 1);
 	a->line.type = FUNC_LINE_ASSIGN;
@@ -274,7 +274,7 @@ static int _substitute_var(struct func *f, size_t *i)
 	    fl2.line->type == FUNC_LINE_DESTROY) {
 		if (streq(fl0.d->var, fl1.a->var) &&
 		    streq(fl1.a->value, fl2.d->var)) {
-			char *v = fl0.d->var, *w = fl2.d->var;
+			const char *v = fl0.d->var, *w = fl2.d->var;
 			f->lines[*i] = f->lines[*i + 1];
 			f->linecount -= 3;
 			memmove(f->lines + *i, f->lines + *i + 3,

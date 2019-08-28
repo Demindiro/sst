@@ -35,7 +35,7 @@ void h_destroy(struct hashtbl *tbl)
 }
 
 
-int h_add(struct hashtbl *tbl, char *str, size_t val);
+int h_add(struct hashtbl *tbl, const char *str, size_t val);
 
 
 int h_resize(struct hashtbl *tbl, size_t newlen)
@@ -50,7 +50,7 @@ int h_resize(struct hashtbl *tbl, size_t newlen)
 		size_t l = *(size_t *)a;
 		size_t /*lcap = l & 0xffffffff,*/ lcount = l >> 32L;
 		for (size_t j = 0; j < lcount; j++) {
-			if (h_add(&ntbl, (char *)a[1 + l * 2], (size_t)a[1 + l * 2 + 1]) < 0) {
+			if (h_add(&ntbl, (const char *)a[1 + l * 2], (size_t)a[1 + l * 2 + 1]) < 0) {
 				h_destroy(&ntbl);
 				// TODO restore old table
 				return -1;
@@ -65,7 +65,7 @@ int h_resize(struct hashtbl *tbl, size_t newlen)
 }
 
 
-int h_add(struct hashtbl *tbl, char *str, size_t val)
+int h_add(struct hashtbl *tbl, const char *str, size_t val)
 {
 	size_t k = h_hash_str(str) % tbl->len;
 	void **a = tbl->arrays[k];
@@ -84,7 +84,7 @@ int h_add(struct hashtbl *tbl, char *str, size_t val)
 	if (l >= 4 && tbl->len < tbl->count * 2) {
 		if (h_resize(tbl, tbl->count * 2) < 0)
 			return -1;
-		k = h_hash_str((char *)a[l]) % tbl->len;
+		k = h_hash_str((const char *)a[l]) % tbl->len;
 		a = tbl->arrays[k];
 		l = *(size_t *)a;
 		lcap = l & 0xffffffff, lcount = l >> 32L;
@@ -99,16 +99,16 @@ int h_add(struct hashtbl *tbl, char *str, size_t val)
 		lcap = nlcap;
 	}
 
-	((char  **)a)[1 + lcount * 2    ] = str;
-	((size_t *)a)[1 + lcount * 2 + 1] = val;
+	((const char **)a)[1 + lcount * 2    ] = str;
+	((size_t      *)a)[1 + lcount * 2 + 1] = val;
 	lcount++;
-	((size_t *)a)[0] = lcap | (lcount << 32L);
+	((size_t      *)a)[0] = lcap | (lcount << 32L);
 
 	return 0;
 }
 
 
-size_t h_get(struct hashtbl *tbl, char *str)
+size_t h_get(struct hashtbl *tbl, const char *str)
 {
 	size_t k = h_hash_str(str) % tbl->len;
 	void **a = tbl->arrays[k];

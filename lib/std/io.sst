@@ -1,0 +1,37 @@
+include std.core.io
+
+
+void writeln(long num)
+	char[21] buf
+	bool isneg = num < 0
+	if isneg
+		num = -num
+	end
+	long i = 19
+	while num > 0
+		buf[i] = num % 10
+		num /= 10
+		i--
+	end
+	if isneg
+		buf[i] = '-'
+		i--
+	end
+	write 1, buf.ptr + i, buf.length - i
+end
+
+
+void writeln(char[] str)
+	write 1, str.ptr, str.length
+end
+
+
+char[] readln()
+	char[4096] buf
+	long n = read 0, buf, buf.length
+	char str = new char[n]
+	for i in 0 to n
+		str[i] = buf[i]
+	end
+	return str
+end

@@ -30,10 +30,10 @@ void h_destroy(struct hashtbl *tbl);
 int h_resize(struct hashtbl *tbl, size_t newlen);
 
 
-int h_add(struct hashtbl *tbl, char *str, size_t val);
+int h_add(struct hashtbl *tbl, const char *str, size_t val);
 
 
-size_t h_get(struct hashtbl *tbl, char *str);
+size_t h_get(struct hashtbl *tbl, const char *str);
 
 
 int h_get2(struct hashtbl *tbl, const char *str, size_t *val);

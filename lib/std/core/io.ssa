@@ -1,0 +1,15 @@
+read:
+	mov	r3,r2	# Maximum bytes to read
+	mov	r2,r1	# Pointer to buffer
+	mov	r1,r0	# File descriptor
+	set	r0,2	# Syscall read
+	syscall
+	ret
+
+write:
+	mov	r3,r2	# Maximum bytes to write
+	mov	r2,r1	# Pointer to buffer
+	mov	r1,r0	# File descriptor
+	set	r0,1	# Syscall write
+	syscall
+	ret

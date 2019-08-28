@@ -37,14 +37,14 @@ struct func_line {
 
 struct func_line_assign {
 	struct func_line line;
-	char *var;
-	char *value;
+	const char *var;
+	const char *value;
 	char cons;
 };
 
 struct func_line_declare {
 	struct func_line line;
-	char *var;
+	const char *var;
 };
 
 struct func_line_func {
@@ -52,35 +52,35 @@ struct func_line_func {
 	unsigned char paramcount;
 	char name[32];
 	char params[32][32];
-	char *var;
+	const char *var;
 };
 
 struct func_line_goto {
 	struct func_line line;
-	char *label;
+	const char *label;
 };
 
 struct func_line_if {
 	struct func_line line;
-	char *label;
-	char *var;
+	const char *label;
+	const char *var;
 	char inv;
 };
 
 struct func_line_label {
 	struct func_line line;
-	char *label;
+	const char *label;
 };
 
 struct func_line_math {
 	struct func_line line;
 	char op;
-	char *x, *y, *z;
+	const char *x, *y, *z;
 };
 
 struct func_line_return {
 	struct func_line line;
-	char *val;
+	const char *val;
 };
 
 union func_line_all_p {

@@ -76,7 +76,7 @@ struct vasm {
 
 struct vasm_str {
 	short op;
-	char *str;
+	const char *str;
 };
 
 struct vasm_reg {
@@ -97,13 +97,13 @@ struct vasm_reg3 {
 struct vasm_reg_str {
 	short op;
 	char  r;
-	char *str;
+	const char *str;
 };
 
 struct vasm_reg2_str {
 	short op;
 	char  r[2];
-	char *str;
+	const char *str;
 };
 
 union vasm_all {
@@ -119,8 +119,8 @@ union vasm_all {
 
 
 struct lblpos {
-	char  *lbl;
-	size_t pos;
+	const char *lbl;
+	size_t      pos;
 };
 
 
