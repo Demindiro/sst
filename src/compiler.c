@@ -301,7 +301,7 @@ int main(int argc, char **argv)
 
 	// ALL THE WAAAY
 	optimize_lines_options = -1;
-	optimize_lines_options = 0;
+	//optimize_lines_options = 0;
 
 	char  **strings;
 	line_t *lines;

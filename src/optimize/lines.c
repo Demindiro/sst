@@ -48,6 +48,12 @@ static int _remove_unused_assign(struct func *f, size_t *i, struct hashtbl *h_co
 			// To actually determine usage we have to follow the labels
 			// while also (partially) solving the halting problem.
 			goto used;
+		case FUNC_LINE_FUNC:
+			for (size_t j = 0; j < l.f->argcount; j++) {
+				if (streq(v, l.f->args[j]))
+					goto used;
+			}
+			break;
 		case FUNC_LINE_MATH:
 			if (streq(v, l.m->y) ||
 			    (l.m->z != NULL && streq(v, l.m->z)))
