@@ -1,9 +1,9 @@
-extern char[] readln()
+extern byte[] readln()
 
 int main()
 	while true
-		char[] s = readln
+		writeln ">>> "
+		byte[] s = readln
 		writeln s
-		writeln "---"
 	end
 end

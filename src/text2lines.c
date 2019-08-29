@@ -163,20 +163,22 @@ static pos2_t _getpos(pos2_t *p, size_t pc, size_t c)
 
 static int can_extend_inc_or_dec(const char *c)
 {
-	while (*c != '-' && *c != '+') {
+	while (*c != '-') {
 		c++;
-		if (*c == '\n')
+		if (*c == '"' || *c == '\n')
 			return 0;
 	}
-	c++;
-	return *c == '-' || *c == '+';
+	return (*c == '-' || *c == '+') && (*c == *(c + 1));
 }
 
 
 static int can_extend_shortmath(const char *c)
 {
-	while (*c != ' ')
+	while (*c != ' ') {
 		c++;
+		if (*c == '\n')
+			return 0;
+	}
 	c++;
 	return strchr("+-*/%<>&|^", *c) && (*(c + 1) == '=');
 }
@@ -270,7 +272,7 @@ int text2lines(const char *text,
 			memcpy(buf1, d, c - d);
 			buf1[c - d] = 0;
 			// TODO: braces
-			char buf[1024];
+			char buf[2048];
 			snprintf(buf, sizeof buf, "%s = %s %c %s", buf0, buf0, op, buf1);
 			pos2_t p = _getpos(pos, poscount, *c);
 			lns[lc].text = strclone(buf);
@@ -304,7 +306,7 @@ int text2lines(const char *text,
 					continue;
 				*ptr++ = ' ';
 			} else if (*c == '"') {
-				memcpy(ptr, ".str_", sizeof ".str_" - 1);
+				memcpy(ptr, "_str_", sizeof ".str_" - 1);
 				ptr += sizeof ".str_" - 1;
 				*ptr = '0' + sc;
 				ptr++;

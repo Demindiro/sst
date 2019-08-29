@@ -33,6 +33,24 @@ build/linker:		src/linker.c src/hashtbl.c | \
 			include/hashtbl.h
 	$(cc)
 
+/tmp/std/:
+	mkdir $@
+
+/tmp/std/core:		/tmp/std
+	#mkdir $@
+
+/tmp/std/core/io.sso:	/tmp/std/core
+	./build/assembler	lib/std/core/io.ssa	/tmp/std/core/io.sso
+
+/tmp/std/io.sso:	/tmp/std /tmp/std/core/io.sso
+	./build/compiler 	lib/std/io.sst		/tmp/std/io.ssa
+	./build/assembler	/tmp/std/io.ssa		/tmp/std/io.sso
+
+/tmp/std/_start.sso:	/tmp/std
+	./build/assembler	lib/std/_start.ssa	/tmp/std/_start.sso
+
+stdlib: /tmp/std/io.sso /tmp/std/_start.sso
+
 
 test: default
 	./build/compiler test/hello.sst /tmp/hello.ssa
@@ -71,12 +89,10 @@ test-writeln_num: default
 				/tmp/writeln-num.ss
 	./build/interpreter	/tmp/writeln-num.ss
 
-test-readln: default
-	./build/compiler    test/sst/readln.sst        /tmp/readln.ssa
-	./build/assembler   /tmp/readln.ssa      /tmp/readln2.sso
-	./build/assembler   test/ssa/readln.ssa  /tmp/readln.sso
-	./build/assembler   test/ssa/writeln.ssa /tmp/writeln.sso
-	./build/assembler   test/ssa/_start.ssa  /tmp/_start.sso
-	./build/assembler   test/ssa/alloc.ssa   /tmp/alloc.sso
-	./build/linker	    /tmp/_start.sso /tmp/writeln.sso /tmp/readln.sso /tmp/readln2.sso /tmp/alloc.sso /tmp/readln.ss
-	./build/interpreter /tmp/readln.ss
+test-readln: default stdlib
+	./build/compiler	test/sst/readln.sst	/tmp/readln.ssa
+	./build/assembler	/tmp/readln.ssa		/tmp/readln.sso
+	./build/linker		/tmp/std/_start.sso	/tmp/std/io.sso		/tmp/std/core/io.sso \
+				/tmp/readln.sso \
+				/tmp/readln.ss
+	./build/interpreter	/tmp/readln.ss

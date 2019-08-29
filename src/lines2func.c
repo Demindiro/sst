@@ -97,7 +97,7 @@ static const char *deref_var(const char *m, func f, size_t *k,
 {
 	const char *c = m;
 	const char *var;
-	const char *array, *index;
+	const char *array/*, *index*/;
 	const char *parent, *member;
 	int deref_type = -1;
 
@@ -114,7 +114,7 @@ static const char *deref_var(const char *m, func f, size_t *k,
 				EXIT(1);
 			}
 			c--;
-			index = strnclone(d, c - d);
+			//index = strnclone(d, c - d);
 			break;
 		} else if (*c == '.') {
 
@@ -131,6 +131,7 @@ static const char *deref_var(const char *m, func f, size_t *k,
 	const char *type;
 	if (deref_type != -1) {
 		if (h_get2(vartypes, var, (size_t *)&type) < 0) {
+			DEBUG("%s", m);
 			ERROR("Variable '%s' is not declared", var);
 			EXIT(1);
 		}
@@ -153,7 +154,7 @@ static const char *deref_var(const char *m, func f, size_t *k,
 				if (streq(member, "length")) {
 					// Dynamic array
 					const char *pointer = _new_temp_var(f, k, "long*", "pointer");
-					line_math(f, k, MATH_SUB, pointer, parent, "1");
+					line_math(f, k, MATH_SUB, pointer, parent, "8");
 					const char *length  = _new_temp_var(f, k, "long", "length");
 					line_math(f, k, MATH_LOADAT, length, pointer, "0");
 					line_destroy(f, k, pointer);
@@ -201,7 +202,9 @@ static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etem
 	if (strstart(p, "new ")) {
 		// Forgive me for I am lazy
 		const char *v = _new_temp_var(f, k, strclone(p + 4), "new");
-		line_function(f, k, v, "alloc4096", 0, NULL);
+		const char *l = strnclone(strchr(p, '[') + 1, 1); // *puke*
+		const char *a[1] = { l };
+		line_function(f, k, v, "alloc", 1, a);
 		if (etemp) *etemp = 1;
 		return v;
 	}

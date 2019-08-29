@@ -28,7 +28,7 @@
 #define MATH_AND    VASM_OP_AND
 #define MATH_OR     VASM_OP_OR
 #define MATH_XOR    VASM_OP_XOR
-#define MATH_LOADAT VASM_OP_LOADLAT
+#define MATH_LOADAT (-43) // IDK man
 #define MATH_LESS   VASM_OP_LESS
 #define MATH_LESSE  VASM_OP_LESSE
 

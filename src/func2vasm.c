@@ -29,10 +29,6 @@ static size_t _get_type_size(const char *type)
 
 static void _reserve_stack_space(union vasm_all **v, size_t *vc, char reg, const char *type)
 {
-	if (type == NULL) {
-		ERROR("Unexpected type == NULL");
-		return;
-	}
 	const char *c = strchr(type, '[');
 	if (c != NULL) {
 		c++;
@@ -72,6 +68,21 @@ static void _reserve_stack_space(union vasm_all **v, size_t *vc, char reg, const
 		}
 	}
 }
+
+
+
+// TODO: yuck
+static const char *_get_var_type(func f, ssize_t k, const char *var)
+{
+	for ( ; k >= 0; k--) {
+		union func_line_all_p l = { .line = f->lines[k] };
+		if (l.line->type == FUNC_LINE_DECLARE && streq(var, l.d->var))
+			return l.d->type;
+	}
+	ERROR("Variable '%s' not declared", var);
+	EXIT(1);
+}
+
 
 
 int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
@@ -241,6 +252,13 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				ERROR("Failed to add variable to hashtable");
 				EXIT(1);
 			}
+			if (fl.d->type == NULL) {
+				ERROR("=== !!! ===  Bug: DECLARE type is NULL for variable '%s'", fl.d->var);
+				ERROR("=== !!! ===  Assuming and setting type to 'long'");
+				ERROR("=== !!! ===  This will be a fatal error in the future");
+				fl.d->type = "long";
+				fl.d->type = "byte";
+			}
 			_reserve_stack_space(&v, &vc, reg, fl.d->type);
 			break;
 		case FUNC_LINE_DESTROY:
@@ -258,25 +276,38 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 		case FUNC_LINE_FUNC:
 			flf = (struct func_line_func *)f->lines[i];
 
-			for (size_t j = flf->var ? 1 : 0; j < 32; j++) {
+			// Push registers that are in use
+			for (size_t j = 0; j < 32; j++) {
 				if (allocated_regs[j]) {
 					a.r.op = VASM_OP_PUSH;
 					a.r.r  = j;
 					v[vc++] = a;
 				}
 			}
+
+			// Push the needed arguments
+			for (ssize_t j = flf->argcount - 1; j >= 0; j--) {
+				int r = h_get(&tbl, flf->args[j]);
+				if (r != -1 && r != j) {
+					a.r.op  = VASM_OP_PUSH;
+					a.r.r   = r;
+					v[vc++] = a;
+				}
+			}
+
+			// Pop or set the arguments
 			for (size_t j = 0; j < flf->argcount; j++) {
-				size_t r = h_get(&tbl, flf->args[j]);
+				int r = h_get(&tbl, flf->args[j]);
 				if (r == -1) {
 					a.rs.op  = VASM_OP_SET;
 					a.rs.r   = j;
 					a.rs.str = flf->args[j];
-				} else {
-					a.r2.op   = VASM_OP_MOV;
-					a.r2.r[0] = j;
-					a.r2.r[1] = r;
+					v[vc++] = a;
+				} else if (r != j) {
+					a.r.op = VASM_OP_POP;
+					a.r.r  = j;
+					v[vc++] = a;
 				}
-				v[vc++] = a;
 			}
 
 			// Call
@@ -285,10 +316,30 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			v[vc++] = a;
 
 			// Pop registers
-			for (int j = 31; j >= (flf->var ? 1 : 0); j--) {
+			for (int j = 31; j >= (flf->var != NULL ? 1 : 0); j--) {
 				if (allocated_regs[j]) {
-					a.r.op = VASM_OP_POP;
-					a.r.r  = j;
+					a.r.op  = VASM_OP_POP;
+					a.r.r   = j;
+					v[vc++] = a;
+				}
+			}
+
+			// Check if function assigns to var
+			if (flf->var != NULL) {
+				size_t r;
+				if (h_get2(&tbl, flf->var, &r) < 0) {
+					ERROR("Variable '%s' is not declared", flf->var);
+					EXIT(1);
+				}
+				// Move the returned value to the variable
+				a.r2.op  = VASM_OP_MOV;
+				a.r2.r[0]= r;
+				a.r2.r[1]= 0; 
+				v[vc++]  = a;
+				// Pop remaining registers
+				if (allocated_regs[0]) {
+					a.r.op  = VASM_OP_POP;
+					a.r.r   = 0;
 					v[vc++] = a;
 				}
 			}
@@ -360,34 +411,26 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 					v[vc++] = a;
 				} else {
 					// TODO
-					if (flm->z[1] == '.') {
-						char l[64], r[64];
-						memcpy(l, flm->z, 1);
-						l[1] = 0;
-						memcpy(r, flm->z + 2, strlen(flm->z) - 2);
-						r[strlen(flm->z) - 2] = 0;
-
-						a.rs.op  = VASM_OP_SET;
-						a.rs.r   = 22;
-						a.rs.str = "-1";
-						v[vc++] = a;
-
-						rb = 21;
-						a.r3.op   = VASM_OP_LOADLAT;
-						a.r3.r[0] = rb;
-						a.r3.r[1] = h_get(&tbl, l);
-						a.r3.r[2] = 22;
-						v[vc++] = a;
-					} else {
-						// TODO
-						rb = h_get(&tbl, flm->z);
-						if (rb == -1) {
-							ERROR("Variable '%s' not declared", flm->z);
-							EXIT(1);
-						}
+					rb = h_get(&tbl, flm->z);
+					if (rb == -1) {
+						ERROR("Variable '%s' not declared", flm->z);
+						EXIT(1);
 					}
 				}
-				a.r3.op   = flm->op;
+				if (flm->op == MATH_LOADAT) {
+					const char *t = _get_var_type(f, i, flm->x);
+					switch(_get_type_size(t)) {
+					case 1: a.r3.op = VASM_OP_LOADBAT; break;
+					case 2: a.r3.op = VASM_OP_LOADSAT; break;
+					case 4: a.r3.op = VASM_OP_LOADIAT; break;
+					case 8: a.r3.op = VASM_OP_LOADLAT; break;
+					default:
+						ERROR("Dunno");
+						EXIT(1);
+					}
+				} else {
+					a.r3.op = flm->op;
+				}
 				a.r3.r[0] = h_get(&tbl, flm->x);
 				a.r3.r[1] = ra;
 				a.r3.r[2] = rb;
@@ -403,6 +446,11 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 					h_add(&tbl, flm->x, reg);
 				}
 			} else {
+				size_t reg;
+				if (h_get2(&tbl, flm->x, &reg) < 0) {
+					ERROR("Variable '%s' not declared", flm->x);
+					EXIT(1);
+				}
 				a.r2.op   = flm->op;
 				a.r2.r[0] = h_get(&tbl, flm->x);
 				a.r2.r[1] = ra;

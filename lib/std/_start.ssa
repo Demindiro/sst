@@ -1,22 +1,36 @@
 _start:
-	set	r1,0x10000
-	mov	r0,r31,r1
+	# Set stack pointer
+	set	r31,0x10000
+	# Set heap pointer
+	set	r0,0x20000
 	set	r1,.allocptr
 	storel	r0,r1
+	# Execute the main function and exit with the returned value
 	call	main
 	mov	r1,r0
 	set	r0,0
 	syscall
 
-alloc4096:
-	set	r0,.allocptr
-	loadl	r2,r0
-	set	r0,8
-	set	r1,4104
-	add	r2,r2,r1
-	set	r1,.allocptr
-	storel	r2,r1
-	add	r0,r2,r0
+
+# Allocate a block of memory
+# - r0: length of block
+alloc:
+	set	r7,.allocptr
+	set	r6,8
+	# Load heap pointer
+	loadl	r1,r7
+	# Store length
+	storel	r0,r1
+	# Increment pointer by sizeof(long)
+	add	r1,r1,r6
+	# Save pointer to return
+	mov	r2,r1
+	# Increment pointer by length
+	add	r1,r1,r0
+	# Update the heap pointer
+	storel	r1,r7
+	# Return the pointer to the allocated block
+	mov	r0,r2
 	ret
 
 

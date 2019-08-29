@@ -301,7 +301,7 @@ int main(int argc, char **argv)
 
 	// ALL THE WAAAY
 	optimize_lines_options = -1;
-	//optimize_lines_options = 0;
+	optimize_lines_options = 0;
 
 	char  **strings;
 	line_t *lines;
@@ -454,10 +454,8 @@ int main(int argc, char **argv)
 		}
 		teeprintf("\n");
 		for (size_t i = 0; i < stringcount; i++) {
-			teeprintf(".str_%lu:\n"
-				  "\t.long %lu\n"
-				  "\t.str \"%s\"\n",
-				  i, strlen(strings[i]), strings[i]);
+			teeprintf(".long %lu\n_str_%lu:\t.str \"%s\"\n",
+				  strlen(strings[i]), i, strings[i]);
 		}
 		printf("\n");
 	}
