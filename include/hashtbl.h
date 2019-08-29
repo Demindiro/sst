@@ -13,11 +13,11 @@
 
 
 
-struct hashtbl {
+typedef struct hashtbl {
 	size_t  len;
 	size_t  count;
 	void ***arrays;
-};
+} hashtbl_t, *hashtbl;
 
 
 

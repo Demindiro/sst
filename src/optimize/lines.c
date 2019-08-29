@@ -126,8 +126,8 @@ static int _early_destroy(struct func *f, size_t *i)
 			if (fl.f->var != NULL && streq(v, fl.f->var)) {
 				lastk = k;
 			} else {
-				for (size_t p = 0; p < fl.f->paramcount; p++) {
-					if (streq(v, fl.f->params[p])) {
+				for (size_t p = 0; p < fl.f->argcount; p++) {
+					if (streq(v, fl.f->args[p])) {
 						lastk = k;
 						break;
 					}
@@ -305,9 +305,9 @@ static int _substitute_var(struct func *f, size_t *i)
 						l.d->var = w;
 					break;
 				case FUNC_LINE_FUNC:
-					for (size_t k = 0; k < l.f->paramcount; k++) {
-						if (streq(l.f->params[k], v))
-							l.f->params[k] = w;
+					for (size_t k = 0; k < l.f->argcount; k++) {
+						if (streq(l.f->args[k], v))
+							l.f->args[k] = w;
 					}
 					break;
 				case FUNC_LINE_IF:

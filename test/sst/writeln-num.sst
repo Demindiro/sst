@@ -5,4 +5,5 @@ int main()
 	writeln_num 404
 	writeln_num 9001
 	writeln_num 500
+	return 0
 end

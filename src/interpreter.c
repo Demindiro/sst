@@ -401,6 +401,12 @@ static void run() {
 		case VASM_OP_XOR:
 			REG3OP("xor", ^);
 			break;
+		case VASM_OP_LESS:
+			REG3OP("less", <);
+			break;
+		case VASM_OP_LESSE:
+			REG3OP("lesse", <=);
+			break;
 		case VASM_OP_NOT:
 			REG2;
 			REGI = ~REGJ;

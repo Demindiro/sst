@@ -100,10 +100,10 @@ static void _printfunc(struct func *f)
 			if (flf->var != NULL)
 				fprintf(stderr, " %s =", flf->var);
 			fprintf(stderr, " %s", flf->name);
-			if (flf->paramcount > 0)
-				fprintf(stderr, " %s", flf->params[0]);
-			for (size_t k = 1; k < flf->paramcount; k++)
-				fprintf(stderr, ",%s", flf->params[k]);
+			if (flf->argcount > 0)
+				fprintf(stderr, " %s", flf->args[0]);
+			for (size_t k = 1; k < flf->argcount; k++)
+				fprintf(stderr, ",%s", flf->args[k]);
 			fprintf(stderr, "\n");
 			break;
 		case FUNC_LINE_GOTO:
@@ -301,7 +301,7 @@ int main(int argc, char **argv)
 
 	// ALL THE WAAAY
 	optimize_lines_options = -1;
-	//optimize_lines_options = 0;
+	optimize_lines_options = 0;
 
 	char  **strings;
 	line_t *lines;
@@ -385,10 +385,28 @@ int main(int argc, char **argv)
 				teeprintf("\tmov\tr%d,r%d\n", a.r2.r[0], a.r2.r[1]);
 				break;
 			case VASM_OP_STORELAT:
-				teeprintf("\tstoreat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+				teeprintf("\tstorelat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+				break;
+			case VASM_OP_STOREIAT:
+				teeprintf("\tstoreiat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+				break;
+			case VASM_OP_STORESAT:
+				teeprintf("\tstoresat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+				break;
+			case VASM_OP_STOREBAT:
+				teeprintf("\tstorebat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 				break;
 			case VASM_OP_LOADLAT:
 				teeprintf("\tloadlat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+				break;
+			case VASM_OP_LOADIAT:
+				teeprintf("\tloadiat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+				break;
+			case VASM_OP_LOADSAT:
+				teeprintf("\tloadsat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+				break;
+			case VASM_OP_LOADBAT:
+				teeprintf("\tloadbat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 				break;
 			case VASM_OP_PUSH:
 				teeprintf("\tpush\tr%d\n", a.r.r);

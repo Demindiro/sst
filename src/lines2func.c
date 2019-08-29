@@ -66,15 +66,144 @@ static const char *deref_arr(const char *w, struct func *f, size_t *k,
 }
 
 
+/**
+ * Dereference 'pointers' of the form 'container.member'
+ * e.g.
+ *     char[] a = new char[16]
+ *     long b = a.length
+ * expands to
+ *     DECLARE char[] a
+ *     ASSIGN  a = new char[16] # ?
+ *     DECLARE long* _ptr
+ *     MATH    _ptr = a - 1
+ *     DECLARE long _temp
+ *     MATH    _temp = _ptr[0]
+ * (The length is stored as a long right in front of the array)
+ *
+ * There are also special cases. e.g.
+ *     char[4096] a
+ *     long  l = a.length;
+ *     char* p = a.ptr;
+ * expands to
+ *     DECLARE char[4096] a;
+ *     DECLARE long l
+ *     ASSIGN  l = 4096
+ *     DECLARE char* p
+ *     ASSIGN  p = a
+ * (l is set to 4096 directly because the array size is constant anyways)
+ */
+static const char *deref_var(const char *m, func f, size_t *k,
+                             hashtbl vartypes, int *etemp)
+{
+	const char *c = m;
+	const char *var;
+	const char *array, *index;
+	const char *parent, *member;
+	int deref_type = -1;
+
+	// Check dereference type
+	while (*c != 0) {
+		if (*c == '[') {
+			deref_type = 0;
+			var = array = strnclone(m, c - m);
+			c++;
+			const char *d = c;
+			c = strchr(d, ']');
+			if (c == NULL) {
+				ERROR("Expected ']'");
+				EXIT(1);
+			}
+			c--;
+			index = strnclone(d, c - d);
+			break;
+		} else if (*c == '.') {
+
+			deref_type = 1;
+			var = parent = strnclone(m, c - m);
+			c++;
+			member = strclone(c);
+			break;
+		}
+		c++;
+	}
+
+	// Get type
+	const char *type;
+	if (deref_type != -1) {
+		if (h_get2(vartypes, var, (size_t *)&type) < 0) {
+			ERROR("Variable '%s' is not declared", var);
+			EXIT(1);
+		}
+	}
+
+	switch (deref_type) {
+	// No dereference
+	case -1:
+		if (etemp)
+			*etemp = 0;
+		return m;
+	// Array access
+	case 0:
+		return deref_arr(m, f, k, vartypes, etemp);
+	// Member access
+	case 1: {
+		size_t l = strlen(type);
+		if (type[l - 1] == ']') {
+			if (type[l - 2] == '[') {
+				if (streq(member, "length")) {
+					// Dynamic array
+					const char *pointer = _new_temp_var(f, k, "long*", "pointer");
+					line_math(f, k, MATH_SUB, pointer, parent, "1");
+					const char *length  = _new_temp_var(f, k, "long", "length");
+					line_math(f, k, MATH_LOADAT, length, pointer, "0");
+					line_destroy(f, k, pointer);
+					if (etemp) *etemp = 1;
+					return length;
+				} else if (streq(member, "ptr")) {
+					if (etemp) *etemp = 0;
+					return parent;
+				} else {
+					ERROR("Dynamic array '%s' doesn't have member '%s'", parent, member);
+					EXIT(1);
+				}
+			} else {
+				// Fixed array
+				if (streq(member, "length")) {
+					size_t i = l - 3;
+					while (type[i] != '[')
+						i--;
+					i++;
+					if (etemp) *etemp = 0;
+					return strnclone(type + i, l - 1 - i);
+				} else if (streq(member, "ptr")) {
+					if (etemp) *etemp = 0;
+					return parent;
+				} else {
+					ERROR("Fixed array '%s' doesn't have member '%s'", parent, member);
+					EXIT(1);
+				}
+			}
+		} else {
+			ERROR("'%s' doesn't have member '%s'", parent, member);
+			EXIT(1);
+		}
+	}
+	}
+	EXIT(2);
+}
+
+
 static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etemp,
                              const char *temptype, struct hashtbl *vartypes)
 {
 	const char *orgptr = p;
 	// TODO
 	if (strstart(p, "new ")) {
-		if (etemp)
-			*etemp = 0;
-		return "99999"; //"TODO(new)";
+		// Forgive me for I am lazy
+		const char *v = _new_temp_var(f, k, strclone(p + 4), "new");
+		line_function(f, k, v, "alloc4096", 0, NULL);
+		if (etemp) *etemp = 1;
+		return v;
 	}
 	static int varcounter = 0;
 	char words[4][32];
@@ -106,7 +235,7 @@ static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etem
 	union func_line_all_p fl;
 	switch (i) {
 	case 0:
-		return deref_arr(strclone(words[0]), f, k, vartypes, etemp);
+		return deref_var(strclone(words[0]), f, k, vartypes, etemp);
 	case 1:
 		ERROR("This situation is impossible");
 		ERROR("Expression: '%s'", orgptr);
@@ -118,10 +247,7 @@ static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etem
 		snprintf(var, sizeof var, "_var_%d", varcounter);
 		varcounter++;
 		char op;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-		char swap = 0; // "Unused" my ass
-#pragma GCC diagnostic pop
+		char swap = 0;
 		switch (words[1][0]) {
 		case '+':
 			op = MATH_ADD;
@@ -171,6 +297,8 @@ static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etem
 			fl.m->x = strclone(var);
 			fl.m->y = strclone(words[0]);
 			fl.m->z = strclone(words[2]);
+			if (swap)
+				SWAP(const char *, fl.m->y, fl.m->z);
 			f->lines[*k] = fl.line;
 			(*k)++;
 
@@ -217,10 +345,17 @@ static const char *parseexpr(const char *p, struct func *f, size_t *k, int *etem
 			fl.m->line.type = FUNC_LINE_MATH;
 			fl.m->op = op;
 			fl.m->x = strclone(var);
-			fl.m->y = strclone(words[0]);
+			int ee;
+			fl.m->y = deref_var(strclone(words[0]), f, k, vartypes, &ee);
 			fl.m->z = e;
 			f->lines[*k] = fl.line;
 			(*k)++;
+
+			if (swap)
+				SWAP(const char *, fl.m->y, fl.m->z);
+
+			if (ee)
+				line_destroy(f, k, fl.m->y);
 
 			x   = fl.m->x;
 			ret = fl.m->x;
@@ -696,9 +831,9 @@ int lines2func(const line_t *lines, size_t linecount,
 			f->lines[k] = (struct func_line *)flr;
 			k++;
 		} else if (
-			streq(word, "bool") || streq(word, "char") || streq(word, "char[21]") ||
-			streq(word, "char[4096]") ||
-			streq(word, "long") || /* TODO */ streq(word, "char[]")) {
+			streq(word, "bool") || streq(word, "byte") || streq(word, "byte[21]") ||
+			streq(word, "byte[4096]") ||
+			streq(word, "long") || /* TODO */ streq(word, "byte[]")) {
 			char *type = strclone(word);
 			NEXTWORD;
 			char *name = strclone(word);
@@ -731,14 +866,14 @@ int lines2func(const line_t *lines, size_t linecount,
 						ptr = oldptr;
 						while (*ptr != ',' && *ptr != 0)
 							ptr++;
-						fl.f->params = malloc(16 * sizeof *fl.f->params);
+						fl.f->args = malloc(16 * sizeof *fl.f->args);
 						size_t l = ptr - oldptr;
 						ptr++;
 						memcpy(b, oldptr, l);
 						b[l] = 0;
-						fl.f->params[0] = parseexpr(b, f, &k, &etemp[0], "TODO", &vartypes);
-						evars[0] = fl.f->params[0];
-						fl.f->paramcount = 1;
+						fl.f->args[0] = parseexpr(b, f, &k, &etemp[0], "TODO_0", &vartypes);
+						evars[0] = fl.f->args[0];
+						fl.f->argcount = 1;
 						while (*ptr != 0) {
 							oldptr = ptr;
 							while (*ptr != ',' && *ptr != 0)
@@ -747,16 +882,16 @@ int lines2func(const line_t *lines, size_t linecount,
 							ptr++;
 							memcpy(b, oldptr, l);
 							b[l] = 0;
-							fl.f->params[fl.f->paramcount] =
+							fl.f->args[fl.f->argcount] =
 								parseexpr(b, f, &k,
-								&etemp[fl.f->paramcount],
-								"TODO", &vartypes);
-							evars[fl.f->paramcount] = fl.f->params[fl.f->paramcount];
-							fl.f->paramcount++;
+								&etemp[fl.f->argcount],
+								"TODO_1", &vartypes);
+							evars[fl.f->argcount] = fl.f->args[fl.f->argcount];
+							fl.f->argcount++;
 						}
 					}
 					f->lines[k++]   = fl.line;
-					for (size_t i = 0; i < fl.f->paramcount; i++) {
+					for (size_t i = 0; i < fl.f->argcount; i++) {
 						if (etemp[i]) {
 							fl.d = malloc(sizeof *fl.d);
 							fl.d->line.type = FUNC_LINE_DESTROY;
@@ -774,12 +909,14 @@ int lines2func(const line_t *lines, size_t linecount,
 							ERROR("Variable '%s' not declared", arr);
 							EXIT(1);
 						}
+						const char *de    = strchr(type, '[');
+						const char *dtype = strnclone(type, de - type);
 						fl.s = malloc(sizeof *fl.s);
 						fl.s->line.type = FUNC_LINE_STORE;
 						fl.s->var   = arr;
 						fl.s->index = index;
 						fl.s->val   = parseexpr(p, f, &k, &etemp,
-								type, &vartypes);
+								dtype, &vartypes);
 						v = fl.s->val;
 					} else {
 						if (h_get2(&vartypes, name, (size_t *)&type) < 0) {
@@ -840,14 +977,14 @@ int lines2func(const line_t *lines, size_t linecount,
 					ptr = oldptr;
 					while (*ptr != ',' && *ptr != 0)
 						ptr++;
-					flf->params = malloc(16 * sizeof *fl.f->params);
+					flf->args = malloc(16 * sizeof *fl.f->args);
 					size_t l = ptr - oldptr;
 					ptr++;
 					memcpy(b, oldptr, l);
 					b[l] = 0;
-					flf->params[0] = parseexpr(b, f, &k, &etemp[0], "TODO", &vartypes);
-					evars[0] = flf->params[0];
-					flf->paramcount = 1;
+					flf->args[0] = parseexpr(b, f, &k, &etemp[0], "TODO_2", &vartypes);
+					evars[0] = flf->args[0];
+					flf->argcount = 1;
 					while (*ptr != 0) {
 						oldptr = ptr;
 						while (*ptr != ',' && *ptr != 0)
@@ -856,17 +993,17 @@ int lines2func(const line_t *lines, size_t linecount,
 						ptr++;
 						memcpy(b, oldptr, l);
 						b[l] = 0;
-						flf->params[flf->paramcount] =
+						flf->args[flf->argcount] =
 							parseexpr(b, f, &k,
-							&etemp[flf->paramcount],
-							"TODO", &vartypes);
-						evars[flf->paramcount] = flf->params[flf->paramcount];
-						flf->paramcount++;
+							&etemp[flf->argcount],
+							"TODO_3", &vartypes);
+						evars[flf->argcount] = flf->args[flf->argcount];
+						flf->argcount++;
 					}
 				}
 				flf->line.type = FUNC_LINE_FUNC;
 				f->lines[k++] = (struct func_line *)flf;
-				for (size_t i = 0; i < flf->paramcount; i++) {
+				for (size_t i = 0; i < flf->argcount; i++) {
 					if (etemp[i]) {
 						fl.d = malloc(sizeof *fl.d);
 						fl.d->line.type = FUNC_LINE_DESTROY;

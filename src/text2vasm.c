@@ -70,6 +70,10 @@ static int getop(char *mnem)
 			return VASM_OP_LOADBAT;
 		if (streq("lshift", mnem))
 			return VASM_OP_LSHIFT;
+		if (streq("less", mnem))
+			return VASM_OP_LESS;
+		if (streq("lesse", mnem))
+			return VASM_OP_LESSE;
 		break;
 	case 'm':
 		if (streq("mov", mnem))
@@ -270,6 +274,8 @@ static int parse_op_args(union vasm_all *v, char *args)
 	case VASM_OP_LOADIAT:
 	case VASM_OP_LOADSAT:
 	case VASM_OP_LOADBAT:
+	case VASM_OP_LESS:
+	case VASM_OP_LESSE:
 		REG(v->r3.r[0]);
 		SKIP;
 		REG(v->r3.r[1]);

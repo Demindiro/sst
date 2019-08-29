@@ -1,35 +1,37 @@
 include std.core.io
 
 
-void writeln(long num)
-	char[21] buf
+void writeln_num(long num)
+	# log(2 ^ 63) = 18.96 --> 19 bytes + 1 byte for (optional) minus sign + '\n'
+	byte[21] buf
 	bool isneg = num < 0
 	if isneg
 		num = -num
 	end
-	long i = 19
+	long i = buf.length - 1
+	buf[i] = '\n'
 	while num > 0
-		buf[i] = num % 10
-		num /= 10
 		i--
+		buf[i] = num % 10 + '0'
+		num /= 10
 	end
 	if isneg
-		buf[i] = '-'
 		i--
+		buf[i] = '-'
 	end
 	write 1, buf.ptr + i, buf.length - i
 end
 
 
-void writeln(char[] str)
+void writeln(byte[] str)
 	write 1, str.ptr, str.length
 end
 
 
-char[] readln()
-	char[4096] buf
-	long n = read 0, buf, buf.length
-	char[] str = new char[n]
+byte[] readln()
+	byte[4096] buf
+	long n = read 0, buf.ptr, buf.length
+	byte[] str = new byte[n]
 	for i in 0 to n
 		str[i] = buf[i]
 	end

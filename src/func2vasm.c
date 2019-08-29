@@ -9,6 +9,71 @@
 #include "util.h"
 
 
+
+
+static size_t _get_type_size(const char *type)
+{
+	if (streq(type, "long" ) || streq(type, "ulong" ))
+		return 8;
+	if (streq(type, "int"  ) || streq(type, "uint"  ))
+		return 4;
+	if (streq(type, "short") || streq(type, "ushort"))
+		return 2;
+	if (streq(type, "byte" ) || streq(type, "ubyte" ))
+		return 1;
+	ERROR("Unknown size for type '%s'", type);
+	EXIT(1);
+}
+
+
+
+static void _reserve_stack_space(union vasm_all **v, size_t *vc, char reg, const char *type)
+{
+	if (type == NULL) {
+		ERROR("Unexpected type == NULL");
+		return;
+	}
+	const char *c = strchr(type, '[');
+	if (c != NULL) {
+		c++;
+		const char *d = strchr(c, ']');
+		char b[64];
+		if (c == d) {
+			// Dynamic array
+			return;
+		} else {
+			// Fixed array
+			memcpy(b, c, d - c);
+			b[d - c] = 0;
+			size_t l = atol(b);
+			memcpy(b, type, (c - 1) - type);
+			b[(c - 1) - type] = 0;
+			l *= _get_type_size(b);
+			DEBUG("%lu bytes allocated on stack", l);
+			snprintf(b, sizeof b, "%lu", l);
+
+			union vasm_all a;
+
+			a.rs.op = VASM_OP_SET;
+			a.rs.r  = 29;
+			a.rs.str= strclone(b);
+			(*v)[(*vc)++] = a;
+
+			a.r2.op = VASM_OP_MOV;
+			a.r2.r[0]=reg;
+			a.r2.r[1]=31;
+			(*v)[(*vc)++] = a;
+
+			a.r3.op = VASM_OP_ADD;
+			a.r3.r[0]=31;
+			a.r3.r[1]=31;
+			a.r3.r[2]=29;
+			(*v)[(*vc)++] = a;
+		}
+	}
+}
+
+
 int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 	size_t vc = 0, vs = 1024;
 	union vasm_all *v = malloc(vs * sizeof *v);
@@ -65,6 +130,15 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 
 	if (constcount >= sizeof consts / sizeof *consts)
 		constcount = 0;
+
+	// Preserve stack pointer
+	a.r.op = VASM_OP_PUSH;
+	a.r.r  = 30;
+	v[vc++] = a;
+	a.r2.op = VASM_OP_MOV;
+	a.r2.r[0]= 30;
+	a.r2.r[1]= 31;
+	v[vc++] = a;
 
 	struct hashtbl constvalh;
 	h_create(&constvalh, 16);
@@ -126,7 +200,6 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 		struct func_line_if     *fli;
 		struct func_line_label  *fll;
 		struct func_line_math   *flm;
-		struct func_line_return *flr;
 		size_t ra, rb, reg;
 		switch (f->lines[i]->type) {
 		case FUNC_LINE_ASSIGN:
@@ -168,6 +241,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				ERROR("Failed to add variable to hashtable");
 				EXIT(1);
 			}
+			_reserve_stack_space(&v, &vc, reg, fl.d->type);
 			break;
 		case FUNC_LINE_DESTROY:
 			// TODO
@@ -191,12 +265,12 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 					v[vc++] = a;
 				}
 			}
-			for (size_t j = 0; j < flf->paramcount; j++) {
-				size_t r = h_get(&tbl, flf->params[j]);
+			for (size_t j = 0; j < flf->argcount; j++) {
+				size_t r = h_get(&tbl, flf->args[j]);
 				if (r == -1) {
 					a.rs.op  = VASM_OP_SET;
 					a.rs.r   = j;
-					a.rs.str = flf->params[j];
+					a.rs.str = flf->args[j];
 				} else {
 					a.r2.op   = VASM_OP_MOV;
 					a.r2.r[0] = j;
@@ -347,10 +421,27 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			v[vc++] = a;
 			break;
 		case FUNC_LINE_RETURN:
-			flr = (struct func_line_return *)f->lines[i];
-			a.rs.op  = VASM_OP_SET;
-			a.rs.r   = 0;
-			a.rs.str = flr->val;
+			// Restore stack pointer
+			a.r2.op = VASM_OP_MOV;
+			a.r2.r[0]= 31;
+			a.r2.r[1]= 30;
+			v[vc++] = a;
+			a.r.op = VASM_OP_POP;
+			a.r.r  = 30;
+			v[vc++] = a;
+			if (isnum(*fl.r->val)) {
+				a.rs.op  = VASM_OP_SET;
+				a.rs.r   = 0;
+				a.rs.str = fl.r->val;
+			} else {
+				a.r2.op  = VASM_OP_MOV;
+				a.r2.r[0]= 0;
+				a.r2.r[1]= h_get(&tbl, fl.r->val);
+				if (a.r2.r[1] == -1) {
+					ERROR("Variable '%s' not declared", fl.r->val);
+					EXIT(1);
+				}
+			}
 			v[vc++] = a;
 			v[vc++].op = VASM_OP_RET;
 			break;
@@ -383,22 +474,30 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 					EXIT(1);
 				}
 			}
-			a.r2.op = VASM_OP_STOREBAT; // TODO determine required length
-			a.r2.r[0] = ra;
-			a.r2.r[1] = h_get(&tbl, fl.s->var);
-			a.r2.r[2] = rb;
+			a.r3.op = VASM_OP_STOREBAT; // TODO determine required length
+			a.r3.r[0] = ra;
+			a.r3.r[1] = h_get(&tbl, fl.s->var);
+			a.r3.r[2] = rb;
 			if (a.r2.r[1] == -1) {
 				ERROR("Variable '%s' not declared", fl.s->var);
 				EXIT(1);
 			}
+			v[vc++] = a;
 			break;
 		default:
 			ERROR("Unknown line type (%d)", f->lines[i]->type);
 			EXIT(1);
 		}
 	}
-	a.op       = VASM_OP_RET;
-	v[vc++]    = a;
+	// Restore stack pointer
+	a.r2.op = VASM_OP_MOV;
+	a.r2.r[0]= 31;
+	a.r2.r[1]= 30;
+	v[vc++] = a;
+	a.r.op = VASM_OP_POP;
+	a.r.r  = 30;
+	v[vc++] = a;
+	v[vc++].op = VASM_OP_RET;
 	*vasms     = realloc(v, vc * sizeof *v);
 	*vasmcount = vc;
 	return 0;

@@ -187,6 +187,8 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		case VASM_OP_LOADIAT:
 		case VASM_OP_LOADSAT:
 		case VASM_OP_LOADBAT:
+		case VASM_OP_LESS:
+		case VASM_OP_LESSE:
 			for (size_t i = 0; i < 3; i++) {
 				vbin[vbinlen] = a.r3.r[i];
 				vbinlen++;

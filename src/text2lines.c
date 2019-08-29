@@ -173,6 +173,15 @@ static int can_extend_inc_or_dec(const char *c)
 }
 
 
+static int can_extend_shortmath(const char *c)
+{
+	while (*c != ' ')
+		c++;
+	c++;
+	return strchr("+-*/%<>&|^", *c) && (*(c + 1) == '=');
+}
+
+
 int text2lines(const char *text,
                line_t **lines  , size_t *linecount,
                char ***strings, size_t *stringcount) {
@@ -198,6 +207,7 @@ int text2lines(const char *text,
 		if (*c == '#') {
 			while (*c != '\n')
 				c++;
+			c++;
 			continue;
 		}
 
@@ -240,6 +250,33 @@ int text2lines(const char *text,
 			lns[lc].pos  = p.p;
 			lc++;
 			c += 3;
+			continue;
+		}
+
+		// Extend +=, -= ... if applicable
+		if (can_extend_shortmath(c)) {
+			const char *d = c;
+			char buf0[256], buf1[1024];
+			while (*c != ' ')
+				c++;
+			memcpy(buf0, d, c - d);
+			c++;
+			char op = *c;
+			buf0[c - d] = 0;
+			c += 3; // op + '=' + ' '
+			d  = c;
+			while (*c != '\n')
+				c++;
+			memcpy(buf1, d, c - d);
+			buf1[c - d] = 0;
+			// TODO: braces
+			char buf[1024];
+			snprintf(buf, sizeof buf, "%s = %s %c %s", buf0, buf0, op, buf1);
+			pos2_t p = _getpos(pos, poscount, *c);
+			lns[lc].text = strclone(buf);
+			lns[lc].pos  = p.p;
+			lc++;
+			c++;
 			continue;
 		}
 
@@ -293,11 +330,13 @@ int text2lines(const char *text,
 				int v = *c;
 				c++;
 				if (v == '\\') {
-					c++;
 					switch (*c) {
 					case '0': v =  0; break;
 					case 'n': v = 10; break;
+					default:
+						  EXIT(1);
 					}
+					c++;
 				}
 				size_t l = sprintf(ptr, "%d", v);
 				ptr += l;

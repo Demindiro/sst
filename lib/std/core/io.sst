@@ -1,2 +1,2 @@
-extern char[] read (int fd, long   length)
-extern long   write(int fd, char[] data  )
+extern long read (int fd, byte* buf, long length)
+extern long write(int fd, byte* buf, long length)

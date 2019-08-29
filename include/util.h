@@ -32,6 +32,12 @@ static char *strnclone(const char *text, size_t max) {
 #define strstart(x,y) (strncmp(x,y,strlen(y)) == 0)
 #define isnum(c) ('0' <= c && c <= '9')
 
+#define SWAP(type,x,y) do {	\
+	type SWAP = x;		\
+	x = y;			\
+	y = SWAP;		\
+} while (0)
+
 #ifndef NDEBUG
 # define ERROR(m, ...) fprintf(stderr, "ERROR: " m "\n", ##__VA_ARGS__)
 # define DEBUG(m, ...) fprintf(stderr, "DEBUG: " m "\n", ##__VA_ARGS__)
