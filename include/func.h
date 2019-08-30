@@ -22,6 +22,7 @@
 #define MATH_MUL    VASM_OP_MUL
 #define MATH_DIV    VASM_OP_DIV
 #define MATH_MOD    VASM_OP_MOD
+#define MATH_REM    VASM_OP_REM
 #define MATH_NOT    VASM_OP_NOT
 #define MATH_INV    VASM_OP_INV
 #define MATH_RSHIFT VASM_OP_RSHIFT

@@ -430,6 +430,35 @@ static int _remove_unused_label(func f, size_t *i)
 }
 
 
+/**
+ * Precompute math that uses constants
+ */
+static int _precompute_math(func f, size_t *i)
+{
+	struct func_line_math *m = (struct func_line_math *)f->lines[*i];
+	if (isnum(*m->y) && isnum(*m->z)) {
+		ssize_t x, y = atol(m->y), z = atol(m->z);
+		switch (m->op) {
+		case MATH_ADD: x = y + z; break;
+		case MATH_SUB: x = y - z; break;
+		case MATH_MUL: x = y * z; break;
+		case MATH_DIV: x = y / z; break;
+		case MATH_REM: x = y % z; break;
+		case MATH_MOD: x = y - (y / z) * z; break;
+		default: return 0; // Nevermind I guess
+		}
+		char buf[21];
+		snprintf(buf, sizeof buf, "%lu", x);
+		struct func_line_assign *a = malloc(sizeof *a);
+		a->line.type = FUNC_LINE_ASSIGN;
+		a->var       = m->x;
+		a->value     = strclone(buf);
+		f->lines[*i] = (struct func_line *)a;
+	}
+	return 0;
+}
+
+
 #if 0
 // IDK what this does tbh
 static void _findconst(struct func *f)
@@ -535,6 +564,9 @@ void optimizefunc(struct func *f)
 						break;
 				if (optimize_lines_options & INVERT_IF)
 					if (_invert_if(f, &i))
+						break;
+				if (optimize_lines_options & PRECOMPUTE_MATH)
+					if (_precompute_math(f, &i))
 						break;
 				break;
 			case FUNC_LINE_FUNC:
