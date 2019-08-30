@@ -9,6 +9,117 @@
 #include "util.h"
 
 
+/**
+ * Remove instructions that are unreachable.
+ */
+static void _dead_code_elimination(union vasm_all *vasms, size_t *vasmcount, size_t *i)
+{
+	size_t start = *i + 1, end = start;
+	for (size_t j = start; j < *vasmcount; j++) {
+		union vasm_all a = vasms[j];
+		if (a.op == VASM_OP_LABEL)
+			break;
+		end = j + 1;
+	}
+	memmove(vasms + start, vasms + end, *vasmcount - start);
+	*vasmcount -= end - start;
+}
+
+
+/**
+ * Replace push/pop combinations with mov instructions
+ */
+static void _pushpop_to_mov(union vasm_all *vasms, size_t *vasmcount, size_t *i)
+{
+	union vasm_all a = vasms[*i];
+	int pushr = a.r.r, popr;
+	size_t pushi = *i, popi;
+	// Find next pop instruction
+	int stackdiff = 1;
+	for (size_t j = pushi + 1; j < *vasmcount; j++) {
+		a = vasms[j];
+		if (a.op == VASM_OP_LABEL) {
+			// Don't optimize what can potentially be magic
+			return;
+		}
+		if (a.op == VASM_OP_CALL) {
+			// Subroutines can change the registers to any value they like
+			return;
+		}
+		if (a.op == VASM_OP_PUSH) {
+			stackdiff++;
+		}
+		if (a.op == VASM_OP_POP) {
+			stackdiff--;
+			if (stackdiff == 0) {
+				popr = a.r.r;
+				popi = j;
+				goto foundpop;
+			}
+		}
+	}
+	// I hope whoever wrote this assembly knows what (s)he is doing
+	return;
+foundpop:
+	// Check if the pushed register is overwritten at some point
+	// If it is, then the push is necessary unless the pop register
+	// isn't used as an argument before the pop
+	; int pushwritten = 0, popused = 0;
+	for (size_t j = pushi + 1; j < popi; j++) {
+		a = vasms[j];
+		switch (get_vasm_args_type(a.op)) {
+		case VASM_ARGS_TYPE_REG1:
+			if (a.op == VASM_OP_PUSH) {
+				if (a.r.r == popr)
+					popused = 1;
+			} else if (a.op == VASM_OP_POP) {
+				if (a.r.r == pushr)
+					pushwritten = 1;
+			} else {
+				DEBUG("There are 1 reg instructions other than push and pop?");
+				DEBUG("Opcode: %d", a.op);
+				DEBUG("Assuming the register will be overwritten or used as argument");
+				pushwritten = popused = 1;
+			}
+			break;
+		case VASM_ARGS_TYPE_REG2:
+			if (a.r2.r[0] == pushr)
+				pushwritten = 1;
+			if (a.r2.r[1] == popr)
+				popused = 1;
+			break;
+		case VASM_ARGS_TYPE_REG3:
+			if (a.r3.r[0] == pushr)
+				pushwritten = 1;
+			if (a.r3.r[1] == popr || a.r3.r[2] == popr)
+				popused = 1;
+			break;
+		case VASM_ARGS_TYPE_REGVAL:
+			if (a.op == VASM_OP_SET && a.rs.r == pushr)
+				pushwritten = 1;
+			break;
+		}
+		if (pushwritten && popused)
+			return;
+	}
+	if (pushwritten) {
+		// Replace push and remove pop
+		vasms[pushi].op = VASM_OP_MOV;
+		vasms[pushi].r2.r[0] = popr;
+		vasms[pushi].r2.r[1] = pushr;
+		(*vasmcount)--;
+		memmove(vasms + popi, vasms + popi + 1, (*vasmcount - popi) * sizeof *vasms);
+	} else {
+		// Replace pop and remove push
+		vasms[popi].op = VASM_OP_MOV;
+		vasms[popi].r2.r[0] = popr;
+		vasms[popi].r2.r[1] = pushr;
+		(*vasmcount)--;
+		memmove(vasms + pushi, vasms + pushi + 1, (*vasmcount - pushi) * sizeof *vasms);
+	}
+}
+
+
 static int optimizevasm_replace(union vasm_all *vasms, size_t *vasmcount)
 {
 	for (size_t i = 0; i < *vasmcount; i++) {
@@ -21,6 +132,10 @@ static int optimizevasm_replace(union vasm_all *vasms, size_t *vasmcount)
 			for (size_t j = i + 1; j < *vasmcount; j++) {
 				a = vasms[j];
 			}
+			break;
+		case VASM_OP_PUSH:
+			if (1 & 1)
+				_pushpop_to_mov(vasms, vasmcount, &i);
 			break;
 		case VASM_OP_POP:
 			reg = a.r.r;
@@ -86,6 +201,10 @@ static int optimizevasm_replace(union vasm_all *vasms, size_t *vasmcount)
 				i--;
 			}
 			break;
+		case VASM_OP_JMP:
+		case VASM_OP_RET:
+			if (1 & 1) // TODO optimization options
+				_dead_code_elimination(vasms, vasmcount, &i);
 		}
 	}
 

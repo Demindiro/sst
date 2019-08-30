@@ -19,9 +19,6 @@ struct lblpos pos2lbl[4096];
 size_t pos2lblcount;
 
 
-#define streq(a,b) (strcmp(a,b) == 0)
-
-
 static int getop(char *mnem)
 {
 	char c = *mnem;
@@ -162,6 +159,9 @@ static int getop(char *mnem)
 
 static int parse_op_args(union vasm_all *v, char *args)
 {
+#ifdef STR
+# undef STR
+#endif
 	#define STR(assign) do {          \
 		char *start = ptr;        \
 		while (*ptr != ' ' && *ptr != '\t' && *ptr != ',' && *ptr != 0) \

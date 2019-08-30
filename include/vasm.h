@@ -1,6 +1,8 @@
 #ifndef VASM_H
 #define VASM_H
 
+#include "util.h"
+
 
 #define VASM_OP_NONE      (-1)
 #define VASM_OP_COMMENT   (-2)
@@ -135,6 +137,71 @@ struct lblmap {
 	struct lblpos pos2lbl[4096];
 	size_t pos2lblcount;
 };
+
+
+
+
+#define VASM_ARGS_TYPE_SPECIAL 0
+#define VASM_ARGS_TYPE_NONE    1
+#define VASM_ARGS_TYPE_REG1    2
+#define VASM_ARGS_TYPE_REG2    3
+#define VASM_ARGS_TYPE_REG3    4
+#define VASM_ARGS_TYPE_VAL     5
+#define VASM_ARGS_TYPE_REGVAL  6
+
+static int get_vasm_args_type(int op)
+{
+	switch (op) {
+	case VASM_OP_SYSCALL:
+	case VASM_OP_RET:
+		return VASM_ARGS_TYPE_NONE;
+	case VASM_OP_PUSH:
+	case VASM_OP_POP:
+		return VASM_ARGS_TYPE_REG1;
+	case VASM_OP_STOREL:
+	case VASM_OP_STOREI:
+	case VASM_OP_STORES:
+	case VASM_OP_STOREB:
+	case VASM_OP_LOADL:
+	case VASM_OP_LOADI:
+	case VASM_OP_LOADS:
+	case VASM_OP_LOADB:
+	case VASM_OP_MOV:
+	case VASM_OP_NOT:
+	case VASM_OP_INV:
+		return VASM_ARGS_TYPE_REG2;
+	case VASM_OP_ADD:
+	case VASM_OP_SUB:
+	case VASM_OP_MUL:
+	case VASM_OP_DIV:
+	case VASM_OP_MOD:
+	case VASM_OP_REM:
+	case VASM_OP_RSHIFT:
+	case VASM_OP_LSHIFT:
+	case VASM_OP_XOR:
+	case VASM_OP_STORELAT:
+	case VASM_OP_STOREIAT:
+	case VASM_OP_STORESAT:
+	case VASM_OP_STOREBAT:
+	case VASM_OP_LOADLAT:
+	case VASM_OP_LOADIAT:
+	case VASM_OP_LOADSAT:
+	case VASM_OP_LOADBAT:
+	case VASM_OP_LESS:
+	case VASM_OP_LESSE:
+		return VASM_ARGS_TYPE_REG3;
+	case VASM_OP_JMP:
+	case VASM_OP_CALL:
+		return VASM_ARGS_TYPE_VAL;
+	case VASM_OP_SET:
+	case VASM_OP_SETB:
+	case VASM_OP_SETS:
+	case VASM_OP_SETI:
+	case VASM_OP_SETL:
+		return VASM_ARGS_TYPE_REGVAL;
+	default: EXIT(1);
+	}
+}
 
 
 #endif

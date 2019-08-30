@@ -62,12 +62,6 @@ static size_t ip;
 	} while (0)
 #endif
 
-#ifndef NDEBUG
-# define DEBUG(x, ...) fprintf(stderr, x "\n", ##__VA_ARGS__)
-#else
-# define DEBUG(x, ...) do {} while (0)
-#endif
-
 #define sp regs[31]
 
 
