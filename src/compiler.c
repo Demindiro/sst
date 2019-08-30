@@ -132,6 +132,9 @@ static void _printfunc(struct func *f)
 			else
 				DEBUG("  Math: %s = %s %s %s", flm->x, flm->y, mathop2str(flm->op), flm->z);
 			break;
+		case FUNC_LINE_RENAME:
+			DEBUG("  Rename: %s --> %s", fl.rn->old, fl.rn->new);
+			break;
 		case FUNC_LINE_RETURN:
 			flr = (struct func_line_return *)f->lines[j];
 			DEBUG("  Return: %s", flr->val);

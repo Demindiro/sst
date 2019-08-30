@@ -290,13 +290,14 @@ static int _nop_math(struct func *f, size_t *i)
 /**
  * Check if a variable can be substituted for another.
  * e.g.
- * - Declare x
- * - x = y
- * - Destroy y
+ * - DECLARE x
+ * - ASSIGN  x = y
+ * - DESTROY y
  * In this case x can as well be replaced by y since it effectively takes over it's role
- * TODO: what about a second declare y?
+ * To prevent name clashes in case of a second declare a RENAME statement is used, which
+ * changes the 'name' of a register in func2vasm.
  */
-static int _substitute_var(struct func *f, size_t *i)
+static int _rename_var(struct func *f, size_t *i)
 {
 	if (*i >= f->linecount - 2)
 		return 0;
@@ -307,47 +308,12 @@ static int _substitute_var(struct func *f, size_t *i)
 	    fl2.line->type == FUNC_LINE_DESTROY) {
 		if (streq(fl0.d->var, fl1.a->var) &&
 		    streq(fl1.a->value, fl2.d->var)) {
-			const char *v = fl0.d->var, *w = fl2.d->var;
-			f->lines[*i] = f->lines[*i + 1];
-			REMOVERANGE(*i, *i + 3);
-			for (size_t j = *i; j < f->linecount; j++) {
-				union func_line_all_p l = { .line = f->lines[j] };
-				switch (l.line->type) {
-				case FUNC_LINE_ASSIGN:
-					if (streq(l.a->var, v))
-						l.a->var = w;
-					if (streq(l.a->value, v))
-						l.a->value = w;
-					break;
-				case FUNC_LINE_DECLARE:
-				case FUNC_LINE_DESTROY:
-					if (streq(l.d->var, v))
-						l.d->var = w;
-					break;
-				case FUNC_LINE_FUNC:
-					for (size_t k = 0; k < l.f->argcount; k++) {
-						if (streq(l.f->args[k], v))
-							l.f->args[k] = w;
-					}
-					break;
-				case FUNC_LINE_IF:
-					if (streq(l.i->var, v))
-						l.i->var = w;
-					break;
-				case FUNC_LINE_MATH:
-					if (streq(l.m->x, v))
-						l.m->x = w;
-					if (streq(l.m->y, v))
-						l.m->x = w;
-					if (l.m->z != NULL && streq(l.m->z, v))
-						l.m->x = w;
-					break;
-				case FUNC_LINE_RETURN:
-					if (streq(l.r->val, v))
-						l.r->val = w;
-					break;
-				}
-			}
+			struct func_line_rename *r = malloc(sizeof *r);
+			r->line.type = FUNC_LINE_RENAME;
+			r->old       = fl2.d->var;
+			r->new       = fl0.d->var;
+			f->lines[*i] = (struct func_line *)r;
+			REMOVERANGE(*i + 1, *i + 3);
 			return 1;
 		}
 	}
@@ -545,8 +511,8 @@ void optimizefunc(struct func *f)
 				if (optimize_lines_options & SUBSTITUTE_TEMP_IF_VAR)
 					if (_substitute_temp_var(f, &i))
 						break;
-				if (optimize_lines_options & SUBSTITUTE_VAR)
-					if (_substitute_var(f, &i))
+				if (optimize_lines_options & RENAME_VAR)
+					if (_rename_var(f, &i))
 						break;
 				// Totally broken, do not use
 				// This optimization does not take in account gotos

@@ -9,7 +9,7 @@ extern enum optimize_lines_options {
 	CONSTANT_IF            = 1L << 2,
 	FAST_DIV               = 1L << 3,
 	NOP_MATH               = 1L << 4,
-	SUBSTITUTE_VAR         = 1L << 5,
+	RENAME_VAR             = 1L << 5,
 	INVERSE_MATH_IF        = 1L << 6,
 	SUBSTITUTE_TEMP_IF_VAR = 1L << 7,
 	FINDCONST              = 1L << 8,

@@ -43,7 +43,7 @@ build/compiler:		src/compiler.c		src/text2lines.c	\
 			include/util.h		include/vasm.h		\
 			include/text2lines.h	include/func2vasm.h	\
 			include/hashtbl.h	include/optimize/lines.h\
-			include/optimize/vasm.h	
+			include/optimize/vasm.h	include/func.h	
 	@echo Building compiler
 	@$(cc)
 

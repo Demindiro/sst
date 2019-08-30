@@ -10,6 +10,11 @@
 
 
 
+#define ENOTDECLARED(x) do { 			\
+	ERROR("Variable '%s' not declared", x);	\
+	EXIT(1);				\
+} while (0)
+
 
 static size_t _get_type_size(const char *type)
 {
@@ -435,7 +440,6 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				a.r3.r[1] = ra;
 				a.r3.r[2] = rb;
 				if (a.r3.r[0] == -1) {
-					size_t reg = 0;
 					for ( ; reg < sizeof allocated_regs / sizeof *allocated_regs; reg++) {
 						if (!allocated_regs[reg]) {
 							allocated_regs[reg] = 1;
@@ -446,7 +450,6 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 					h_add(&tbl, flm->x, reg);
 				}
 			} else {
-				size_t reg;
 				if (h_get2(&tbl, flm->x, &reg) < 0) {
 					ERROR("Variable '%s' not declared", flm->x);
 					EXIT(1);
@@ -467,6 +470,12 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				}
 			}
 			v[vc++] = a;
+			break;
+		case FUNC_LINE_RENAME:
+			if (h_get2(&tbl, fl.rn->old, &reg) == -1)
+				ENOTDECLARED(fl.rn->old);
+			h_rem(&tbl, fl.rn->old);
+			h_add(&tbl, fl.rn->new, reg);
 			break;
 		case FUNC_LINE_RETURN:
 			// Restore stack pointer
