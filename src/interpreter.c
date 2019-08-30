@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <endian.h>
 #include <x86intrin.h>
+#include <sched.h>
 #include "vasm.h"
 
 
@@ -76,8 +77,9 @@ static size_t ip;
 
 
 #ifndef NOPROF
+static double avg_rdtsc;
+static size_t rdtsc_samples;
 static size_t icounter;
-static size_t rstart;
 #endif
 
 
@@ -102,11 +104,10 @@ static void vasm_syscall() {
 	switch (regs[0]) {
 	case 0:
 #ifndef NOPROF
-		; size_t r = _rdtsc() - rstart;
-		printf("\n");
-		printf("Instructions executed: %lu\n", icounter);
-		printf("Host CPU cycles: %lu\n", r);
-		printf("Average host CPU cycles per instruction: %lf\n", (double)r / icounter);
+		fprintf(stderr, "\n");
+		fprintf(stderr, "Instructions executed: %lu\n", icounter);
+		fprintf(stderr, "Average host CPU cycles per instruction: %lf\n", avg_rdtsc);
+		fprintf(stderr, "Estimated host CPU cycles: %lu\n", (size_t)(avg_rdtsc * icounter));
 #endif
 		exit(regs[1]);
 		break;
@@ -129,17 +130,14 @@ static void vasm_syscall() {
 
 static void run() {
 
-#ifndef NOPROF
-	rstart = _rdtsc();
-#endif
 
 	while (1) {
-#ifndef NOPROF
-		icounter++;
-#endif
 #ifndef NDEBUG
 		fprintf(stderr, "0x%08lx: ", ip);
 #endif
+		int _;
+		size_t rstart = _rdtscp(&_);
+
 		char op = mem[ip];
 		ip++;
 
@@ -445,6 +443,17 @@ static void run() {
 #endif
 			break;
 		}
+#ifndef NOPROF
+		size_t r = _rdtsc() - rstart;
+		avg_rdtsc = (avg_rdtsc * rdtsc_samples + r) / (rdtsc_samples + 1);
+		rdtsc_samples++;
+#define INSTR_PER_YIELD (1 << 1)
+		icounter++;
+		if (icounter % INSTR_PER_YIELD == 0) {
+			fprintf(stderr, "%lf\n", avg_rdtsc);
+			sched_yield();
+		}
+#endif
 #ifdef THROTTLE
 		usleep(THROTTLE * 1000);
 #endif
