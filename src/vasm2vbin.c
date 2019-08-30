@@ -38,14 +38,14 @@ static size_t _getoplen(char op)
 	case VASM_OP_RAW_SHORT:
 		return 2;
 	// 2 reg
-	case VASM_OP_STOREL:
-	case VASM_OP_STOREI:
-	case VASM_OP_STORES:
-	case VASM_OP_STOREB:
-	case VASM_OP_LOADL:
-	case VASM_OP_LOADI:
-	case VASM_OP_LOADS:
-	case VASM_OP_LOADB:
+	case VASM_OP_STRL:
+	case VASM_OP_STRI:
+	case VASM_OP_STRS:
+	case VASM_OP_STRB:
+	case VASM_OP_LDL:
+	case VASM_OP_LDI:
+	case VASM_OP_LDS:
+	case VASM_OP_LDB:
 	case VASM_OP_MOV:
 	case VASM_OP_NOT:
 	case VASM_OP_INV:
@@ -69,14 +69,14 @@ static size_t _getoplen(char op)
 	case VASM_OP_RSHIFT:
 	case VASM_OP_LSHIFT:
 	case VASM_OP_XOR:
-	case VASM_OP_STORELAT:
-	case VASM_OP_STOREIAT:
-	case VASM_OP_STORESAT:
-	case VASM_OP_STOREBAT:
-	case VASM_OP_LOADLAT:
-	case VASM_OP_LOADIAT:
-	case VASM_OP_LOADSAT:
-	case VASM_OP_LOADBAT:
+	case VASM_OP_STRLAT:
+	case VASM_OP_STRIAT:
+	case VASM_OP_STRSAT:
+	case VASM_OP_STRBAT:
+	case VASM_OP_LDLAT:
+	case VASM_OP_LDIAT:
+	case VASM_OP_LDSAT:
+	case VASM_OP_LDBAT:
 	// 1 int
 	case VASM_OP_RAW_INT:
 		return 4;
@@ -153,14 +153,14 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 			vbinlen++;
 			break;
 		// 2 reg
-		case VASM_OP_STOREL:
-		case VASM_OP_STOREI:
-		case VASM_OP_STORES:
-		case VASM_OP_STOREB:
-		case VASM_OP_LOADL:
-		case VASM_OP_LOADI:
-		case VASM_OP_LOADS:
-		case VASM_OP_LOADB:
+		case VASM_OP_STRL:
+		case VASM_OP_STRI:
+		case VASM_OP_STRS:
+		case VASM_OP_STRB:
+		case VASM_OP_LDL:
+		case VASM_OP_LDI:
+		case VASM_OP_LDS:
+		case VASM_OP_LDB:
 		case VASM_OP_MOV:
 		case VASM_OP_NOT:
 		case VASM_OP_INV:
@@ -179,14 +179,14 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		case VASM_OP_RSHIFT:
 		case VASM_OP_LSHIFT:
 		case VASM_OP_XOR:
-		case VASM_OP_STORELAT:
-		case VASM_OP_STOREIAT:
-		case VASM_OP_STORESAT:
-		case VASM_OP_STOREBAT:
-		case VASM_OP_LOADLAT:
-		case VASM_OP_LOADIAT:
-		case VASM_OP_LOADSAT:
-		case VASM_OP_LOADBAT:
+		case VASM_OP_STRLAT:
+		case VASM_OP_STRIAT:
+		case VASM_OP_STRSAT:
+		case VASM_OP_STRBAT:
+		case VASM_OP_LDLAT:
+		case VASM_OP_LDIAT:
+		case VASM_OP_LDSAT:
+		case VASM_OP_LDBAT:
 		case VASM_OP_LESS:
 		case VASM_OP_LESSE:
 			for (size_t i = 0; i < 3; i++) {

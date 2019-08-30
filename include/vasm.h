@@ -28,23 +28,23 @@
 #define VASM_OP_JPB        63
 #define VASM_OP_JPZB       64
 
-#define VASM_OP_LOADL      10
-#define VASM_OP_LOADI      11
-#define VASM_OP_LOADS      12
-#define VASM_OP_LOADB      13
-#define VASM_OP_STOREL     14
-#define VASM_OP_STOREI     15
-#define VASM_OP_STORES     16
-#define VASM_OP_STOREB     17
+#define VASM_OP_LDL        10
+#define VASM_OP_LDI        11
+#define VASM_OP_LDS        12
+#define VASM_OP_LDB        13
+#define VASM_OP_STRL     14
+#define VASM_OP_STRI     15
+#define VASM_OP_STRS     16
+#define VASM_OP_STRB     17
 
-#define VASM_OP_LOADLAT    20
-#define VASM_OP_LOADIAT    21
-#define VASM_OP_LOADSAT    22
-#define VASM_OP_LOADBAT    23
-#define VASM_OP_STORELAT   24
-#define VASM_OP_STOREIAT   25
-#define VASM_OP_STORESAT   26
-#define VASM_OP_STOREBAT   27
+#define VASM_OP_LDLAT      20
+#define VASM_OP_LDIAT      21
+#define VASM_OP_LDSAT      22
+#define VASM_OP_LDBAT      23
+#define VASM_OP_STRLAT   24
+#define VASM_OP_STRIAT   25
+#define VASM_OP_STRSAT   26
+#define VASM_OP_STRBAT   27
 
 #define VASM_OP_PUSH       30
 #define VASM_OP_POP        31
@@ -158,14 +158,14 @@ static int get_vasm_args_type(int op)
 	case VASM_OP_PUSH:
 	case VASM_OP_POP:
 		return VASM_ARGS_TYPE_REG1;
-	case VASM_OP_STOREL:
-	case VASM_OP_STOREI:
-	case VASM_OP_STORES:
-	case VASM_OP_STOREB:
-	case VASM_OP_LOADL:
-	case VASM_OP_LOADI:
-	case VASM_OP_LOADS:
-	case VASM_OP_LOADB:
+	case VASM_OP_STRL:
+	case VASM_OP_STRI:
+	case VASM_OP_STRS:
+	case VASM_OP_STRB:
+	case VASM_OP_LDL:
+	case VASM_OP_LDI:
+	case VASM_OP_LDS:
+	case VASM_OP_LDB:
 	case VASM_OP_MOV:
 	case VASM_OP_NOT:
 	case VASM_OP_INV:
@@ -179,14 +179,14 @@ static int get_vasm_args_type(int op)
 	case VASM_OP_RSHIFT:
 	case VASM_OP_LSHIFT:
 	case VASM_OP_XOR:
-	case VASM_OP_STORELAT:
-	case VASM_OP_STOREIAT:
-	case VASM_OP_STORESAT:
-	case VASM_OP_STOREBAT:
-	case VASM_OP_LOADLAT:
-	case VASM_OP_LOADIAT:
-	case VASM_OP_LOADSAT:
-	case VASM_OP_LOADBAT:
+	case VASM_OP_STRLAT:
+	case VASM_OP_STRIAT:
+	case VASM_OP_STRSAT:
+	case VASM_OP_STRBAT:
+	case VASM_OP_LDLAT:
+	case VASM_OP_LDIAT:
+	case VASM_OP_LDSAT:
+	case VASM_OP_LDBAT:
 	case VASM_OP_LESS:
 	case VASM_OP_LESSE:
 		return VASM_ARGS_TYPE_REG3;

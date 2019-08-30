@@ -391,29 +391,29 @@ int main(int argc, char **argv)
 			case VASM_OP_MOV:
 				teeprintf("\tmov\tr%d,r%d\n", a.r2.r[0], a.r2.r[1]);
 				break;
-			case VASM_OP_STORELAT:
-				teeprintf("\tstorelat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			case VASM_OP_STRLAT:
+				teeprintf("\tstrlat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 				break;
-			case VASM_OP_STOREIAT:
-				teeprintf("\tstoreiat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			case VASM_OP_STRIAT:
+				teeprintf("\tstriat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 				break;
-			case VASM_OP_STORESAT:
-				teeprintf("\tstoresat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			case VASM_OP_STRSAT:
+				teeprintf("\tstrsat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 				break;
-			case VASM_OP_STOREBAT:
-				teeprintf("\tstorebat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			case VASM_OP_STRBAT:
+				teeprintf("\tstrbat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 				break;
-			case VASM_OP_LOADLAT:
-				teeprintf("\tloadlat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			case VASM_OP_LDLAT:
+				teeprintf("\tldlat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 				break;
-			case VASM_OP_LOADIAT:
-				teeprintf("\tloadiat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			case VASM_OP_LDIAT:
+				teeprintf("\tldiat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 				break;
-			case VASM_OP_LOADSAT:
-				teeprintf("\tloadsat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			case VASM_OP_LDSAT:
+				teeprintf("\tldsat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 				break;
-			case VASM_OP_LOADBAT:
-				teeprintf("\tloadbat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+			case VASM_OP_LDBAT:
+				teeprintf("\tldbat\tr%d,r%d,r%d\n", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 				break;
 			case VASM_OP_PUSH:
 				teeprintf("\tpush\tr%d\n", a.r.r);

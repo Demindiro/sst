@@ -49,22 +49,22 @@ static int getop(char *mnem)
 			return VASM_OP_JNZ;
 		break;
 	case 'l':
-		if (streq("loadl", mnem))
-			return VASM_OP_LOADL;
-		if (streq("loadi", mnem))
-			return VASM_OP_LOADI;
-		if (streq("loads", mnem))
-			return VASM_OP_LOADS;
-		if (streq("loadb", mnem))
-			return VASM_OP_LOADB;
-		if (streq("loadlat", mnem))
-			return VASM_OP_LOADLAT;
-		if (streq("loadiat", mnem))
-			return VASM_OP_LOADIAT;
-		if (streq("loadsat", mnem))
-			return VASM_OP_LOADSAT;
-		if (streq("loadbat", mnem))
-			return VASM_OP_LOADBAT;
+		if (streq("ldl", mnem))
+			return VASM_OP_LDL;
+		if (streq("ldi", mnem))
+			return VASM_OP_LDI;
+		if (streq("lds", mnem))
+			return VASM_OP_LDS;
+		if (streq("ldb", mnem))
+			return VASM_OP_LDB;
+		if (streq("ldlat", mnem))
+			return VASM_OP_LDLAT;
+		if (streq("ldiat", mnem))
+			return VASM_OP_LDIAT;
+		if (streq("ldsat", mnem))
+			return VASM_OP_LDSAT;
+		if (streq("ldbat", mnem))
+			return VASM_OP_LDBAT;
 		if (streq("lshift", mnem))
 			return VASM_OP_LSHIFT;
 		if (streq("less", mnem))
@@ -105,22 +105,22 @@ static int getop(char *mnem)
 			return VASM_OP_SETS;
 		if (streq("setb", mnem))
 			return VASM_OP_SETB;
-		if (streq("storel", mnem))
-			return VASM_OP_STOREL;
-		if (streq("storei", mnem))
-			return VASM_OP_STOREI;
-		if (streq("stores", mnem))
-			return VASM_OP_STORES;
-		if (streq("storeb", mnem))
-			return VASM_OP_STOREB;
-		if (streq("storelat", mnem))
-			return VASM_OP_STORELAT;
-		if (streq("storeiat", mnem))
-			return VASM_OP_STOREIAT;
-		if (streq("storesat", mnem))
-			return VASM_OP_STORESAT;
-		if (streq("storebat", mnem))
-			return VASM_OP_STOREBAT;
+		if (streq("strl", mnem))
+			return VASM_OP_STRL;
+		if (streq("stri", mnem))
+			return VASM_OP_STRI;
+		if (streq("strs", mnem))
+			return VASM_OP_STRS;
+		if (streq("strb", mnem))
+			return VASM_OP_STRB;
+		if (streq("strlat", mnem))
+			return VASM_OP_STRLAT;
+		if (streq("striat", mnem))
+			return VASM_OP_STRIAT;
+		if (streq("strsat", mnem))
+			return VASM_OP_STRSAT;
+		if (streq("strbat", mnem))
+			return VASM_OP_STRBAT;
 		if (streq("sub", mnem))
 			return VASM_OP_SUB;
 		if (streq("syscall", mnem))
@@ -241,14 +241,14 @@ static int parse_op_args(union vasm_all *v, char *args)
 		REG(v->r2s.r[1]);
 		break;
 	// 2 reg
-	case VASM_OP_STOREL:
-	case VASM_OP_STOREI:
-	case VASM_OP_STORES:
-	case VASM_OP_STOREB:
-	case VASM_OP_LOADL:
-	case VASM_OP_LOADI:
-	case VASM_OP_LOADS:
-	case VASM_OP_LOADB:
+	case VASM_OP_STRL:
+	case VASM_OP_STRI:
+	case VASM_OP_STRS:
+	case VASM_OP_STRB:
+	case VASM_OP_LDL:
+	case VASM_OP_LDI:
+	case VASM_OP_LDS:
+	case VASM_OP_LDB:
 	case VASM_OP_MOV:
 	case VASM_OP_NOT:
 	case VASM_OP_INV:
@@ -266,14 +266,14 @@ static int parse_op_args(union vasm_all *v, char *args)
 	case VASM_OP_RSHIFT:
 	case VASM_OP_LSHIFT:
 	case VASM_OP_XOR:
-	case VASM_OP_STORELAT:
-	case VASM_OP_STOREIAT:
-	case VASM_OP_STORESAT:
-	case VASM_OP_STOREBAT:
-	case VASM_OP_LOADLAT:
-	case VASM_OP_LOADIAT:
-	case VASM_OP_LOADSAT:
-	case VASM_OP_LOADBAT:
+	case VASM_OP_STRLAT:
+	case VASM_OP_STRIAT:
+	case VASM_OP_STRSAT:
+	case VASM_OP_STRBAT:
+	case VASM_OP_LDLAT:
+	case VASM_OP_LDIAT:
+	case VASM_OP_LDSAT:
+	case VASM_OP_LDBAT:
 	case VASM_OP_LESS:
 	case VASM_OP_LESSE:
 		REG(v->r3.r[0]);

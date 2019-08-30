@@ -249,81 +249,81 @@ static void run() {
 				ip += 1;
 			}
 			break;
-		case VASM_OP_LOADL:
+		case VASM_OP_LDL:
 			REG2;
 			REGI = *(uint64_t *)(mem + REGJ);
 			REGI = be64toh(REGI);
-			DEBUG("loadl\tr%d,r%d\t(%lu <-- 0x%lx)", regi, regj, REGI, REGJ);
+			DEBUG("ldl\tr%d,r%d\t(%lu <-- 0x%lx)", regi, regj, REGI, REGJ);
 			break;
-		case VASM_OP_LOADLAT:
+		case VASM_OP_LDLAT:
 			REG3;
 			REGI = *(uint64_t *)(mem + REGJ + REGK);
 			REGI = be64toh(REGI);
-			DEBUG("loadlat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
+			DEBUG("ldlat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
 			      regi, regj, regk, REGI, REGJ, REGK);
 			break;
-		case VASM_OP_LOADIAT:
+		case VASM_OP_LDIAT:
 			REG3;
 			REGI = *(uint32_t *)(mem + REGJ + REGK);
 			REGI = be32toh(REGI);
-			DEBUG("loadiat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
+			DEBUG("ldiat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
 			      regi, regj, regk, REGI, REGJ, REGK);
 			break;
-		case VASM_OP_LOADSAT:
+		case VASM_OP_LDSAT:
 			REG3;
 			REGI = *(uint16_t *)(mem + REGJ + REGK);
 			REGI = be16toh(REGI);
-			DEBUG("loadsat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
+			DEBUG("ldsat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
 			      regi, regj, regk, REGI, REGJ, REGK);
 			break;
-		case VASM_OP_LOADBAT:
+		case VASM_OP_LDBAT:
 			REG3;
 			REGI = *(uint8_t *)(mem + REGJ + REGK);
-			DEBUG("loadbat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
+			DEBUG("ldbat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
 			      regi, regj, regk, REGI, REGJ, REGK);
 			break;
-		case VASM_OP_STOREL:
+		case VASM_OP_STRL:
 			REG2;
 			*(uint64_t *)(mem + REGJ) = htobe64(REGI);
-			DEBUG("storel\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
+			DEBUG("strl\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
 			break;
-		case VASM_OP_STOREI:
+		case VASM_OP_STRI:
 			REG2;
 			*(uint32_t *)(mem + REGJ) = htobe32(REGI);
-			DEBUG("storei\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
+			DEBUG("stri\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
 			break;
-		case VASM_OP_STORES:
+		case VASM_OP_STRS:
 			REG2;
 			*(uint16_t *)(mem + REGJ) = htobe16(REGI);
-			DEBUG("stores\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
+			DEBUG("strs\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
 			break;
-		case VASM_OP_STOREB:
+		case VASM_OP_STRB:
 			REG2;
 			*(uint8_t *)(mem + REGJ) = REGI;
-			DEBUG("storeb\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
+			DEBUG("strb\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
 			break;
-		case VASM_OP_STORELAT:
+		case VASM_OP_STRLAT:
 			REG3;
 			*(uint64_t *)(mem + REGJ + REGK) = htobe64(REGI);
-			DEBUG("storelat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
+			DEBUG("strlat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
 			      regi, regj, regk, REGI, REGJ, REGK);
 			break;
-		case VASM_OP_STOREIAT:
+		case VASM_OP_STRIAT:
 			REG3;
 			*(uint32_t *)(mem + REGJ + REGK) = htobe32(REGI);
-			DEBUG("storeiat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
+			DEBUG("striat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
 			      regi, regj, regk, REGI, REGJ, REGK);
 			break;
-		case VASM_OP_STORESAT:
+		case VASM_OP_STRSAT:
 			REG3;
 			*(uint16_t *)(mem + REGJ + REGK) = htobe16(REGI);
-			DEBUG("storesat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
+			DEBUG("strsat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
 			      regi, regj, regk, REGI, REGJ, REGK);
 			break;
-		case VASM_OP_STOREBAT:
+		case VASM_OP_STRBAT:
 			REG3;
 			*(uint8_t *)(mem + REGJ + REGK) = REGI;
-			DEBUG("storebat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
+			DEBUG("strbat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
 			      regi, regj, regk, REGI, REGJ, REGK);
 			break;
 		case VASM_OP_PUSH:

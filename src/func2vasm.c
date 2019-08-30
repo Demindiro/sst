@@ -420,10 +420,10 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				if (flm->op == MATH_LOADAT) {
 					const char *t = _get_var_type(f, i, flm->x);
 					switch(_get_type_size(t)) {
-					case 1: a.r3.op = VASM_OP_LOADBAT; break;
-					case 2: a.r3.op = VASM_OP_LOADSAT; break;
-					case 4: a.r3.op = VASM_OP_LOADIAT; break;
-					case 8: a.r3.op = VASM_OP_LOADLAT; break;
+					case 1: a.r3.op = VASM_OP_LDBAT; break;
+					case 2: a.r3.op = VASM_OP_LDSAT; break;
+					case 4: a.r3.op = VASM_OP_LDIAT; break;
+					case 8: a.r3.op = VASM_OP_LDLAT; break;
 					default:
 						ERROR("Dunno");
 						EXIT(1);
@@ -522,7 +522,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 					EXIT(1);
 				}
 			}
-			a.r3.op = VASM_OP_STOREBAT; // TODO determine required length
+			a.r3.op = VASM_OP_STRBAT; // TODO determine required length
 			a.r3.r[0] = ra;
 			a.r3.r[1] = h_get(&tbl, fl.s->var);
 			a.r3.r[2] = rb;
