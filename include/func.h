@@ -120,85 +120,34 @@ typedef struct func {
 	const char *name;
 	unsigned char argcount;
 	unsigned char linecount;
-	struct func_arg   args[16];
+	struct func_arg   args[32];
 	struct func_line *lines[256];
 } func_t, *func;
 
 
-// TODO move definitions to .c file
+void insert_line(func f, struct func_line *l);
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
+void line_assign(func f, const char *var, const char *val);
 
-/*****
- * Shorthand functions for common lines
- ***/
-static void _insert_line(func f, size_t *k, struct func_line *l)
-{
-	f->lines[*k] = l;
-	(*k)++;
-}
+void line_declare(func f, const char *name, const char *type);
 
+void line_math(func f, int op, const char *x, const char *y, const char *z);
 
-static void line_declare(func f, size_t *k, const char *name, const char *type)
-{
-	struct func_line_declare *d = malloc(sizeof *d);
-	d->line.type = FUNC_LINE_DECLARE;
-	d->var       = name;
-	d->type      = type;
-	_insert_line(f, k, (struct func_line *)d);
-}
+void line_destroy(func f, const char *var);
 
+void line_function(func f, const char *var, const char *func,
+                          size_t argcount, const char **args);
 
-static void line_math(func f, size_t *k, int op, const char *x, const char *y, const char *z)
-{
-	struct func_line_math *m = malloc(sizeof *m);
-	m->line.type = FUNC_LINE_MATH;
-	m->op        = op;
-	m->x         = x;
-	m->y         = y;
-	m->z         = z;
-	_insert_line(f, k, (struct func_line *)m);
-}
+void line_goto(func f, const char *label);
 
+void line_if(func f, const char *condition, const char *label);
 
-static void line_destroy(func f, size_t *k, const char *var)
-{
-	struct func_line_destroy *d = malloc(sizeof *d);
-	d->line.type = FUNC_LINE_DESTROY;
-	d->var       = var;
-	_insert_line(f, k, (struct func_line *)d);
-}
+void line_label(func f, const char *label);
 
+void line_return(func f, const char *val);
 
-static void line_function(func f, size_t *k, const char *var, const char *func,
-                          size_t argcount, const char **args)
-{
-	struct func_line_func *g = malloc(sizeof *g);
-	g->line.type = FUNC_LINE_FUNC;
-	g->var       = var;
-	g->name      = func;
-	g->argcount  = argcount;
-	g->args      = malloc(argcount * sizeof *g->args);
-	for (size_t i = 0; i < argcount; i++)
-		g->args[i] = args[i];
-	_insert_line(f, k, (struct func_line *)g);
-}
+void line_store(func f, const char *arr, const char *index, const char *val);
 
-
-static const char *_new_temp_var(func f, size_t *k, const char *type, const char *name)
-{
-	static int i = 0;
-	char b[256];
-	if (name != NULL)
-		snprintf(b, sizeof b, "_%s_%u", name, i++);
-	else
-		snprintf(b, sizeof b, "_temp_%u", i++);
-	char *v = strclone(b);
-	line_declare(f, k, v, type);
-	return v;
-}
-
-#pragma GCC diagnostic pop
+const char *new_temp_var(func f, const char *type, const char *name);
 
 #endif
