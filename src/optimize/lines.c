@@ -375,6 +375,12 @@ static int _substitute_temp_var(struct func *f, size_t *i)
 			   streq(fl0.d->var, fl2.a->value)) {
 			fl1.m->x = fl2.a->var;
 			f->lines[*i] = fl1.line;
+		} else if (fl1.line->type == FUNC_LINE_FUNC   && 
+		           fl2.line->type == FUNC_LINE_ASSIGN &&
+		           streq(fl0.d->var, fl1.f->var)      &&
+			   streq(fl0.d->var, fl2.a->value)) {
+			fl1.f->var = fl2.a->var;
+			f->lines[*i] = fl1.line;
 		} else {
 			return 0;
 		}
