@@ -208,4 +208,8 @@ static int get_vasm_args_type(int op)
 
 #pragma GCC diagnostic pop
 
+
+int vasm2str(union vasm_all a, char *buf, size_t bufsize, int indent);
+
+
 #endif

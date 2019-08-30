@@ -24,6 +24,16 @@ static size_t ip;
 #endif
 
 
+#ifdef DEBUG
+# undef DEBUG
+#endif
+#ifndef NDEBUG
+# define DEBUG(m, ...) fprintf(stderr, m "\n", ##__VA_ARGS__)
+#else
+# define DEBUG(m, ...) NULL
+#endif
+
+
 #ifdef UNSAFE
 # define _CHECKREG assert(regi < 32 && regj < 32 && regk < 32)
 #else

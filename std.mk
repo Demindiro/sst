@@ -26,4 +26,4 @@ $(STD_DIR)/io.sso:	$(STD_SRC_DIR)/io.sst	$(STD_DIR)/core/io.sso
 $(STD_DIR)/_start.sso: $(STD_SRC_DIR)/_start.ssa | assembler
 	$(ssa)
 
-stdlib: $(STD_DIR)/_start.sso
+stdlib: $(STD_DIR)/_start.sso $(STD_DIR)/core/io.sso

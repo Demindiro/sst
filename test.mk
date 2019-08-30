@@ -18,8 +18,8 @@ test-count: all
 test-prime: all
 	./build/compiler	test/sst/prime.sst	/tmp/prime.ssa
 	./build/assembler	/tmp/prime.ssa		/tmp/prime.sso
-	./build/linker		/tmp/std/_start.sso	/tmp/std/io.sso		/tmp/std/core/io.sso \
-				/tmp/prime.sso \
+	./build/linker		$(STD_DIR)/_start.sso	/tmp/prime.sso		\
+				$(STD_DIR)/core/io.sso				\
 				/tmp/prime.ss
 	sh -c 'time ./build/interpreter /tmp/prime.ss'
 
