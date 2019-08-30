@@ -149,6 +149,9 @@ struct lblmap {
 #define VASM_ARGS_TYPE_VAL     5
 #define VASM_ARGS_TYPE_REGVAL  6
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+
 static int get_vasm_args_type(int op)
 {
 	switch (op) {
@@ -203,5 +206,6 @@ static int get_vasm_args_type(int op)
 	}
 }
 
+#pragma GCC diagnostic pop
 
 #endif

@@ -316,7 +316,7 @@ int main(int argc, char **argv)
 	char buf[0x10000];
 	int fd = open(argv[1], O_RDONLY);
 	if (fd < 0) {
-		ERROR("Failed to open '%s': ", strerror(errno));
+		ERROR("Failed to open '%s': %s", argv[1], strerror(errno));
 		EXIT(1);
 	}
 	size_t n = read(fd, buf, sizeof buf - 1);
