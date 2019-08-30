@@ -9,10 +9,10 @@ int vasm2str(union vasm_all a, char *buf, size_t bufsize, int indent) {
 	}
 	switch (a.op) {
 	default:
-		ERROR("Unknown OP (%d)", a);
+		ERROR("Unknown OP (%d)", a.op);
 		EXIT(1);
 	case VASM_OP_NONE:
-		snprintf(buf, bufsize, "");
+		buf[0] = 0;
 		break;
 	case VASM_OP_COMMENT:
 		snprintf(buf, bufsize, "# %s", a.s.str);
@@ -111,4 +111,6 @@ int vasm2str(union vasm_all a, char *buf, size_t bufsize, int indent) {
 		snprintf(buf, bufsize, "lesse\tr%d,r%d,r%d", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 		break;
 	}
+
+	return 0;
 }

@@ -349,12 +349,13 @@ int main(int argc, char **argv)
 		}
 		DEBUG("");
 		fprintf(_f, "\n");
-		for (size_t i = 0; i < stringcount; i++) {
-			DEBUG(".long %lu\n_str_%lu:\t.str \"%s\"",
-				  strlen(strings[i]), i, strings[i]);
-			fprintf(_f, ".long %lu\n_str_%lu:\t.str \"%s\"\n",
-				  strlen(strings[i]), i, strings[i]);
-		}
+	}
+	for (size_t i = 0; i < stringcount; i++) {
+		DEBUG(".long %lu", strlen(strings[i]));
+		DEBUG("_str_%lu:\t.str \"%s\"", i, strings[i]);
+		fprintf(_f, ".long %lu\n"
+		            "_str_%lu:\t.str \"%s\"\n",
+			  strlen(strings[i]), i, strings[i]);
 	}
 
 	return 0;

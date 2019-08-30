@@ -1,4 +1,5 @@
 #include "optimize/lines.h"
+#include <assert.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
@@ -10,6 +11,22 @@
 
 
 enum optimize_lines_options optimize_lines_options;
+
+
+#define REMOVEAT(x) do {					\
+	f->linecount--;						\
+	memmove(f->lines + (x), f->lines + (x) + 1,		\
+	        (f->linecount - (x)) * sizeof f->lines[(x)]);	\
+} while (0)
+
+// x inclusive, y exclusive
+#define REMOVERANGE(x, y) do {					\
+	assert((y) >= (x));					\
+	memmove(f->lines + (x), f->lines + (y),			\
+	        (f->linecount - (y)) * sizeof f->lines[(x)]);	\
+	f->linecount -= (y) - (x);				\
+} while (0)
+
 
 
 
@@ -78,9 +95,7 @@ notused:
 		l.line   = f->lines[*i];
 		l.f->var = NULL;
 	} else {
-		f->linecount--;
-		memmove(f->lines + *i, f->lines + *i + 1,
-			(f->linecount - *i) * sizeof *f->lines);
+		REMOVEAT(*i);
 	}
 	return 1;
 used:
@@ -119,9 +134,7 @@ static int _early_destroy(struct func *f, size_t *i)
 			if (streq(v, fl.d->var)) {
 				// Can the destroy statement be moved up?
 				if (lastk + 1 != k) {
-					f->linecount--;
-					memmove(f->lines + k, f->lines + k + 1,
-						(f->linecount - k) * sizeof *f->lines);
+					REMOVEAT(k);
 					goto move_destroy;
 				} else {
 					goto already_destroyed;
@@ -186,9 +199,7 @@ static int _constant_if(struct func *f, size_t *i, struct hashtbl *h_const)
 			g->label     = lbl;
 			f->lines[*i] = (struct func_line *)g;
 		} else {
-			f->linecount--;
-			memmove(f->lines + *i, f->lines + *i + 1,
-				(f->linecount - *i) * sizeof *f->lines);
+			REMOVEAT(*i);
 		}
 		return 1;
 	}
@@ -249,8 +260,11 @@ static int _fast_div(struct func *f, size_t *i)
 static int _nop_math(struct func *f, size_t *i)
 {
 	struct func_line_math *l = (struct func_line_math *)f->lines[*i];
-	if (l->op == MATH_ADD || l->op == MATH_SUB) {
+	if (l->op == MATH_ADD) {
 		if (!streq(l->y, "0") && !streq(l->z, "0"))
+			return 0;
+	} else if (l->op == MATH_SUB) {
+		if (!streq(l->z, "0"))
 			return 0;
 	} else if (l->op == MATH_MUL) {
 		if (!streq(l->y, "0") && !streq(l->z, "0"))
@@ -295,9 +309,7 @@ static int _substitute_var(struct func *f, size_t *i)
 		    streq(fl1.a->value, fl2.d->var)) {
 			const char *v = fl0.d->var, *w = fl2.d->var;
 			f->lines[*i] = f->lines[*i + 1];
-			f->linecount -= 3;
-			memmove(f->lines + *i, f->lines + *i + 3,
-			        (f->linecount - *i) * sizeof f->lines[*i]);
+			REMOVERANGE(*i, *i + 3);
 			for (size_t j = *i; j < f->linecount; j++) {
 				union func_line_all_p l = { .line = f->lines[j] };
 				switch (l.line->type) {
@@ -360,9 +372,7 @@ static int _inverse_math_if(struct func *f, size_t *i)
 	    fl2.line->type == FUNC_LINE_DESTROY) {
 		if (streq(fl0.m->x, fl1.i->var) && streq(fl1.i->var, fl2.d->var)) {
 			fl1.i->inv = !fl1.i->inv;
-			f->linecount--;
-			memmove(f->lines + *i, f->lines + *i + 1,
-			        (f->linecount - *i) * sizeof f->lines[*i]);
+			REMOVEAT(*i);
 			return 1;
 		}
 	}
@@ -377,7 +387,7 @@ static int _inverse_math_if(struct func *f, size_t *i)
  * In such cases the temporary variable can be removed and the assignee used
  * directly.
  */
-static int _substitute_temp_if_var(struct func *f, size_t *i)
+static int _substitute_temp_var(struct func *f, size_t *i)
 {
 	if (*i >= f->linecount - 3)
 		return 0;
@@ -385,19 +395,25 @@ static int _substitute_temp_if_var(struct func *f, size_t *i)
 	                      fl1 = { .line = f->lines[*i + 1] },
 	                      fl2 = { .line = f->lines[*i + 2] },
 	                      fl3 = { .line = f->lines[*i + 3] };
-	if (fl1.line->type == FUNC_LINE_ASSIGN &&
-	    fl2.line->type == FUNC_LINE_IF &&
-	    fl3.line->type == FUNC_LINE_DESTROY &&
+	if (fl3.line->type == FUNC_LINE_DESTROY &&
 	    streq(fl0.d->var, fl3.d->var)) {
-		if (streq(fl0.d->var, fl1.a->var) &&
-		    streq(fl1.a->var, fl2.i->var)) {
+		if (fl1.line->type == FUNC_LINE_ASSIGN &&
+		    fl2.line->type == FUNC_LINE_IF     &&
+		    streq(fl0.d->var, fl1.a->var)      &&
+		    streq(fl0.d->var, fl2.i->var)) {
 			fl2.i->var = fl1.a->value;
 			f->lines[*i] = fl2.line;
-			f->linecount -= 3;
-			memmove(f->lines + *i + 1, f->lines + *i + 4,
-			        (f->linecount - *i) * sizeof f->lines[*i]);
-			return 1;
+		} else if (fl1.line->type == FUNC_LINE_MATH   &&
+		           fl2.line->type == FUNC_LINE_ASSIGN &&
+		           streq(fl0.d->var, fl1.m->x)        &&
+			   streq(fl0.d->var, fl2.a->value)) {
+			fl1.m->x = fl2.a->var;
+			f->lines[*i] = fl1.line;
+		} else {
+			return 0;
 		}
+		REMOVERANGE(*i + 1, *i + 4);
+		return 1;
 	}
 	return 0;
 }
@@ -417,13 +433,33 @@ static int _invert_if(struct func *f, size_t *i)
 			    l1.line->type == FUNC_LINE_DESTROY &&
 			    streq(m->x, l0.i->var) && streq(m->x, l1.d->var)) {
 				l0.i->inv = !l0.i->inv;
-				f->linecount--;
-				memmove(f->lines + *i, f->lines + *i + 1,
-					(f->linecount - *i) * sizeof f->lines[*i]);
+				REMOVEAT(*i);
 				return 1;
 			}
 		}
 	}
+	return 0;
+}
+
+
+/**
+ * Remove unused (private) labels
+ * Labels prevent some optimizations, hence removing them is still potentially useful
+ */
+static int _remove_unused_label(func f, size_t *i)
+{
+	const char *lbl = ((struct func_line_label *)f->lines[*i])->label;
+	for (size_t j = 0; j < f->linecount; j++) {
+		union func_line_all_p l = { .line = f->lines[j] };
+		if (l.line->type == FUNC_LINE_GOTO) {
+			if (streq(lbl, l.g->label))
+				return 0;
+		} else if (l.line->type == FUNC_LINE_IF) {
+			if (streq(lbl, l.i->label))
+				return 0;
+		}
+	}
+	REMOVEAT(*i);
 	return 0;
 }
 
@@ -471,8 +507,7 @@ static void _findconst(struct func *f)
 		if (l.line->type == FUNC_LINE_DECLARE || l.line->type == FUNC_LINE_DESTROY) {
 			size_t j = h_get(&h, l.d->var);
 			if (j != -1 && j != 0) {
-				f->linecount--;
-				memmove(f->lines + i, f->lines + i + 1, (f->linecount - i) * sizeof *f->lines);
+				REMOVEAT(*i);
 			}
 		}
 	}
@@ -508,7 +543,7 @@ void optimizefunc(struct func *f)
 				break;
 			case FUNC_LINE_DECLARE:
 				if (optimize_lines_options & SUBSTITUTE_TEMP_IF_VAR)
-					if (_substitute_temp_if_var(f, &i))
+					if (_substitute_temp_var(f, &i))
 						break;
 				if (optimize_lines_options & SUBSTITUTE_VAR)
 					if (_substitute_var(f, &i))
@@ -544,6 +579,11 @@ void optimizefunc(struct func *f)
 			case FUNC_LINE_IF:
 				if (optimize_lines_options & CONSTANT_IF)
 					if (_constant_if(f, &i, &h_const))
+						break;
+				break;
+			case FUNC_LINE_LABEL:
+				if (optimize_lines_options & REMOVE_UNUSED_LABEL)
+					if (_remove_unused_label(f, &i))
 						break;
 				break;
 			}

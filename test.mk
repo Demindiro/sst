@@ -1,3 +1,5 @@
+SH = sh
+
 test-hello: all
 	./build/compiler	test/hello/main.sst	/tmp/hello.ssa
 	./build/assembler	/tmp/hello.ssa		/tmp/hello.sso
@@ -6,14 +8,14 @@ test-hello: all
 	./build/linker		/tmp/hello.sso		/tmp/writeln.sso	\
 				/tmp/_start.sso 				\
 				/tmp/hello.ss
-	./build/interpreter	/tmp/hello.ss
+	$(SH) -c './build/interpreter /tmp/hello.ss'
 
 test-count: all
 	./build/compiler	test/sst/count.sst	/tmp/count.ssa
 	./build/assembler	/tmp/count.ssa		/tmp/count.sso
 	./build/linker		/tmp/_start.sso		/tmp/count.sso		\
 				/tmp/count.ss
-	sh -c 'time ./build/interpreter /tmp/count.ss'
+	$(SH) -c 'time ./build/interpreter /tmp/count.ss'
 
 test-prime: all
 	./build/compiler	test/sst/prime.sst	/tmp/prime.ssa
@@ -21,7 +23,7 @@ test-prime: all
 	./build/linker		$(STD_DIR)/_start.sso	/tmp/prime.sso		\
 				$(STD_DIR)/core/io.sso				\
 				/tmp/prime.ss
-	sh -c 'time ./build/interpreter /tmp/prime.ss'
+	$(SH) -c 'time ./build/interpreter /tmp/prime.ss'
 
 test-writeln_num: all
 	./build/compiler	test/sst/writeln-num.sst	/tmp/writeln-num.ssa
@@ -33,7 +35,7 @@ test-writeln_num: all
 	./build/linker		/tmp/_start.sso /tmp/writeln-num.sso /tmp/writeln.sso \
 	       			/tmp/core_io.sso \
 				/tmp/writeln-num.ss
-	./build/interpreter	/tmp/writeln-num.ss
+	$(SH) -c './build/interpreter /tmp/writeln-num.ss'
 
 test-readln: all
 	./build/compiler	test/sst/readln.sst	/tmp/readln.ssa
@@ -41,4 +43,4 @@ test-readln: all
 	./build/linker		/tmp/std/_start.sso	/tmp/std/io.sso		/tmp/std/core/io.sso \
 				/tmp/readln.sso \
 				/tmp/readln.ss
-	./build/interpreter	/tmp/readln.ss
+	$(SH) -c './build/interpreter /tmp/readln.ss'

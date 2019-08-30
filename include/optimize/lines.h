@@ -14,6 +14,7 @@ extern enum optimize_lines_options {
 	SUBSTITUTE_TEMP_IF_VAR = 1L << 7,
 	FINDCONST              = 1L << 8,
 	INVERT_IF              = 1L << 9,
+	REMOVE_UNUSED_LABEL    = 1L << 10,
 } optimize_lines_options;
 
 void optimizefunc(struct func *f);
