@@ -293,11 +293,10 @@ static int _nop_math(struct func *f, size_t *i)
  * - DECLARE x
  * - ASSIGN  x = y
  * - DESTROY y
- * In this case x can as well be replaced by y since it effectively takes over it's role
- * To prevent name clashes in case of a second declare a RENAME statement is used, which
- * changes the 'name' of a register in func2vasm.
+ * In this case x can as well be replaced by y since it effectively takes over it's role.
+ * If a second declare would clash with the replaced variable that variable gets a suffix.
  */
-static int _rename_var(struct func *f, size_t *i)
+static int _substitute_var(struct func *f, size_t *i)
 {
 	if (*i >= f->linecount - 2)
 		return 0;
@@ -308,13 +307,70 @@ static int _rename_var(struct func *f, size_t *i)
 	    fl2.line->type == FUNC_LINE_DESTROY) {
 		if (streq(fl0.d->var, fl1.a->var) &&
 		    streq(fl1.a->value, fl2.d->var)) {
-			struct func_line_rename *r = malloc(sizeof *r);
-			r->line.type = FUNC_LINE_RENAME;
-			r->old       = fl2.d->var;
-			r->new       = fl0.d->var;
-			f->lines[*i] = (struct func_line *)r;
-			REMOVERANGE(*i + 1, *i + 3);
-			return 1;
+			const char *v = fl0.d->var, *w = fl2.d->var;
+			char b[256];
+			snprintf(b, sizeof b, "%s_s", w);
+			const char *u = strclone(b);
+			f->lines[*i] = f->lines[*i + 1];
+			REMOVERANGE(*i, *i + 3);
+			for (size_t j = *i; j < f->linecount; j++) {
+				union func_line_all_p l = { .line = f->lines[j] };
+				switch (l.line->type) {
+				case FUNC_LINE_ASSIGN:
+					if (streq(l.a->var, v))
+						l.a->var = w;
+					else if (streq(l.a->var, w))
+						l.a->var = u;
+					if (streq(l.a->value, v))
+						l.a->value = w;
+					else if (streq(l.a->value, w))
+						l.a->value = u;
+					break;
+				case FUNC_LINE_DECLARE:
+				case FUNC_LINE_DESTROY:
+					if (streq(l.d->var, v))
+						l.d->var = w;
+					else if (streq(l.d->var, w))
+						l.d->var = u;
+					break;
+				case FUNC_LINE_FUNC:
+					for (size_t k = 0; k < l.f->argcount; k++) {
+						if (streq(l.f->args[k], v))
+							l.f->args[k] = w;
+						else if (streq(l.f->args[k], w))
+							l.f->args[k] = u;
+					}
+					break;
+				case FUNC_LINE_IF:
+					if (streq(l.i->var, v))
+						l.i->var = w;
+					else if (streq(l.i->var, w))
+						l.i->var = u;
+					break;
+				case FUNC_LINE_MATH:
+					if (streq(l.m->x, v))
+						l.m->x = w;
+					else if (streq(l.m->x, w))
+						l.m->x = u;
+					if (streq(l.m->y, v))
+						l.m->x = w;
+					else if (streq(l.m->y, w))
+						l.m->y = u;
+					if (l.m->z != NULL) {
+						if (streq(l.m->z, v))
+							l.m->z = w;
+						else if (streq(l.m->z, w))
+							l.m->z = u;
+					}
+					break;
+				case FUNC_LINE_RETURN:
+					if (streq(l.r->val, v))
+						l.r->val = w;
+					else if (streq(l.r->val, w))
+						l.r->val = u;
+					break;
+				}
+			}
 		}
 	}
 	return 0;
@@ -546,8 +602,8 @@ void optimizefunc(struct func *f)
 				if (optimize_lines_options & SUBSTITUTE_TEMP_IF_VAR)
 					if (_substitute_temp_var(f, &i))
 						break;
-				if (optimize_lines_options & RENAME_VAR)
-					if (_rename_var(f, &i))
+				if (optimize_lines_options & SUBSTITUTE_VAR)
+					if (_substitute_var(f, &i))
 						break;
 				// Totally broken, do not use
 				// This optimization does not take in account gotos

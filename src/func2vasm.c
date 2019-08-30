@@ -471,12 +471,6 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			}
 			v[vc++] = a;
 			break;
-		case FUNC_LINE_RENAME:
-			if (h_get2(&tbl, fl.rn->old, &reg) == -1)
-				ENOTDECLARED(fl.rn->old);
-			h_rem(&tbl, fl.rn->old);
-			h_add(&tbl, fl.rn->new, reg);
-			break;
 		case FUNC_LINE_RETURN:
 			// Restore stack pointer
 			a.r2.op = VASM_OP_MOV;
