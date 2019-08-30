@@ -70,12 +70,12 @@ test-count: default test/_start.sso
 	./build/linker /tmp/_start.sso /tmp/count.sso /tmp/count.ss
 	sh -c 'time ./build/interpreter /tmp/count.ss'
 
-test-prime: default
-	./build/compiler    test/sst/prime.sst   /tmp/prime.ssa
-	./build/assembler   /tmp/prime.ssa       /tmp/prime.sso
-	./build/assembler   test/ssa/writeln.ssa /tmp/writeln.sso
-	./build/assembler   test/ssa/_start.ssa  /tmp/_start.sso
-	./build/linker      /tmp/_start.sso      /tmp/prime.sso   /tmp/writeln.sso   /tmp/prime.ss
+test-prime: default stdlib
+	./build/compiler	test/sst/prime.sst	/tmp/prime.ssa
+	./build/assembler	/tmp/prime.ssa		/tmp/prime.sso
+	./build/linker		/tmp/std/_start.sso	/tmp/std/io.sso		/tmp/std/core/io.sso \
+				/tmp/prime.sso \
+				/tmp/prime.ss
 	sh -c 'time ./build/interpreter /tmp/prime.ss'
 
 test-writeln_num: default

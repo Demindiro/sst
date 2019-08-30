@@ -175,7 +175,9 @@ static int _constant_if(struct func *f, size_t *i, struct hashtbl *h_const)
 {
 	size_t j;
 	union func_line_all_p fl = { .line = f->lines[*i] };
-	if (isnum(*fl.i->var) || h_get2(h_const, fl.i->var, &j) >= 0) {
+	if (isnum(*fl.i->var) || h_get2(h_const, fl.i->var, &j) != -1) {
+		if (isnum(*fl.i->var))
+			j = atoi(fl.i->var);
 		if ((j == 0) == fl.i->inv) {
 			const char *lbl = fl.i->label;
 			struct func_line_goto *g;

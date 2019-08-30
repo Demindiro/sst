@@ -18,6 +18,7 @@ void line_assign(func f, const char *var, const char *val)
 	a->line.type = FUNC_LINE_ASSIGN;
 	a->var       = var;
 	a->value     = val;
+	a->cons      = 0;
 	insert_line(f, (struct func_line *)a);
 }
 
@@ -71,6 +72,7 @@ void line_if(func f, const char *val, const char *label)
 	i->line.type = FUNC_LINE_IF;
 	i->label     = label;
 	i->var       = val;
+	i->inv       = 0;
 	insert_line(f, (struct func_line *)i);	
 }
 

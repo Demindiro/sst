@@ -759,45 +759,7 @@ void lines2func(const line_t *lines, size_t linecount,
 				const char *p = ptr;
 				NEXTWORD;
 				if (h_get(functbl, word) != -1) {
-					size_t argcount = 0;
-					const char *args[32];
-					const char *var  = strclone(name);
-					const char *name = strclone(word);
-					const char *oldptr = ptr;
-					NEXTWORD;
-					int         etemp[64];
-					const char *evars[64];
-					if (word[0] != 0) {
-						char b[256];
-						ptr = oldptr;
-						while (*ptr != ',' && *ptr != 0)
-							ptr++;
-						size_t l = ptr - oldptr;
-						ptr++;
-						memcpy(b, oldptr, l);
-						b[l] = 0;
-						args[0] = parseexpr(b, f, &etemp[0], "TODO_0", &vartypes);
-						evars[0] = args[0];
-						argcount = 1;
-						while (*ptr != 0) {
-							oldptr = ptr;
-							while (*ptr != ',' && *ptr != 0)
-								ptr++;
-							size_t l = ptr - oldptr;
-							ptr++;
-							memcpy(b, oldptr, l);
-							b[l] = 0;
-							args[argcount] = parseexpr(b, f, &etemp[argcount],
-								"TODO_1", &vartypes);
-							evars[argcount] = args[argcount];
-						}
-					}
-					const char **a = args;
-					line_function(f, var, name, argcount, a);
-					for (size_t i = 0; i < argcount; i++) {
-						if (etemp[i])
-							line_destroy(f, evars[i]);
-					}
+					_parsefunc(f, p, strclone(name), functbl, &vartypes); 
 				} else {
 					int etemp;
 					const char *type;

@@ -196,7 +196,7 @@ static void _findboundaries(const line_t *lines, size_t linecount,
 	for (size_t i = 0; i < linecount; i++) {
 		line_t line = lines[i];
 		if (strstart(line.text, "extern ")) {
-			struct func *g = malloc(sizeof *g);
+			struct func *g = calloc(sizeof *g, 1);
 			parsefunc_header(g, line, text);
 			DEBUG("Adding external function '%s'", g->name);
 			h_add(functbl, g->name, (size_t)g);
@@ -205,7 +205,7 @@ static void _findboundaries(const line_t *lines, size_t linecount,
 			strncpy(f, line.text + strlen("include "), sizeof f); 
 			_include(f, functbl, funclns, funclncount, incltbl);
 		} else {
-			struct func *g = malloc(sizeof *g);
+			struct func *g = calloc(sizeof *g, 1);
 			parsefunc_header(g, line, text);
 			DEBUG("Adding function '%s'", g->name);
 			h_add(functbl, g->name, (size_t)g);
@@ -243,7 +243,8 @@ static void _include(const char *f, struct hashtbl *functbl,
 		ERROR("Couldn't open '%s': %s", buf, strerror(errno));
 		EXIT(1);
 	}
-	read(fd, buf, sizeof buf);
+	size_t n = read(fd, buf, sizeof buf - 1);
+	buf[n] = 0;
 	close(fd);
 	chdir(cwd);
 
@@ -279,6 +280,7 @@ static void _lines2funcs(const line_t *lines, size_t linecount,
 	DEBUG("Parsing lines between function boundaries");
 	for (size_t i = 0; i < funclnc; i++) {
 		struct linerange l = funclns[i];
+		l.func->linecount = 0;
 		DEBUG("  Parsing '%s'", l.func->name);
 		lines2func(l.lines, l.count, l.func, functbl);
 		optimizefunc(l.func);
@@ -301,7 +303,7 @@ int main(int argc, char **argv)
 
 	// ALL THE WAAAY
 	optimize_lines_options = -1;
-	optimize_lines_options = 0;
+	//optimize_lines_options = 0;
 
 	char  **strings;
 	line_t *lines;
@@ -313,7 +315,12 @@ int main(int argc, char **argv)
 	// Read source
 	char buf[0x10000];
 	int fd = open(argv[1], O_RDONLY);
-	read(fd, buf, sizeof buf);
+	if (fd < 0) {
+		ERROR("Failed to open '%s': ", strerror(errno));
+		EXIT(1);
+	}
+	size_t n = read(fd, buf, sizeof buf - 1);
+	buf[n] = 0;
 	close(fd);
 
 	if (_text2lines(buf, &lines, &linecount, &strings, &stringcount) < 0) {

@@ -12,7 +12,7 @@ typedef struct pos {
 } pos_t;
 
 typedef struct line {
-	char *text;
+	const char *text;
 	pos_t pos;
 } line_t;
 

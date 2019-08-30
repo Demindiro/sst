@@ -185,7 +185,7 @@ static int can_extend_shortmath(const char *c)
 
 
 int text2lines(const char *text,
-               line_t **lines  , size_t *linecount,
+               line_t **lines , size_t *linecount,
                char ***strings, size_t *stringcount) {
 
 	pos2_t *pos;
@@ -257,20 +257,20 @@ int text2lines(const char *text,
 
 		// Extend +=, -= ... if applicable
 		if (can_extend_shortmath(c)) {
+
 			const char *d = c;
-			char buf0[256], buf1[1024];
 			while (*c != ' ')
 				c++;
-			memcpy(buf0, d, c - d);
+			const char *buf0 = strnclone(d, c - d);
+
 			c++;
 			char op = *c;
-			buf0[c - d] = 0;
 			c += 3; // op + '=' + ' '
+
 			d  = c;
 			while (*c != '\n')
 				c++;
-			memcpy(buf1, d, c - d);
-			buf1[c - d] = 0;
+			const char *buf1 = strnclone(d, c - d);
 			// TODO: braces
 			char buf[2048];
 			snprintf(buf, sizeof buf, "%s = %s %c %s", buf0, buf0, op, buf1);
@@ -345,9 +345,8 @@ int text2lines(const char *text,
 				c++;
 			}
 		}
-		char *m = malloc(ptr - buf + 1);
-		memcpy(m, buf, ptr - buf);
-		m[ptr - buf] = 0;
+		*ptr = 0;
+		const char *m = strclone(buf);
 		pos2_t p = _getpos(pos, poscount, d - text);
 		lns[lc].text = m;
 		lns[lc].pos  = p.p;
