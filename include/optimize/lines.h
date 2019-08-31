@@ -17,8 +17,9 @@ extern enum optimize_lines_options {
 	UNUSED_LABEL           = 1L << 10,
 	PRECOMPUTE_MATH        = 1L << 11,
 	UNUSED_DECLARE         = 1L << 12,
+	IMMEDIATE_GOTO         = 1L << 13,
 } optimize_lines_options;
 
-void optimizefunc(struct func *f);
+int optimizefunc(struct func *f);
 
 #endif

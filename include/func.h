@@ -126,9 +126,9 @@ typedef struct func {
 	const char *type;
 	const char *name;
 	unsigned char argcount;
-	unsigned char linecount;
-	struct func_arg   args[32];
-	struct func_line *lines[256];
+	size_t linecount, linecap;
+	struct func_arg    args[32];
+	struct func_line **lines;
 } func_t, *func;
 
 
@@ -156,5 +156,7 @@ void line_return(func f, const char *val);
 void line_store(func f, const char *arr, const char *index, const char *val);
 
 const char *new_temp_var(func f, const char *type, const char *name);
+
+struct func_line *copy_line(const struct func_line *l);
 
 #endif

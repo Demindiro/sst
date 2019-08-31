@@ -14,6 +14,7 @@
 #include "util.h"
 #include "optimize/lines.h"
 #include "optimize/vasm.h"
+#include "optimize/branch.h"
 
 
 
@@ -68,8 +69,9 @@ static void _printfunc(struct func *f)
 	DEBUG("Args:   %d", f->argcount);
 	for (size_t j = 0; j < f->argcount; j++)
 		DEBUG("  %s -> %s", f->args[j].name, f->args[j].type);
-	DEBUG("Lines:  %d", f->linecount);
+	DEBUG("Lines:  %lu", f->linecount);
 	for (size_t j = 0; j < f->linecount; j++) {
+#define LDEBUG(m, ...) DEBUG("%4lu " m, j, ##__VA_ARGS__)
 		union  func_line_all_p   fl = { .line = f->lines[j] } ;
 		struct func_line_func   *flf;
 		struct func_line_goto   *flg;
@@ -80,23 +82,20 @@ static void _printfunc(struct func *f)
 		switch (f->lines[j]->type) {
 		case FUNC_LINE_ASSIGN:
 			if (fl.a->cons)
-				DEBUG("  Assign: %s = %s (const)", fl.a->var, fl.a->value);
+				LDEBUG("  ASSIGN     %s = %s (const)", fl.a->var, fl.a->value);
 			else
-				DEBUG("  Assign: %s = %s", fl.a->var, fl.a->value);
+				LDEBUG("  ASSIGN     %s = %s", fl.a->var, fl.a->value);
 			break;
 		case FUNC_LINE_DECLARE:
-			DEBUG("  Declare: %s %s", fl.d->type, fl.d->var);
+			LDEBUG("  DECLARE    %s %s", fl.d->type, fl.d->var);
 			break;
 		case FUNC_LINE_DESTROY:
-			DEBUG("  Destroy: %s", fl.d->var);
+			LDEBUG("  DESTROY    %s", fl.d->var);
 			break;
 		case FUNC_LINE_FUNC:
 			flf = (struct func_line_func *)f->lines[j];
 #ifndef NDEBUG
-			fprintf(stderr, "DEBUG:   Function:");
-#else
-			fprintf(stderr, "  Function:");
-#endif
+			fprintf(stderr, "DEBUG: %4lu   FUNCTION  ", j);
 			if (flf->var != NULL)
 				fprintf(stderr, " %s =", flf->var);
 			fprintf(stderr, " %s", flf->name);
@@ -105,44 +104,46 @@ static void _printfunc(struct func *f)
 			for (size_t k = 1; k < flf->argcount; k++)
 				fprintf(stderr, ",%s", flf->args[k]);
 			fprintf(stderr, "\n");
+#endif
 			break;
 		case FUNC_LINE_GOTO:
 			flg = (struct func_line_goto *)f->lines[j];
-			DEBUG("  Goto: %s", flg->label);
+			LDEBUG("  GOTO       %s", flg->label);
 			break;
 		case FUNC_LINE_IF:
 			fli = (struct func_line_if *)f->lines[j];
 			if (fli->inv)
-				DEBUG("  If not %s then %s", fli->var, fli->label);
+				LDEBUG("  IF         NOT %s THEN %s", fli->var, fli->label);
 			else
-				DEBUG("  If %s then %s", fli->var, fli->label);
+				LDEBUG("  IF         %s THEN %s", fli->var, fli->label);
 			break;
 		case FUNC_LINE_LABEL:
 			fll = (struct func_line_label *)f->lines[j];
-			DEBUG("  Label: %s", fll->label);
+			LDEBUG("  LABEL      %s", fll->label);
 			break;
 		case FUNC_LINE_MATH:
 			flm = (struct func_line_math *)f->lines[j];
 			if (flm->op == MATH_INV)
-				DEBUG("  Math: %s = !%s", flm->x, flm->y);
+				LDEBUG("  MATH       %s = !%s", flm->x, flm->y);
 			else if (flm->op == MATH_NOT)
-				DEBUG("  Math: %s = ~%s", flm->x, flm->y);
+				LDEBUG("  MATH       %s = ~%s", flm->x, flm->y);
 			else if (flm->op == MATH_LOADAT)
-				DEBUG("  Math: %s = %s[%s]", flm->x, flm->y, flm->z);
+				LDEBUG("  MATH       %s = %s[%s]", flm->x, flm->y, flm->z);
 			else
-				DEBUG("  Math: %s = %s %s %s", flm->x, flm->y, mathop2str(flm->op), flm->z);
+				LDEBUG("  MATH       %s = %s %s %s", flm->x, flm->y, mathop2str(flm->op), flm->z);
 			break;
 		case FUNC_LINE_RETURN:
 			flr = (struct func_line_return *)f->lines[j];
-			DEBUG("  Return: %s", flr->val);
+			LDEBUG("  RETURN      %s", flr->val);
 			break;
 		case FUNC_LINE_STORE:
-			DEBUG("  Store: %s[%s] = %s", fl.s->var, fl.s->index, fl.s->val);
+			LDEBUG("  STORE       %s[%s] = %s", fl.s->var, fl.s->index, fl.s->val);
 			break;
 		default:
-			DEBUG("  Unknown line type (%d)", f->lines[j]->type);
-			abort();
+			ERROR("  Unknown line type (%d)", f->lines[j]->type);
+			EXIT(1);
 		}
+#undef LDEBUG
 	}
 	DEBUG("");
 }
@@ -283,7 +284,14 @@ static void _lines2funcs(const line_t *lines, size_t linecount,
 		l.func->linecount = 0;
 		DEBUG("  Parsing '%s'", l.func->name);
 		lines2func(l.lines, l.count, l.func, functbl);
-		optimizefunc(l.func);
+		int changed;
+		do {
+			changed = 0;
+			DEBUG("  Applying basic optimization on '%s'", l.func->name);
+			changed |= optimizefunc(l.func);
+			DEBUG("  Applying branch optimization on '%s'", l.func->name);
+			changed |= optimize_func_branches(l.func);
+		} while (changed);
 	}
 	for (size_t i = 0; i < funclnc; i++)
 		_printfunc(funclns[i].func);

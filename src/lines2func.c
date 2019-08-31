@@ -394,6 +394,12 @@ int parsefunc_header(struct func *f, const line_t line, const char *text)
 	size_t i = 0, j = 0;
 	const char *t = line.text;
 
+	f->linecount = 0;
+	f->linecap   = 32;
+	f->lines     = malloc(f->linecap * sizeof *f->lines);
+	if (f->lines == NULL)
+		EXITERRNO("Failed to allocate lines array", 3);
+
 	// Skip "extern"
 	if (strstart(t, "extern "))
 		i += strlen("extern ");

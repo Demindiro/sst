@@ -489,7 +489,7 @@ static int _unused_label(func f, size_t *i)
 		}
 	}
 	REMOVEAT(*i);
-	return 0;
+	return 1;
 }
 
 
@@ -612,6 +612,34 @@ unused:
 }
 
 
+/**
+ * Substitute labels in goto or if statements if another goto immediately
+ * follows after (ignoring destroy and declare statements) and invert the
+ * if statement.
+ */
+static int _immediate_goto(func f, size_t *i)
+{
+	union func_line_all_p l;
+	const char *lbl;
+
+	for (size_t j = *i + 1; j < f->linecount; j++) {
+		l.line = f->lines[j];
+		if (l.line->type == FUNC_LINE_GOTO) {
+			lbl = l.g->label;
+			REMOVEAT(j);
+			l.line = f->lines[*i];
+			l.i->label = lbl;
+			l.i->inv   = !l.i->inv;
+			return 1;
+		}
+		if (l.line->type != FUNC_LINE_DECLARE &&
+		    l.line->type != FUNC_LINE_DESTROY)
+			return 0;
+	}
+	return 0;
+}
+
+
 #if 0
 // IDK what this does tbh
 static void _findconst(struct func *f)
@@ -666,12 +694,14 @@ static void _findconst(struct func *f)
 
 
 
-void optimizefunc(struct func *f)
+int optimizefunc(struct func *f)
 {
 	struct hashtbl h_const;
 	h_create(&h_const, 4);
 	// Looping works well enough
-	for (size_t _ = 0; _ < 5; _++) {
+	int changed, haschanged = 0;
+	do {
+		changed = 0;
 		if (optimize_lines_options & FINDCONST)
 			_findconst(f);
 		for (size_t i = 0; i < f->linecount; i++) {
@@ -688,7 +718,7 @@ void optimizefunc(struct func *f)
 					// Break if any change occured
 					if (_unused_assign(f, &i, &h_const))
 						break;
-				break;
+				goto nochange;
 			case FUNC_LINE_DECLARE:
 				if (optimize_lines_options & SUBSTITUTE_TEMP_IF_VAR)
 					if (_substitute_temp_var(f, &i))
@@ -704,12 +734,12 @@ void optimizefunc(struct func *f)
 				if (optimize_lines_options & UNUSED_DECLARE)
 					if (_unused_declare(f, &i))
 						break;
-				break;
+				goto nochange;
 			case FUNC_LINE_DESTROY:
 				if (optimize_lines_options & SUBSTITUTE_VAR)
 					if (_substitute_var2(f, &i))
 						break;
-				break;
+				goto nochange;
 			case FUNC_LINE_MATH:
 				if (optimize_lines_options & UNUSED_ASSIGN)
 					if (_unused_assign(f, &i, &h_const))
@@ -729,23 +759,33 @@ void optimizefunc(struct func *f)
 				if (optimize_lines_options & PRECOMPUTE_MATH)
 					if (_precompute_math(f, &i))
 						break;
-				break;
+				goto nochange;
 			case FUNC_LINE_FUNC:
 				if (optimize_lines_options & UNUSED_ASSIGN)
 					if (_unused_assign(f, &i, &h_const))
 						break;
-				break;
+				goto nochange;
 			case FUNC_LINE_IF:
 				if (optimize_lines_options & CONSTANT_IF)
 					if (_constant_if(f, &i, &h_const))
 						break;
-				break;
+				if (optimize_lines_options & IMMEDIATE_GOTO)
+					if (_immediate_goto(f, &i))
+						break;
+				goto nochange;
 			case FUNC_LINE_LABEL:
 				if (optimize_lines_options & UNUSED_LABEL)
 					if (_unused_label(f, &i))
 						break;
-				break;
+				goto nochange;
+			default:
+				goto nochange;
 			}
+			changed = 1;
+		nochange:;
 		}
-	}
+		haschanged |= changed;
+	} while (changed);
+
+	return haschanged;
 }

@@ -1,6 +1,7 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -53,5 +54,16 @@ static char *strnclone(const char *text, size_t max) {
 	ERROR(STR(__LINE__) "@" __FILE__);	\
 	exit(c);				\
 } while (0)
+
+#define STRERRNO strerror(errno)
+
+#define EXITERRNO(m, c) do {							\
+	if (c == 3)								\
+		ERROR("[" STR(__LINE__) "@" __FILE__ "] " m ": %s", STRERRNO);	\
+	else									\
+		ERROR(m ": %s", STRERRNO);					\
+	exit(c);								\
+} while (0)
+
 
 #endif

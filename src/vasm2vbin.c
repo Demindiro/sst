@@ -77,6 +77,8 @@ static size_t _getoplen(char op)
 	case VASM_OP_LDIAT:
 	case VASM_OP_LDSAT:
 	case VASM_OP_LDBAT:
+	case VASM_OP_LESS:
+	case VASM_OP_LESSE:
 	// 1 int
 	case VASM_OP_RAW_INT:
 		return 4;

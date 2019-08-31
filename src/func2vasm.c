@@ -126,20 +126,14 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 		l.line = f->lines[i];
 		switch (l.line->type) {
 		case FUNC_LINE_ASSIGN:
-			if (l.a->cons) {
-				consts[constcount] = i;
-				constcount++;
-			}
+			if (l.a->cons)
+				consts[constcount++] = i;
 			break;
 		case FUNC_LINE_MATH:
-			if (isnum(*l.m->y)) {
-				consts[constcount] = i;
-				constcount++;
-			}
-			if (l.m->z != NULL && isnum(*l.m->z)) {
-				consts[constcount] = i;
-				constcount++;
-			}
+			if (isnum(*l.m->y))
+				consts[constcount++] = i;
+			if (l.m->z != NULL && isnum(*l.m->z))
+				consts[constcount++] = i;
 			break;
 		}
 	}
@@ -186,16 +180,16 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			}
 			break;
 		}
-		const char *ok = (const char *)h_get(&constvalh, val);
-		if (ok != (char *)-1) {
+		const char *okey = NULL;
+		if (h_get2(&constvalh, val, (size_t *)&okey) != -1) {
 			switch (l.line->type) {
 			case FUNC_LINE_ASSIGN:
 				break;
 			case FUNC_LINE_MATH:
 				if (use_y)
-					l.m->y = ok;
+					l.m->y = okey;
 				else
-					l.m->z = ok;
+					l.m->z = okey;
 				break;
 			}
 		} else {
@@ -369,19 +363,11 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 					EXIT(1);
 				}
 			}
-			if (ra < constcount) {
-				char jz = (fli->inv == VASM_OP_JZ);
-				if (is_const_reg_zero[ra] != jz)
-					break;
-				a.s.op  = VASM_OP_JMP;
-				a.s.str = fli->label;
-			} else {
-				rb = 0;
-				a.r2s.op   = fli->inv ? VASM_OP_JZ : VASM_OP_JNZ;
-				a.r2s.r[0] = ra;
-				a.r2s.r[1] = rb;
-				a.r2s.str  = fli->label;
-			}
+			rb = 0;
+			a.r2s.op   = fli->inv ? VASM_OP_JZ : VASM_OP_JNZ;
+			a.r2s.r[0] = ra;
+			a.r2s.r[1] = rb;
+			a.r2s.str  = fli->label;
 			v[vc++] = a;
 			break;
 		case FUNC_LINE_LABEL:

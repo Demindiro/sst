@@ -1,4 +1,6 @@
+#include <assert.h>
 #include "func.h"
+#include "util.h"
 
 /*****
  * Shorthand functions for common lines
@@ -6,9 +8,16 @@
 
 void insert_line(func f, struct func_line *l)
 {
-	size_t k = f->linecount;
-	f->lines[k] = l;
-	f->linecount++;
+	if (f->linecount >= f->linecap) {
+		size_t s = f->linecap * 3 / 2;
+		struct func_line **t = realloc(f->lines, s * sizeof *t);
+		if (t == NULL)
+			EXITERRNO("Failed to reallocate lines array", 3);
+		f->lines   = t;
+		f->linecap = s;
+	}
+	assert(f->linecount < f->linecap);
+	f->lines[f->linecount++] = l;
 }
 
 
@@ -129,4 +138,29 @@ const char *new_temp_var(func f, const char *type, const char *name)
 	char *v = strclone(b);
 	line_declare(f, v, type);
 	return v;
+}
+
+
+struct func_line *copy_line(const struct func_line *l)
+{
+	union func_line_all_p a = { .line = (struct func_line *)l };
+	size_t s;
+	switch (l->type) {
+	case FUNC_LINE_ASSIGN : s = sizeof *a.a; break;
+	case FUNC_LINE_DECLARE: s = sizeof *a.d; break;
+	case FUNC_LINE_DESTROY: s = sizeof *a.d; break;
+	case FUNC_LINE_GOTO   : s = sizeof *a.g; break;
+	case FUNC_LINE_IF     : s = sizeof *a.i; break;
+	case FUNC_LINE_LOAD   : s = sizeof *a.l; break;
+	case FUNC_LINE_MATH   : s = sizeof *a.m; break;
+	case FUNC_LINE_FUNC   : s = sizeof *a.f; break;
+	case FUNC_LINE_RETURN : s = sizeof *a.r; break;
+	case FUNC_LINE_STORE  : s = sizeof *a.s; break;
+	default:
+		ERROR("Unknown line type (%d)", l->type);
+		EXIT(1);
+	}
+	a.a = malloc(s);
+	memcpy(a.a, l, s);
+	return a.line;
 }
