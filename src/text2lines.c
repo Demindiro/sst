@@ -31,6 +31,26 @@ static int is_control_word(const char *c)
 }
 
 
+static int _hex2chr(const char *c)
+{
+	int y = 0;
+	for (size_t i = 0; i < 2; i++) {
+		int x = *c;
+		if ('0' <= x && x <= '9')
+			x -= '0';
+		else if ('a' <= x && x <= 'f')
+			x -= 'a';
+		else if ('A' <= x && x <= 'F')
+			x -= 'A';
+		else
+			EXIT(1);
+		y <<= 4;
+		y  |= x;
+	}
+	return y;
+}
+
+
 static int is_decl_and_assign(const char *c)
 {
 	// decl + assign format: type name = ...
@@ -333,8 +353,20 @@ int text2lines(const char *text,
 				c++;
 				if (v == '\\') {
 					switch (*c) {
-					case '0': v =  0; break;
-					case 'n': v = 10; break;
+					case '0' : v = '\0'; break;
+					case 'a' : v = '\a'; break;
+					case 'b' : v = '\b'; break;
+					case 'f' : v = '\f'; break;
+					case 'n' : v = '\n'; break;
+					case 'r' : v = '\r'; break;
+					case 't' : v = '\t'; break;
+					case 'v' : v = '\v'; break;
+					case '\'': v = '\''; break;
+					case 'x':
+						c++;
+						v = _hex2chr(c);
+						c++;
+						break;
 					default:
 						  EXIT(1);
 					}
