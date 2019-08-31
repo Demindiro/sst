@@ -35,7 +35,7 @@ enum optimize_lines_options optimize_lines_options;
  * overwritten before it is used.
  * This also works for math and function assignments.
  */
-static int _remove_unused_assign(struct func *f, size_t *i, struct hashtbl *h_const)
+static int _unused_assign(struct func *f, size_t *i, struct hashtbl *h_const)
 {
 	const char *v;
 	union func_line_all_p l = { .line = f->lines[*i] };
@@ -371,6 +371,7 @@ static int _substitute_var(struct func *f, size_t *i)
 					break;
 				}
 			}
+			return 1;
 		}
 	}
 	return 0;
@@ -474,7 +475,7 @@ static int _invert_if(struct func *f, size_t *i)
  * Remove unused (private) labels
  * Labels prevent some optimizations, hence removing them is still potentially useful
  */
-static int _remove_unused_label(func f, size_t *i)
+static int _unused_label(func f, size_t *i)
 {
 	const char *lbl = ((struct func_line_label *)f->lines[*i])->label;
 	for (size_t j = 0; j < f->linecount; j++) {
@@ -518,6 +519,96 @@ static int _precompute_math(func f, size_t *i)
 		f->lines[*i] = (struct func_line *)a;
 	}
 	return 0;
+}
+
+
+/**
+ * Reduce the amount of temporary variables in a serie of math statements
+ */
+static int _substitute_var2(func f, size_t *i)
+{
+	if (*i < 3)
+		return 0;
+	union func_line_all_p fl3 = { .line = f->lines[*i - 0] },
+	                      fl2 = { .line = f->lines[*i - 1] },
+	                      fl1 = { .line = f->lines[*i - 2] },
+	                      fl0 = { .line = f->lines[*i - 3] };
+	if (fl0.line->type == FUNC_LINE_MATH    &&
+	    fl1.line->type == FUNC_LINE_DECLARE &&
+	    fl2.line->type == FUNC_LINE_MATH    &&
+	    fl3.line->type == FUNC_LINE_DESTROY &&
+	     streq(fl3.d->var, fl3.d->var)      &&
+	     streq(fl1.d->var, fl2.m->x)        &&
+	    (streq(fl3.d->var, fl2.m->y) || streq(fl3.d->var, fl2.m->z))) {
+		// Exception: ignore memory operations in the second math statement
+		if (fl2.m->op == MATH_LOADAT)
+			return 0;
+		// Don't write the substitute if it is an argument
+		//if (streq(fl2.m->x, fl2.m
+
+		// Substitute variables
+		if (streq(fl0.m->x, fl2.m->y))
+			fl2.m->y = fl1.d->var;
+		else
+			fl2.m->z = fl1.d->var;
+		fl0.m->x = fl1.d->var;
+
+		// Swap declare and math statement
+		SWAP(struct func_line *, f->lines[*i - 2], f->lines[*i - 3]);
+		return 1;
+	}
+	return 0;
+}
+
+
+/**
+ * Remove any declared variables that aren't used (and their destroy
+ * statements too).
+ * The situation where they are used as arguments aren't considered,
+ * since using variables unassigned results in undefined behaviour
+ * anyways. (Exception: the situation where the variable is an argument
+ * of a function is considered in case it's a stack allocated array. The
+ * function may put data in the array).
+ */
+static int _unused_declare(func f, size_t *i)
+{
+	union func_line_all_p l = { .line = f->lines[*i] };
+	assert(l.line->type == FUNC_LINE_DECLARE);
+	const char *v = l.d->var;
+	for (size_t j = *i + 1; j < f->linecount; j++) {
+		l.line = f->lines[j];
+		switch (l.line->type) {
+		case FUNC_LINE_ASSIGN:
+			if (streq(v, l.a->var))
+				return 0;
+			break;
+		case FUNC_LINE_DESTROY:
+			if (streq(v, l.d->var)) {
+				REMOVEAT(j);
+				goto unused;
+			}
+			break;
+		case FUNC_LINE_FUNC:
+			if (l.f->var != NULL && streq(v, l.f->var))
+				return 0;
+			for (size_t k = 0; k < l.f->argcount; k++) {
+				if (streq(v, l.f->args[k]))
+					return 0;
+			}
+			break;
+		case FUNC_LINE_MATH:
+			if (streq(v, l.m->x))
+				return 0;
+			break;
+		case FUNC_LINE_STORE:
+			if (streq(v, l.s->var))
+				return 0;
+			break;
+		}
+	}
+unused:
+	REMOVEAT(*i);
+	return 1;
 }
 
 
@@ -593,9 +684,9 @@ void optimizefunc(struct func *f)
 					size_t j = strtol(fl.a->value, NULL, 0);
 					h_add(&h_const, fl.a->var, j);
 				}
-				if (optimize_lines_options & REMOVE_UNUSED_ASSIGN)
+				if (optimize_lines_options & UNUSED_ASSIGN)
 					// Break if any change occured
-					if (_remove_unused_assign(f, &i, &h_const))
+					if (_unused_assign(f, &i, &h_const))
 						break;
 				break;
 			case FUNC_LINE_DECLARE:
@@ -610,10 +701,18 @@ void optimizefunc(struct func *f)
 				if (0 && optimize_lines_options & EARLY_DESTROY)
 					if (_early_destroy(f, &i))
 						break;
+				if (optimize_lines_options & UNUSED_DECLARE)
+					if (_unused_declare(f, &i))
+						break;
+				break;
+			case FUNC_LINE_DESTROY:
+				if (optimize_lines_options & SUBSTITUTE_VAR)
+					if (_substitute_var2(f, &i))
+						break;
 				break;
 			case FUNC_LINE_MATH:
-				if (optimize_lines_options & REMOVE_UNUSED_ASSIGN)
-					if (_remove_unused_assign(f, &i, &h_const))
+				if (optimize_lines_options & UNUSED_ASSIGN)
+					if (_unused_assign(f, &i, &h_const))
 						break;
 				if (optimize_lines_options & INVERSE_MATH_IF)
 					if (_inverse_math_if(f, &i))
@@ -632,8 +731,8 @@ void optimizefunc(struct func *f)
 						break;
 				break;
 			case FUNC_LINE_FUNC:
-				if (optimize_lines_options & REMOVE_UNUSED_ASSIGN)
-					if (_remove_unused_assign(f, &i, &h_const))
+				if (optimize_lines_options & UNUSED_ASSIGN)
+					if (_unused_assign(f, &i, &h_const))
 						break;
 				break;
 			case FUNC_LINE_IF:
@@ -642,8 +741,8 @@ void optimizefunc(struct func *f)
 						break;
 				break;
 			case FUNC_LINE_LABEL:
-				if (optimize_lines_options & REMOVE_UNUSED_LABEL)
-					if (_remove_unused_label(f, &i))
+				if (optimize_lines_options & UNUSED_LABEL)
+					if (_unused_label(f, &i))
 						break;
 				break;
 			}
