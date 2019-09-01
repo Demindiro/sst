@@ -67,17 +67,17 @@ static void _print_block_layout(struct branch *b)
 	assert(b->linecount != 0);
 	for (size_t j = 0; j < b->linecount; j++) {
 		switch (b->lines[j]->type) {
-		case FUNC_LINE_ASSIGN : _[j] = 'a'; break;
-		case FUNC_LINE_DECLARE: _[j] = 'd'; break;
-		case FUNC_LINE_DESTROY: _[j] = 'D'; break;
-		case FUNC_LINE_MATH   : _[j] = 'm'; break;
-		case FUNC_LINE_FUNC   : _[j] = 'f'; break;
-		case FUNC_LINE_GOTO   : _[j] = 'G'; break;
-		case FUNC_LINE_IF     : _[j] = 'I'; break;
-		case FUNC_LINE_LABEL  : _[j] = 'L'; break;
-		case FUNC_LINE_LOAD   : _[j] = 'l'; break;
-		case FUNC_LINE_RETURN : _[j] = 'R'; break;
-		case FUNC_LINE_STORE  : _[j] = 's'; break;
+		case ASSIGN : _[j] = 'a'; break;
+		case DECLARE: _[j] = 'd'; break;
+		case DESTROY: _[j] = 'D'; break;
+		case MATH   : _[j] = 'm'; break;
+		case FUNC   : _[j] = 'f'; break;
+		case GOTO   : _[j] = 'G'; break;
+		case IF     : _[j] = 'I'; break;
+		case LABEL  : _[j] = 'L'; break;
+		case LOAD   : _[j] = 'l'; break;
+		case RETURN : _[j] = 'R'; break;
+		case STORE  : _[j] = 's'; break;
 		default: _[j] = '-'; break;
 		}
 	}
@@ -105,16 +105,16 @@ static int _immediate_goto(struct branch **ba, size_t *bac, size_t *i)
 	              *c = b->branch0;
 	if (c != NULL &&
 	    c->linecount == 2 &&
-	    c->lines[0]->type == FUNC_LINE_LABEL &&
-	    c->lines[1]->type == FUNC_LINE_GOTO) {
+	    c->lines[0]->type == LABEL &&
+	    c->lines[1]->type == GOTO) {
 		const char *lbl = ((struct func_line_goto  *)c->lines[1])->label;
 		DEBUG("IMM GOTO '%s'", lbl);
 		union func_line_all_p l = { .line = b->branchline.l };
-		if (l.line->type == FUNC_LINE_IF) {
+		if (l.line->type == IF) {
 			if (streq(l.i->label, lbl))
 				return 0;
 			l.i->label = lbl;
-		} else if (l.line->type == FUNC_LINE_GOTO) {
+		} else if (l.line->type == GOTO) {
 			if (streq(l.g->label, lbl))
 				return 0;
 			l.g->label = lbl;
@@ -137,8 +137,8 @@ static int _one_ref(struct branch **ba, size_t *bac, size_t *i)
 	struct branch *b = ba[*i],
 	                    *c = b->branch0;
 	if (c != NULL && c->refcount == 1 &&
-	    c->lines[0]->type == FUNC_LINE_LABEL &&
-	    b->branchline.g->line.type == FUNC_LINE_GOTO) {
+	    c->lines[0]->type == LABEL &&
+	    b->branchline.g->type == GOTO) {
 		// Move blocks
 		size_t j = _get_index(ba, *bac, c);
 		if (j > *i + 1) {
@@ -273,8 +273,8 @@ static int _unroll(struct branch **ba, size_t *bac, size_t *i)
 	while (1) {
 		// Count the amount of statements
 		for (size_t j = c == b; j < c->linecount; j++) {
-			if (c->lines[j]->type != FUNC_LINE_DECLARE &&
-			    c->lines[j]->type != FUNC_LINE_DESTROY)
+			if (c->lines[j]->type != DECLARE &&
+			    c->lines[j]->type != DESTROY)
 				lc++;
 			// Too many statements?
 			if (lc > 6)
@@ -284,7 +284,7 @@ static int _unroll(struct branch **ba, size_t *bac, size_t *i)
 		if (b == c->branch0)
 			break;
 		// Prevent duplicating labels
-		if (c != b && c->lines[0]->type == FUNC_LINE_LABEL)
+		if (c != b && c->lines[0]->type == LABEL)
 			return 0;
 		// Branch 1 is always an "implicit" jump
 		// (the blocks are adjacent)
@@ -375,17 +375,17 @@ int optimize_func_branches(func f)
 		default:
 			_add_line(&b[bc], l.line);
 			break;
-		case FUNC_LINE_GOTO:
-		case FUNC_LINE_IF:
+		case GOTO:
+		case IF:
 			_add_line(&b[bc], l.line);
-			if (l.line->type == FUNC_LINE_IF)
+			if (l.line->type == IF)
 				b[bc].branchline.i = l.i;
 			else
 				b[bc].branchline.g = l.g;
 			i++;
 			while (i < f->linecount) {
 				l.line = f->lines[i];
-				if (l.line->type == FUNC_LINE_DESTROY)
+				if (l.line->type == DESTROY)
 					_add_line(&b[bc], l.line);
 				else
 					break;
@@ -395,7 +395,7 @@ int optimize_func_branches(func f)
 			bc++;
 			_init_block(&b[bc]);
 			break;
-		case FUNC_LINE_LABEL:
+		case LABEL:
 			if (b[bc].linecount > 0) {
 				bc++;
 				_init_block(&b[bc]);
@@ -403,7 +403,7 @@ int optimize_func_branches(func f)
 			h_add(&labels, l.l->label, bc);
 			_add_line(&b[bc], l.line);
 			break;
-		case FUNC_LINE_RETURN:
+		case RETURN:
 			_add_line(&b[bc], l.line);
 			b[bc].branchline.r = l.r;
 			bc++;
@@ -425,7 +425,7 @@ int optimize_func_branches(func f)
 		size_t bi;
 		if (l.line != NULL) {
 			switch (l.line->type) {
-			case FUNC_LINE_IF:
+			case IF:
 				if (h_get2(&labels, l.i->label, &bi) < 0) {
 					ERROR("Label '%s' doesn't map to any index!",
 					      l.i->label);
@@ -437,7 +437,7 @@ int optimize_func_branches(func f)
 				b[bi   ].refcount++;
 				b[i + 1].refcount++;
 				break;
-			case FUNC_LINE_GOTO:
+			case GOTO:
 				if (h_get2(&labels, l.g->label, &bi) < 0) {
 					ERROR("Label '%s' doesn't map to any index!",
 					      l.g->label);
@@ -447,10 +447,12 @@ int optimize_func_branches(func f)
 				b[i].branch1 = NULL;
 				b[bi].refcount++;
 				break;
-			case FUNC_LINE_RETURN:
+			case RETURN:
 				b[i].branch0 = NULL;
 				b[i].branch1 = NULL;
 				break;
+			default:
+				EXIT(1);
 			}
 		} else if (i + 1 == bc) {
 			b[i].branch0 = NULL;

@@ -3,18 +3,20 @@
 
 #include "util.h"
 
-#define FUNC_LINE_NONE    0
-#define FUNC_LINE_ASSIGN  1
-#define FUNC_LINE_DECLARE 2
-#define FUNC_LINE_DESTROY 3
-#define FUNC_LINE_FUNC    4
-#define FUNC_LINE_GOTO    5
-#define FUNC_LINE_IF      6
-#define FUNC_LINE_LABEL   7
-#define FUNC_LINE_LOAD    8
-#define FUNC_LINE_MATH    9
-#define FUNC_LINE_RETURN 10
-#define FUNC_LINE_STORE  11
+enum func_type {
+	NONE,
+	ASSIGN,
+	DECLARE,
+	DESTROY,
+	FUNC,
+	GOTO,
+	IF,
+	LABEL,
+	LOAD,
+	MATH,
+	RETURN,
+	STORE,
+};
 
 #define MATH_ADD    VASM_OP_ADD
 #define MATH_SUB    VASM_OP_SUB
@@ -35,18 +37,18 @@
 
 
 struct func_line {
-	char type;
+	enum func_type type;
 };
 
 struct func_line_assign {
-	struct func_line line;
+	enum func_type type;
 	const char *var;
 	const char *value;
 	char cons;
 };
 
 struct func_line_declare {
-	struct func_line line;
+	enum func_type _type;
 	const char *type;
 	const char *var;
 };
@@ -54,7 +56,7 @@ struct func_line_declare {
 #define func_line_destroy func_line_declare
 
 struct func_line_func {
-	struct func_line line;
+	enum func_type type;
 	unsigned char argcount;
 	const char  *name;
 	const char **args;
@@ -62,40 +64,40 @@ struct func_line_func {
 };
 
 struct func_line_goto {
-	struct func_line line;
+	enum func_type type;
 	const char *label;
 };
 
 struct func_line_if {
-	struct func_line line;
+	enum func_type type;
 	const char *label;
 	const char *var;
 	char inv;
 };
 
 struct func_line_label {
-	struct func_line line;
+	enum func_type type;
 	const char *label;
 };
 
 struct func_line_math {
-	struct func_line line;
+	enum func_type type;
 	char op;
 	const char *x, *y, *z;
 };
 
 struct func_line_rename {
-	struct func_line line;
+	enum func_type type;
 	const char *old, *new;
 };
 
 struct func_line_return {
-	struct func_line line;
+	enum func_type type;
 	const char *val;
 };
 
 struct func_line_store {
-	struct func_line line;
+	enum func_type type;
 	const char *var;
 	const char *val;
 	const char *index;

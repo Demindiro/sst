@@ -81,7 +81,7 @@ static const char *_get_var_type(func f, ssize_t k, const char *var)
 {
 	for ( ; k >= 0; k--) {
 		union func_line_all_p l = { .line = f->lines[k] };
-		if (l.line->type == FUNC_LINE_DECLARE && streq(var, l.d->var))
+		if (l.line->type == DECLARE && streq(var, l.d->var))
 			return l.d->type;
 	}
 	ERROR("Variable '%s' not declared", var);
@@ -125,15 +125,17 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 	for (size_t i = f->argcount; i < f->linecount && constcount < sizeof consts / sizeof *consts; i++) {
 		l.line = f->lines[i];
 		switch (l.line->type) {
-		case FUNC_LINE_ASSIGN:
+		case ASSIGN:
 			if (l.a->cons)
 				consts[constcount++] = i;
 			break;
-		case FUNC_LINE_MATH:
+		case MATH:
 			if (isnum(*l.m->y))
 				consts[constcount++] = i;
 			if (l.m->z != NULL && isnum(*l.m->z))
 				consts[constcount++] = i;
+			break;
+		default:
 			break;
 		}
 	}
@@ -161,11 +163,11 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 		static size_t bc = 0;
 		char use_y;
 		switch (l.line->type) {
-		case FUNC_LINE_ASSIGN:
+		case ASSIGN:
 			key = l.a->var;
 			val = l.a->value;
 			break;
-		case FUNC_LINE_MATH:
+		case MATH:
 			snprintf(b, sizeof b, "_const_%lu", bc);
 			bc++;
 			key = strclone(b);
@@ -179,17 +181,21 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				l.m->z = key;
 			}
 			break;
+		default:
+			break;
 		}
 		const char *okey = NULL;
 		if (h_get2(&constvalh, val, (size_t *)&okey) != -1) {
 			switch (l.line->type) {
-			case FUNC_LINE_ASSIGN:
+			case ASSIGN:
 				break;
-			case FUNC_LINE_MATH:
+			case MATH:
 				if (use_y)
 					l.m->y = okey;
 				else
 					l.m->z = okey;
+				break;
+			default:
 				break;
 			}
 		} else {
@@ -212,7 +218,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 		struct func_line_math   *flm;
 		size_t ra, rb, reg;
 		switch (f->lines[i]->type) {
-		case FUNC_LINE_ASSIGN:
+		case ASSIGN:
 			if (fl.a->cons && h_get(&tbl, fl.a->var) != -1)
 				break;
 			reg = h_get(&tbl, fl.a->var);
@@ -240,7 +246,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			}
 			v[vc++] = a;
 			break;
-		case FUNC_LINE_DECLARE:
+		case DECLARE:
 			for (reg = 0; reg < sizeof allocated_regs / sizeof *allocated_regs; reg++) {
 				if (!allocated_regs[reg]) {
 					allocated_regs[reg] = 1;
@@ -260,7 +266,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			}
 			_reserve_stack_space(&v, &vc, reg, fl.d->type);
 			break;
-		case FUNC_LINE_DESTROY:
+		case DESTROY:
 			// TODO
 			if (fl.d->var[1] == '.')
 				break;
@@ -272,7 +278,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			allocated_regs[reg] = 0;
 			h_rem(&tbl, fl.d->var);
 			break;
-		case FUNC_LINE_FUNC:
+		case FUNC:
 			flf = (struct func_line_func *)f->lines[i];
 
 			// Push registers that are in use
@@ -343,13 +349,13 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				}
 			}
 			break;
-		case FUNC_LINE_GOTO:
+		case GOTO:
 			flg = (struct func_line_goto *)f->lines[i];
 			a.s.op  = VASM_OP_JMP;
 			a.s.str = flg->label;
 			v[vc++] = a;
 			break;
-		case FUNC_LINE_IF:
+		case IF:
 			fli = (struct func_line_if *)f->lines[i];
 			if (isnum(*fli->var)) {
 				a.rs.op  = VASM_OP_SET;
@@ -370,13 +376,13 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			a.r2s.str  = fli->label;
 			v[vc++] = a;
 			break;
-		case FUNC_LINE_LABEL:
+		case LABEL:
 			fll = (struct func_line_label *)f->lines[i];
 			a.s.op  = VASM_OP_LABEL;
 			a.s.str = fll->label;
 			v[vc++] = a;
 			break;
-		case FUNC_LINE_MATH:
+		case MATH:
 			flm = (struct func_line_math *)f->lines[i];
 			if (isnum(*flm->x)) {
 				ERROR("You can't assign to a number");
@@ -457,7 +463,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			}
 			v[vc++] = a;
 			break;
-		case FUNC_LINE_RETURN:
+		case RETURN:
 			// Restore stack pointer
 			a.r2.op = VASM_OP_MOV;
 			a.r2.r[0]= 31;
@@ -482,7 +488,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			v[vc++] = a;
 			v[vc++].op = VASM_OP_RET;
 			break;
-		case FUNC_LINE_STORE:
+		case STORE:
 			if (isnum(*fl.s->var)) {
 				ERROR("You can't index a number");
 				EXIT(1);

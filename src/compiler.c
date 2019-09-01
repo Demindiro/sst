@@ -80,19 +80,19 @@ static void _printfunc(struct func *f)
 		struct func_line_math   *flm;
 		struct func_line_return *flr;
 		switch (f->lines[j]->type) {
-		case FUNC_LINE_ASSIGN:
+		case ASSIGN:
 			if (fl.a->cons)
 				LDEBUG("  ASSIGN     %s = %s (const)", fl.a->var, fl.a->value);
 			else
 				LDEBUG("  ASSIGN     %s = %s", fl.a->var, fl.a->value);
 			break;
-		case FUNC_LINE_DECLARE:
+		case DECLARE:
 			LDEBUG("  DECLARE    %s %s", fl.d->type, fl.d->var);
 			break;
-		case FUNC_LINE_DESTROY:
+		case DESTROY:
 			LDEBUG("  DESTROY    %s", fl.d->var);
 			break;
-		case FUNC_LINE_FUNC:
+		case FUNC:
 			flf = (struct func_line_func *)f->lines[j];
 #ifndef NDEBUG
 			fprintf(stderr, "DEBUG: %4lu   FUNCTION  ", j);
@@ -106,22 +106,22 @@ static void _printfunc(struct func *f)
 			fprintf(stderr, "\n");
 #endif
 			break;
-		case FUNC_LINE_GOTO:
+		case GOTO:
 			flg = (struct func_line_goto *)f->lines[j];
 			LDEBUG("  GOTO       %s", flg->label);
 			break;
-		case FUNC_LINE_IF:
+		case IF:
 			fli = (struct func_line_if *)f->lines[j];
 			if (fli->inv)
 				LDEBUG("  IF         NOT %s THEN %s", fli->var, fli->label);
 			else
 				LDEBUG("  IF         %s THEN %s", fli->var, fli->label);
 			break;
-		case FUNC_LINE_LABEL:
+		case LABEL:
 			fll = (struct func_line_label *)f->lines[j];
 			LDEBUG("  LABEL      %s", fll->label);
 			break;
-		case FUNC_LINE_MATH:
+		case MATH:
 			flm = (struct func_line_math *)f->lines[j];
 			if (flm->op == MATH_INV)
 				LDEBUG("  MATH       %s = !%s", flm->x, flm->y);
@@ -132,11 +132,11 @@ static void _printfunc(struct func *f)
 			else
 				LDEBUG("  MATH       %s = %s %s %s", flm->x, flm->y, mathop2str(flm->op), flm->z);
 			break;
-		case FUNC_LINE_RETURN:
+		case RETURN:
 			flr = (struct func_line_return *)f->lines[j];
 			LDEBUG("  RETURN      %s", flr->val);
 			break;
-		case FUNC_LINE_STORE:
+		case STORE:
 			LDEBUG("  STORE       %s[%s] = %s", fl.s->var, fl.s->index, fl.s->val);
 			break;
 		default:

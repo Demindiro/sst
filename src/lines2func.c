@@ -651,7 +651,7 @@ void lines2func(const line_t *lines, size_t linecount,
 
 			// Set loop incrementer
 			formath[loopcount] = calloc(sizeof *formath[loopcount], 1);
-			formath[loopcount]->line.type = FUNC_LINE_MATH;
+			formath[loopcount]->type = MATH;
 			formath[loopcount]->op        = MATH_ADD;
 			formath[loopcount]->x         = iterator;
 			formath[loopcount]->y         = iterator;
@@ -659,17 +659,17 @@ void lines2func(const line_t *lines, size_t linecount,
 
 			// Set loop repeat goto
 			loopjmps[loopcount] = calloc(sizeof *loopjmps[loopcount], 1);
-			loopjmps[loopcount]->line.type = FUNC_LINE_GOTO;
+			loopjmps[loopcount]->type = GOTO;
 			loopjmps[loopcount]->label     = strclone(lbl);
 
 			// Set label for if the loop ended without interruption (break)
 			loopelse[loopcount] = calloc(sizeof *loopelse[loopcount], 1);
-			loopelse[loopcount]->line.type = FUNC_LINE_LABEL;
+			loopelse[loopcount]->type = LABEL;
 			loopelse[loopcount]->label     = strclone(lbll);
 
 			// Set label for if the loop was interrupted
 			loopends[loopcount] = calloc(sizeof *loopends[loopcount], 1);
-			loopends[loopcount]->line.type = FUNC_LINE_LABEL;
+			loopends[loopcount]->type = LABEL;
 			loopends[loopcount]->label     = strclone(lble);
 
 			// Set the loop type
@@ -699,16 +699,16 @@ void lines2func(const line_t *lines, size_t linecount,
 				line_destroy(f, e);
 
 			flp.g = calloc(sizeof *flp.g, 1);
-			flp.g->line.type    = FUNC_LINE_GOTO;
+			flp.g->type    = GOTO;
 			flp.g->label        = lblc;
 			loopjmps[loopcount] = flp.g;
 
 			loopelse[loopcount] = calloc(sizeof *loopelse[loopcount], 1);
-			loopelse[loopcount]->line.type = FUNC_LINE_LABEL;
+			loopelse[loopcount]->type = LABEL;
 			loopelse[loopcount]->label     = lbllc;
 
 			loopends[loopcount] = calloc(sizeof *loopends[loopcount], 1);
-			loopends[loopcount]->line.type = FUNC_LINE_LABEL;
+			loopends[loopcount]->type = LABEL;
 			loopends[loopcount]->label     = lblec;
 
 			looptype[loopcount] = 2;
@@ -732,11 +732,11 @@ void lines2func(const line_t *lines, size_t linecount,
 				line_destroy(f, e);
 
 			loopelse[loopcount] = calloc(sizeof *loopelse[loopcount], 1);
-			loopelse[loopcount]->line.type = FUNC_LINE_LABEL;
+			loopelse[loopcount]->type = LABEL;
 			loopelse[loopcount]->label     = lbllc;
 
 			loopends[loopcount] = calloc(sizeof *loopends[loopcount], 1);
-			loopends[loopcount]->line.type = FUNC_LINE_LABEL;
+			loopends[loopcount]->type = LABEL;
 			loopends[loopcount]->label     = lblec;
 
 			looptype[loopcount] = 3;
