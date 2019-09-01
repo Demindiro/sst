@@ -187,15 +187,89 @@ static int _no_ref(struct branch **ba, size_t *bac, size_t *i)
 /**
  * Unroll small loops
  * Small means 6 statements (except declare/destroy) or less.
+ *
+ * The process explained because I keep forgetting it:
+ *
+ * Say you have this sequence of blocks:
+ *
+ *     L-----
+ *     ----
+ *     ---
+ *     --G
+ *
+ * First we make a copy but without the label:
+ *
+ *     L-----    ====
+ *     ----      ===
+ *     ---       ==G
+ *     --G       =====
+ *
+ * Note that the copy of the block with the label is at
+ * the bottom. It also doesn't have a label statement.
+ *
+ * branch1 is set to the next copy in each step. The first block
+ * (L-----) is linked to the first copy (====) and the last copy
+ * (=====) is linked to the second block (----)
+ *
+ * Next we cut the goto statement from the original block:
+ *
+ *    L-----    ====
+ *    ----      ===
+ *    ---       ==G
+ *    --        =====
+ *
+ * We swap the last of the original array with the next-to-last
+ * of the copied array:
+ *
+ *     L-----    ====
+ *     ----      ===
+ *     ---       --
+ *     ==G       =====
+ *
+ * branch1 is fixed accordingly.
+ *
+ * We then insert the copies:
+ *
+ *     L-----
+ *     ====
+ *     ===
+ *     --
+ *     =====
+ *     ----
+ *     ---
+ *     ==G
+ *
+ * Proof of correctness: note that the amount of dashes goes 5-4-3-2.
+ * In the final case it goes 5-4-3-2-5-4-3-2
+ *
+ * Q.E.D. /s
+ *
+ * Note that it also works with only a single block (aside from swapping
+ * and a few linkage steps):
+ *
+ *     L---G
+ *
+ *     L---G  ===G
+ *
+ *     L---   ===G
+ *
+ *     L---
+ *     ===G
+ *
+ * A few steps have to be done differently though:
+ *  - Don't swap the blocks
+ *  - Don't link the non-existent second block
+ *  - Link the copy to branch1 of the block
  */
 static int _unroll(struct branch **ba, size_t *bac, size_t *i)
 {
 	struct branch *b = ba[*i];
-	struct branch *a[256];
-	size_t lc = 0, bc = 1;
+	struct branch *ao[256], *ac[256];
+	size_t lc = 0, bc = 0;
 
 	// Find a (small) loop
 	struct branch *c = b;
+	ao[bc++] = b;
 	while (1) {
 		// Count the amount of statements
 		for (size_t j = c == b; j < c->linecount; j++) {
@@ -219,66 +293,59 @@ static int _unroll(struct branch **ba, size_t *bac, size_t *i)
 		else
 			return 0;
 		// Add the block to the array
-		a[bc++] = c;
+		ao[bc++] = c;
 	}
 
 	// Unroll the loop
-	// Make a copy of the current block but without a label
-	struct branch *copy = malloc(sizeof *copy);
-	_init_block(copy);
-	for (size_t j = 1; j < b->linecount; j++)
-		_add_line(copy, copy_line(b->lines[j]));
-	// This copy has no label, so refcount is 1
-	copy->refcount = 1;
-	// Replace the duplicate with the copy
-	a[0] = copy;
-
-	// Copy the other blocks
-	struct branch *last = a[bc - 1];
-	for (size_t j = 1; j < bc; j++) {
+	// Make copies
+	for (size_t j = 0; j < bc; j++) {
 		struct branch *copy = malloc(sizeof *copy);
 		_init_block(copy);
-		size_t l = a[j]->linecount;
-		// If it is the last block, exclude the goto statement
-		// If it is not a goto statement (an if statement), keep it
-		// If there are any destroy statements after the goto, exclude
-		// those too
-		size_t excl = -1;
-		if (j + 1 == bc) {
-			for (ssize_t k = l - 1; k >= 0; k--) {
-				if (a[j]->lines[k]->type == FUNC_LINE_GOTO) {
-					excl = k;
-					break;
-				}
-			}
+		for (size_t k = (j == 0); k < ao[j]->linecount; k++) {
+			struct func_line *l = ao[j]->lines[k];
+			_add_line(copy, copy_line(l));
 		}
-		for (size_t k = 0; k < l; k++) {
-			if (k >= excl)
-				continue;
-			struct func_line *fl = a[j]->lines[k];
-			_add_line(copy, copy_line(fl));
-		}
-		// The copies have no labels, so refcount is always 1
-		copy->refcount = 1;
-		a[j] = copy;
-		a[j - 1]->branch1 = a[j];
+		size_t k = (j == 0 ? bc - 1 : j - 1);
+		ac[k] = copy;
+		if (k > 0 && j > 0)
+			ac[k - 1]->branch1 = ac[k];
+		// Each should be referenced exactly once anyways.
+		ac[k]->refcount = 1;
 	}
-	struct branch *last_branch1 = last->branch1;
-	// Swap the last found block with the last block of the array
-	SWAP(struct branch *, last, a[bc - 1]);
-	// Correct linkage
-	b->branch1 = last;
-	last->branch1 = a[0];
-	a[bc - 1]->branch1 = last_branch1;
 
-	size_t j = _get_index(ba, *bac, c) + 1;
-	// Reserve 'bc' slots
+	if (bc == 1) {
+		// Link the copy's branch1 to the block's branch1
+		ac[0]->branch1 = ao[0]->branch1;
+	}
+
+	// Link the first block to the first copy
+	ao[0]->branch1 = ac[0];
+	if (bc >= 2) {
+		// Link the last copy to the second block
+		ac[bc - 1]->branch1 = ao[1];
+	}
+
+	// Cut the goto statement
+	for (size_t j = ao[bc - 1]->linecount - 1; j != -1; j--) {
+		if (ao[bc - 1]->branchline.l == ao[bc - 1]->lines[j]) {
+			ao[bc - 1]->linecount    = j;
+			ao[bc - 1]->branchline.l = NULL;
+			ao[bc - 1]->branch0      = NULL;
+			break;
+		}
+	}
+
+	if (bc >= 2) {
+		// Swap the last block with the next-to-last copy
+		SWAP(struct branch *, ao[bc - 1], ac[bc - 2]);
+	}
+
+	// Insert the copies
+	size_t j = *i + 1;
+	ba[*i + bc - 1] = ao[bc - 1];
 	memmove(ba + j + bc, ba + j, (*bac - j) * sizeof *ba);
-	// Insert the array after the position of the last found block
-	memcpy(ba + j, a, bc * sizeof *ba);
+	memcpy(ba + j, ac, bc * sizeof *ba);
 	(*bac) += bc;
-	// Set the last block of the array in the slot of the last found block
-	ba[j - 1] = last;
 
 	for (size_t i = 0; i < *bac; i++)
 		_print_block_layout(ba[i]);
@@ -416,7 +483,6 @@ int optimize_func_branches(func f)
 			changed |= _no_ref(bn, &bnc, &i);
 			changed |= _unroll(bn, &bnc, &i);
 		}
-		//sleep(2);
 		haschanged |= changed;
 	} while (changed);
 

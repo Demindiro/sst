@@ -357,10 +357,10 @@ static void _parsefunc(func f, const char *ptr, const char *var,
 		ERROR("Function '%s' not declared", name);
 		EXIT(1);
 	}
+	size_t      argcount = 0;
+	const char *args [32];
+	int         etemp[32];
 	if (*c != 0) {
-		size_t      argcount = 0;
-		const char *args [32];
-		int         etemp[32];
 		c++;
 		while (1) {
 			ptr = c;
@@ -378,12 +378,12 @@ static void _parsefunc(func f, const char *ptr, const char *var,
 				break;
 			c++;
 		}
-		const char **a = args;
-		line_function(f, var, name, argcount, a);
-		for (ssize_t i = argcount - 1; i >= 0; i--) {
-			if (etemp[i])
-				line_destroy(f, args[i]);
-		}
+	}
+	const char **a = args;
+	line_function(f, var, name, argcount, a);
+	for (size_t i = argcount - 1; i != -1; i--) {
+		if (etemp[i])
+			line_destroy(f, args[i]);
 	}
 }
 
