@@ -2,9 +2,9 @@ CC = cc
 LD = ld
 AS = as
 
-INCLUDE := -Iinclude/
+INCLUDE := -I include
 CFLAGS   = -O0 -g -Wall
-OUTPUT   = build/
+OUTPUT   = build
 
 cc = $(CC) $(INCLUDE) $(CFLAGS) $+ -o $@
 ld = $(LD) $< -o $@
