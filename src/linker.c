@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
 	struct hashtbl lbl2pos;
 	struct lblpos  pos2lbl[0x10000];
 	char vbin[0x10000];
-	vbin[0] = VASM_OP_JMP;
+	vbin[0] = OP_JMP;
 	pos2lbl[0].lbl = "_start";
 	pos2lbl[0].pos = 1;
 	size_t vbinlen = 9;

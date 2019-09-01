@@ -15,7 +15,7 @@ void linkobj(const char **vbins, size_t *vbinlens, size_t vbincount,
 {
 	struct hashtbl lbl2pos;
 	struct lblpos  pos2lbl[0x10000];
-	output[0] = VASM_OP_JMP;
+	output[0] = OP_JMP;
 	pos2lbl[0].lbl = "_start";
 	pos2lbl[0].pos = 1;
 	size_t outputlen = 9;

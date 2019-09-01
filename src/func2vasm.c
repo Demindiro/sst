@@ -55,17 +55,17 @@ static void _reserve_stack_space(union vasm_all **v, size_t *vc, char reg, const
 
 			union vasm_all a;
 
-			a.rs.op = VASM_OP_SET;
+			a.rs.op = OP_SET;
 			a.rs.r  = 29;
 			a.rs.str= strclone(b);
 			(*v)[(*vc)++] = a;
 
-			a.r2.op = VASM_OP_MOV;
+			a.r2.op = OP_MOV;
 			a.r2.r[0]=reg;
 			a.r2.r[1]=31;
 			(*v)[(*vc)++] = a;
 
-			a.r3.op = VASM_OP_ADD;
+			a.r3.op = OP_ADD;
 			a.r3.r[0]=31;
 			a.r3.r[1]=31;
 			a.r3.r[2]=29;
@@ -97,7 +97,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 
 	*vasms = malloc(1024 * sizeof **vasms);
 
-	a.s.op  = VASM_OP_LABEL;
+	a.s.op  = OP_LABEL;
 	a.s.str = f->name;
 	v[vc++] = a;
 
@@ -143,10 +143,10 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 		constcount = 0;
 
 	// Preserve stack pointer
-	a.r.op = VASM_OP_PUSH;
+	a.r.op = OP_PUSH;
 	a.r.r  = 30;
 	v[vc++] = a;
-	a.r2.op = VASM_OP_MOV;
+	a.r2.op = OP_MOV;
 	a.r2.r[0]= 30;
 	a.r2.r[1]= 31;
 	v[vc++] = a;
@@ -155,7 +155,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 	h_create(&constvalh, 16);
 	for (size_t i = f->argcount; i < constcount; i++) {
 		l.line   = f->lines[consts[i]];
-		a.op     = VASM_OP_SET;
+		a.op     = OP_SET;
 		a.rs.r   = i;
 		const char *key, *val;
 		char b[64];
@@ -228,11 +228,11 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				EXIT(1);
 			}
 			if ('0' <= *fl.a->value && *fl.a->value <= '9') {
-				a.rs.op  = VASM_OP_SET;
+				a.rs.op  = OP_SET;
 				a.rs.r   = reg;
 				a.rs.str = fl.a->value;
 			} else {
-				a.r2.op   = VASM_OP_MOV;
+				a.r2.op   = OP_MOV;
 				a.r2.r[0] = reg;
 				reg = h_get(&tbl, fl.a->value);
 				if (reg == -1)
@@ -277,7 +277,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			// Push registers that are in use
 			for (size_t j = 0; j < 32; j++) {
 				if (allocated_regs[j]) {
-					a.r.op = VASM_OP_PUSH;
+					a.r.op = OP_PUSH;
 					a.r.r  = j;
 					v[vc++] = a;
 				}
@@ -287,7 +287,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			for (ssize_t j = flf->argcount - 1; j >= 0; j--) {
 				int r = h_get(&tbl, flf->args[j]);
 				if (r != -1 && r != j) {
-					a.r.op  = VASM_OP_PUSH;
+					a.r.op  = OP_PUSH;
 					a.r.r   = r;
 					v[vc++] = a;
 				}
@@ -297,26 +297,26 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			for (size_t j = 0; j < flf->argcount; j++) {
 				int r = h_get(&tbl, flf->args[j]);
 				if (r == -1) {
-					a.rs.op  = VASM_OP_SET;
+					a.rs.op  = OP_SET;
 					a.rs.r   = j;
 					a.rs.str = flf->args[j];
 					v[vc++] = a;
 				} else if (r != j) {
-					a.r.op = VASM_OP_POP;
+					a.r.op = OP_POP;
 					a.r.r  = j;
 					v[vc++] = a;
 				}
 			}
 
 			// Call
-			a.s.op  = VASM_OP_CALL;
+			a.s.op  = OP_CALL;
 			a.s.str = flf->name;
 			v[vc++] = a;
 
 			// Pop registers
 			for (int j = 31; j >= (flf->var != NULL ? 1 : 0); j--) {
 				if (allocated_regs[j]) {
-					a.r.op  = VASM_OP_POP;
+					a.r.op  = OP_POP;
 					a.r.r   = j;
 					v[vc++] = a;
 				}
@@ -328,13 +328,13 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				if (h_get2(&tbl, flf->var, &r) < 0)
 					ENOTDECLARED(flf->var);
 				// Move the returned value to the variable
-				a.r2.op  = VASM_OP_MOV;
+				a.r2.op  = OP_MOV;
 				a.r2.r[0]= r;
 				a.r2.r[1]= 0; 
 				v[vc++]  = a;
 				// Pop remaining registers
 				if (allocated_regs[0]) {
-					a.r.op  = VASM_OP_POP;
+					a.r.op  = OP_POP;
 					a.r.r   = 0;
 					v[vc++] = a;
 				}
@@ -342,14 +342,14 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			break;
 		case GOTO:
 			flg = (struct func_line_goto *)f->lines[i];
-			a.s.op  = VASM_OP_JMP;
+			a.s.op  = OP_JMP;
 			a.s.str = flg->label;
 			v[vc++] = a;
 			break;
 		case IF:
 			fli = (struct func_line_if *)f->lines[i];
 			if (isnum(*fli->var)) {
-				a.rs.op  = VASM_OP_SET;
+				a.rs.op  = OP_SET;
 				a.rs.r   = ra = 20;
 				a.rs.str = fli->var;
 				v[vc++] = a;
@@ -359,7 +359,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 					ENOTDECLARED(fl.i->var);
 			}
 			rb = 0;
-			a.r2s.op   = fli->inv ? VASM_OP_JZ : VASM_OP_JNZ;
+			a.r2s.op   = fli->inv ? OP_JZ : OP_JNZ;
 			a.r2s.r[0] = ra;
 			a.r2s.r[1] = rb;
 			a.r2s.str  = fli->label;
@@ -367,7 +367,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			break;
 		case LABEL:
 			fll = (struct func_line_label *)f->lines[i];
-			a.s.op  = VASM_OP_LABEL;
+			a.s.op  = OP_LABEL;
 			a.s.str = fll->label;
 			v[vc++] = a;
 			break;
@@ -378,7 +378,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				EXIT(1);
 			}
 			if (isnum(*flm->y)) {
-				a.rs.op  = VASM_OP_SET;
+				a.rs.op  = OP_SET;
 				a.rs.r   = ra = 20;
 				a.rs.str = flm->y;
 				v[vc++] = a;
@@ -389,7 +389,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			}
 			if (flm->op != MATH_INV && flm->op != MATH_NOT) {
 				if (isnum(*flm->z)) {
-					a.rs.op  = VASM_OP_SET;
+					a.rs.op  = OP_SET;
 					a.rs.r   = rb = 21;
 					a.rs.str = flm->z;
 					v[vc++] = a;
@@ -402,10 +402,10 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				if (flm->op == MATH_LOADAT) {
 					const char *t = _get_var_type(f, i, flm->x);
 					switch(_get_type_size(t)) {
-					case 1: a.r3.op = VASM_OP_LDBAT; break;
-					case 2: a.r3.op = VASM_OP_LDSAT; break;
-					case 4: a.r3.op = VASM_OP_LDIAT; break;
-					case 8: a.r3.op = VASM_OP_LDLAT; break;
+					case 1: a.r3.op = OP_LDBAT; break;
+					case 2: a.r3.op = OP_LDSAT; break;
+					case 4: a.r3.op = OP_LDIAT; break;
+					case 8: a.r3.op = OP_LDLAT; break;
 					default:
 						ERROR("Dunno");
 						EXIT(1);
@@ -448,26 +448,26 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			break;
 		case RETURN:
 			// Restore stack pointer
-			a.r2.op = VASM_OP_MOV;
+			a.r2.op = OP_MOV;
 			a.r2.r[0]= 31;
 			a.r2.r[1]= 30;
 			v[vc++] = a;
-			a.r.op = VASM_OP_POP;
+			a.r.op = OP_POP;
 			a.r.r  = 30;
 			v[vc++] = a;
 			if (isnum(*fl.r->val)) {
-				a.rs.op  = VASM_OP_SET;
+				a.rs.op  = OP_SET;
 				a.rs.r   = 0;
 				a.rs.str = fl.r->val;
 			} else {
-				a.r2.op  = VASM_OP_MOV;
+				a.r2.op  = OP_MOV;
 				a.r2.r[0]= 0;
 				a.r2.r[1]= h_get(&tbl, fl.r->val);
 				if (a.r2.r[1] == -1)
 					ENOTDECLARED(fl.r->val);
 			}
 			v[vc++] = a;
-			v[vc++].op = VASM_OP_RET;
+			v[vc++].op = OP_RET;
 			break;
 		case STORE:
 			if (isnum(*fl.s->var)) {
@@ -475,7 +475,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				EXIT(1);
 			}
 			if (isnum(*fl.s->val)) {
-				a.rs.op  = VASM_OP_SET;
+				a.rs.op  = OP_SET;
 				a.rs.r   = ra = 20;
 				a.rs.str = fl.s->val;
 				v[vc++] = a;
@@ -485,7 +485,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 					ENOTDECLARED(fl.s->val);
 			}
 			if (isnum(*fl.s->index)) {
-				a.rs.op  = VASM_OP_SET;
+				a.rs.op  = OP_SET;
 				a.rs.r   = rb = 21;
 				a.rs.str = fl.s->val;
 				v[vc++] = a;
@@ -494,7 +494,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				if (rb == -1)
 					ENOTDECLARED(fl.s->index);
 			}
-			a.r3.op = VASM_OP_STRBAT; // TODO determine required length
+			a.r3.op = OP_STRBAT; // TODO determine required length
 			a.r3.r[0] = ra;
 			a.r3.r[1] = h_get(&tbl, fl.s->var);
 			a.r3.r[2] = rb;
@@ -508,14 +508,14 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 		}
 	}
 	// Restore stack pointer
-	a.r2.op = VASM_OP_MOV;
+	a.r2.op = OP_MOV;
 	a.r2.r[0]= 31;
 	a.r2.r[1]= 30;
 	v[vc++] = a;
-	a.r.op = VASM_OP_POP;
+	a.r.op = OP_POP;
 	a.r.r  = 30;
 	v[vc++] = a;
-	v[vc++].op = VASM_OP_RET;
+	v[vc++].op = OP_RET;
 	*vasms     = realloc(v, vc * sizeof *v);
 	*vasmcount = vc;
 	return 0;

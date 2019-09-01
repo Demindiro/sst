@@ -426,7 +426,7 @@ end:
 			for (size_t i = 0; i < vasmcount[h]; i++) {
 				char buf[80];
 				vasm2str(vasms[h][i], buf, sizeof buf);
-				if (vasms[h][i].op != VASM_OP_LABEL)
+				if (vasms[h][i].op != OP_LABEL)
 					fprintf(_f, "\t%s\n", buf);
 				else
 					fprintf(_f, "%s\n", buf);

@@ -56,11 +56,27 @@ build/assembler:	src/assembler.c		src/vasm2vbin.c		\
 	@echo Building assembler
 	@$(cc)
 
+ifneq (,$(findstring -DUNSAFE,$(CFLAGS)))
+
+build/interpreter:	src/interpreter.c				\
+			| build/					\
+			include/vasm.h
+	@echo Building interpreter
+	@echo Generating assembly for interpreter
+	@$(CC) $(INCLUDE) $(CFLAGS) $+ -S -o build/interpreter.s
+	@echo Patching interpreter assembly
+	@-patch build/interpreter.s patch/interpreter.s.patch
+	@echo Assembling interpreter
+	@$(CC) $(INCLUDE) $(CFLAGS) build/interpreter.s -o $@
+
+else
+
 build/interpreter:	src/interpreter.c				\
 			| build/					\
 			include/vasm.h
 	@echo Building interpreter
 	@$(cc)
+endif
 
 build/linker:		src/linker.c		src/hashtbl.c		\
 			| build/					\

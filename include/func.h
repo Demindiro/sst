@@ -19,22 +19,22 @@ enum func_type {
 	STORE,
 };
 
-#define MATH_ADD    VASM_OP_ADD
-#define MATH_SUB    VASM_OP_SUB
-#define MATH_MUL    VASM_OP_MUL
-#define MATH_DIV    VASM_OP_DIV
-#define MATH_MOD    VASM_OP_MOD
-#define MATH_REM    VASM_OP_REM
-#define MATH_NOT    VASM_OP_NOT
-#define MATH_INV    VASM_OP_INV
-#define MATH_RSHIFT VASM_OP_RSHIFT
-#define MATH_LSHIFT VASM_OP_LSHIFT
-#define MATH_AND    VASM_OP_AND
-#define MATH_OR     VASM_OP_OR
-#define MATH_XOR    VASM_OP_XOR
+#define MATH_ADD    OP_ADD
+#define MATH_SUB    OP_SUB
+#define MATH_MUL    OP_MUL
+#define MATH_DIV    OP_DIV
+#define MATH_MOD    OP_MOD
+#define MATH_REM    OP_REM
+#define MATH_NOT    OP_NOT
+#define MATH_INV    OP_INV
+#define MATH_RSHIFT OP_RSHIFT
+#define MATH_LSHIFT OP_LSHIFT
+#define MATH_AND    OP_AND
+#define MATH_OR     OP_OR
+#define MATH_XOR    OP_XOR
 #define MATH_LOADAT (-43) // IDK man
-#define MATH_LESS   VASM_OP_LESS
-#define MATH_LESSE  VASM_OP_LESSE
+#define MATH_LESS   OP_LESS
+#define MATH_LESSE  OP_LESSE
 
 
 struct func_line {

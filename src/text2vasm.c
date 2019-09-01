@@ -26,131 +26,131 @@ static int getop(char *mnem)
 	switch (c) {
 	case 'a':
 		if (streq("add", mnem))
-			return VASM_OP_ADD;
+			return OP_ADD;
 		break;
 	case 'c':
 		if (streq("call", mnem))
-			return VASM_OP_CALL;
+			return OP_CALL;
 		break;
 	case 'd':
 		if (streq("div", mnem))
-			return VASM_OP_DIV;
+			return OP_DIV;
 		break;
 	case 'i':
 		if (streq("inv", mnem))
-			return VASM_OP_INV;
+			return OP_INV;
 		break;
 	case 'j':
 		if (streq("jmp", mnem))
-			return VASM_OP_JMP;
+			return OP_JMP;
 		if (streq("jz", mnem))
-			return VASM_OP_JZ;
+			return OP_JZ;
 		if (streq("jnz", mnem))
-			return VASM_OP_JNZ;
+			return OP_JNZ;
 		break;
 	case 'l':
 		if (streq("ldl", mnem))
-			return VASM_OP_LDL;
+			return OP_LDL;
 		if (streq("ldi", mnem))
-			return VASM_OP_LDI;
+			return OP_LDI;
 		if (streq("lds", mnem))
-			return VASM_OP_LDS;
+			return OP_LDS;
 		if (streq("ldb", mnem))
-			return VASM_OP_LDB;
+			return OP_LDB;
 		if (streq("ldlat", mnem))
-			return VASM_OP_LDLAT;
+			return OP_LDLAT;
 		if (streq("ldiat", mnem))
-			return VASM_OP_LDIAT;
+			return OP_LDIAT;
 		if (streq("ldsat", mnem))
-			return VASM_OP_LDSAT;
+			return OP_LDSAT;
 		if (streq("ldbat", mnem))
-			return VASM_OP_LDBAT;
+			return OP_LDBAT;
 		if (streq("lshift", mnem))
-			return VASM_OP_LSHIFT;
+			return OP_LSHIFT;
 		if (streq("less", mnem))
-			return VASM_OP_LESS;
+			return OP_LESS;
 		if (streq("lesse", mnem))
-			return VASM_OP_LESSE;
+			return OP_LESSE;
 		break;
 	case 'm':
 		if (streq("mov", mnem))
-			return VASM_OP_MOV;
+			return OP_MOV;
 		if (streq("mod", mnem))
-			return VASM_OP_MOD;
+			return OP_MOD;
 		break;
 	case 'n':
 		if (streq("not", mnem))
-			return VASM_OP_NOT;
+			return OP_NOT;
 		break;
 	case 'p':
 		if (streq("push", mnem))
-			return VASM_OP_PUSH;
+			return OP_PUSH;
 		if (streq("pop", mnem))
-			return VASM_OP_POP;
+			return OP_POP;
 		break;
 	case 'r':
 		if (streq("ret", mnem))
-			return VASM_OP_RET;
+			return OP_RET;
 		if (streq("rshift", mnem))
-			return VASM_OP_RSHIFT;
+			return OP_RSHIFT;
 		break;
 	case 's':
 		if (streq("set", mnem))
-			return VASM_OP_SET;
+			return OP_SET;
 		if (streq("setl", mnem))
-			return VASM_OP_SETL;
+			return OP_SETL;
 		if (streq("seti", mnem))
-			return VASM_OP_SETI;
+			return OP_SETI;
 		if (streq("sets", mnem))
-			return VASM_OP_SETS;
+			return OP_SETS;
 		if (streq("setb", mnem))
-			return VASM_OP_SETB;
+			return OP_SETB;
 		if (streq("strl", mnem))
-			return VASM_OP_STRL;
+			return OP_STRL;
 		if (streq("stri", mnem))
-			return VASM_OP_STRI;
+			return OP_STRI;
 		if (streq("strs", mnem))
-			return VASM_OP_STRS;
+			return OP_STRS;
 		if (streq("strb", mnem))
-			return VASM_OP_STRB;
+			return OP_STRB;
 		if (streq("strlat", mnem))
-			return VASM_OP_STRLAT;
+			return OP_STRLAT;
 		if (streq("striat", mnem))
-			return VASM_OP_STRIAT;
+			return OP_STRIAT;
 		if (streq("strsat", mnem))
-			return VASM_OP_STRSAT;
+			return OP_STRSAT;
 		if (streq("strbat", mnem))
-			return VASM_OP_STRBAT;
+			return OP_STRBAT;
 		if (streq("sub", mnem))
-			return VASM_OP_SUB;
+			return OP_SUB;
 		if (streq("syscall", mnem))
-			return VASM_OP_SYSCALL;
+			return OP_SYSCALL;
 		break;
 	case 'x':
 		if (streq("xor", mnem))
-			return VASM_OP_XOR;
+			return OP_XOR;
 		break;
 	case '.':
 		if (streq(".long", mnem))
-			return VASM_OP_RAW_LONG;
+			return OP_RAW_LONG;
 		if (streq(".int", mnem))
-			return VASM_OP_RAW_INT;
+			return OP_RAW_INT;
 		if (streq(".short", mnem))
-			return VASM_OP_RAW_SHORT;
+			return OP_RAW_SHORT;
 		if (streq(".byte", mnem))
-			return VASM_OP_RAW_BYTE;
+			return OP_RAW_BYTE;
 		if (streq(".str", mnem))
-			return VASM_OP_RAW_STR;
+			return OP_RAW_STR;
 		break;
 	}
 
 	if (*ptr == '#')
-		return VASM_OP_COMMENT;
+		return OP_COMMENT;
 	while (*ptr != 0)
 	       ptr++;
 	ptr--;
 	if (*ptr == ':')
-		return VASM_OP_LABEL;
+		return OP_LABEL;
 
 	printf("Invalid mnemonic (%s)\n", mnem);
 	return -1;
@@ -204,47 +204,47 @@ static int parse_op_args(union vasm_all *v, char *args)
 	long num;
 
 	switch(get_vasm_args_type(v->op)) {
-	case VASM_ARGS_TYPE_NONE:
+	case ARGS_TYPE_NONE:
 		break;
-	case VASM_ARGS_TYPE_REG3:
+	case ARGS_TYPE_REG3:
 		REG(v->r3.r[0]);
 		SKIP;
 		REG(v->r3.r[1]);
 		SKIP;
 		REG(v->r3.r[2]);
 		break;
-	case VASM_ARGS_TYPE_REG2:
+	case ARGS_TYPE_REG2:
 		REG(v->r2.r[0]);
 		SKIP;
 		REG(v->r2.r[1]);
 		break;
-	case VASM_ARGS_TYPE_REG1:
+	case ARGS_TYPE_REG1:
 		REG(v->r.r);
 		break;
-	case VASM_ARGS_TYPE_VAL:
+	case ARGS_TYPE_VAL:
 		STR(v->s.str);
 		break;
-	case VASM_ARGS_TYPE_REGVAL:
+	case ARGS_TYPE_REGVAL:
 		REG(v->rs.r);
 		SKIP;
 		STR(v->rs.str);
 		break;
-	case VASM_ARGS_TYPE_VALREG:
+	case ARGS_TYPE_VALREG:
 		STR(v->rs.str);
 		SKIP;
 		REG(v->rs.r);
 		break;
-	case VASM_ARGS_TYPE_SPECIAL:
+	case ARGS_TYPE_SPECIAL:
 		switch (v->op) {
 		// Raw (aka str)
-		case VASM_OP_RAW_LONG:
-		case VASM_OP_RAW_INT:
-		case VASM_OP_RAW_SHORT:
-		case VASM_OP_RAW_BYTE:
+		case OP_RAW_LONG:
+		case OP_RAW_INT:
+		case OP_RAW_SHORT:
+		case OP_RAW_BYTE:
 			STR(v->s.str);
 			break;
 		// Special case of STR
-		case VASM_OP_RAW_STR:
+		case OP_RAW_STR:
 			if (*ptr != '"') {
 				printf("Strings must start with '\"'\n");
 				return -1;
@@ -265,7 +265,7 @@ static int parse_op_args(union vasm_all *v, char *args)
 			v->s.str = m;
 			break;
 		// Do nothing
-		case VASM_OP_LABEL:
+		case OP_LABEL:
 			break;
 		default:
 			printf("Invalid special op (%d)\n", v->op);
@@ -307,7 +307,7 @@ int text2vasm(char *buf, size_t len, union vasm_all *vasms, size_t *vasmcount_p)
 		int op = getop(b);
 		if (op == -1)
 			return op;
-		if (op == VASM_OP_COMMENT) {
+		if (op == OP_COMMENT) {
 			while (*ptr != '\n' && *ptr != 0)
 				ptr++;
 			continue;
@@ -315,7 +315,7 @@ int text2vasm(char *buf, size_t len, union vasm_all *vasms, size_t *vasmcount_p)
 		vasms[vasmcount].op = op;
 
 		// Check if it is a label
-		if (op == VASM_OP_LABEL) {
+		if (op == OP_LABEL) {
 			char *m = malloc(l);
 			memcpy(m, b, l - 1);
 			m[l] = 0;
