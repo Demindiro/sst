@@ -4,18 +4,36 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <sys/stat.h>
 #include "vasm.h"
 #include "func.h"
 #include "lines.h"
 #include "text2lines.h"
 #include "lines2func.h"
 #include "func2vasm.h"
+#include "vasm2vbin.h"
 #include "hashtbl.h"
+#include "linkobj.h"
 #include "util.h"
 #include "optimize/lines.h"
 #include "optimize/vasm.h"
 #include "optimize/branch.h"
 
+
+
+enum output {
+	PROCESSED,
+	IMMEDIATE,
+	ASSEMBLY,
+	OBJECT,
+	RAW,
+	EXECUTABLE,
+} output_type = EXECUTABLE;
+
+const char *output_file;
+const char *input_file;
+const char *libraries[256];
+size_t      librarycount;
 
 
 struct linerange {
@@ -24,26 +42,6 @@ struct linerange {
 	size_t        count;
 };
 
-
-
-static const char *mathop2str(int op)
-{
-	switch (op) {
-	case MATH_ADD:    return "+";
-	case MATH_SUB:    return "-";
-	case MATH_MUL:    return "*";
-	case MATH_DIV:    return "/";
-	case MATH_MOD:    return "%";
-	//case MATH_NOT:    return "~";
-	//case MATH_INV:    return "!";
-	case MATH_RSHIFT: return ">>";
-	case MATH_LSHIFT: return "<<";
-	case MATH_XOR:    return "^";
-	case MATH_LESS:   return "<";
-	case MATH_LESSE:  return "<=";
-	default: fprintf(stderr, "Invalid op (%d)\n", op); abort();
-	}
-}
 
 
 static int _text2lines(const char *buf,
@@ -58,82 +56,6 @@ static int _text2lines(const char *buf,
 	for (size_t i = 0; i < *linecount; i++)
 		DEBUG("%4u:%-2u (%6lu) | %s", l[i].pos.y, l[i].pos.x, l[i].pos.c, l[i].text);
 	return 0;
-}
-
-
-
-static void _printfunc(struct func *f)
-{
-	DEBUG("Name:   %s", f->name);
-	DEBUG("Return: %s", f->type);
-	DEBUG("Args:   %d", f->argcount);
-	for (size_t j = 0; j < f->argcount; j++)
-		DEBUG("  %s -> %s", f->args[j].name, f->args[j].type);
-	DEBUG("Lines:  %lu", f->linecount);
-	for (size_t j = 0; j < f->linecount; j++) {
-#define LDEBUG(m, ...) DEBUG("%4lu " m, j, ##__VA_ARGS__)
-		union  func_line_all_p   fl = { .line = f->lines[j] } ;
-		switch (f->lines[j]->type) {
-		case ASSIGN:
-			if (fl.a->cons)
-				LDEBUG("  ASSIGN     %s = %s (const)", fl.a->var, fl.a->value);
-			else
-				LDEBUG("  ASSIGN     %s = %s", fl.a->var, fl.a->value);
-			break;
-		case DECLARE:
-			LDEBUG("  DECLARE    %s %s", fl.d->type, fl.d->var);
-			break;
-		case DESTROY:
-			LDEBUG("  DESTROY    %s", fl.d->var);
-			break;
-		case FUNC:
-#ifndef NDEBUG
-			fprintf(stderr, "DEBUG: %4lu   FUNCTION  ", j);
-			if (fl.f->var != NULL)
-				fprintf(stderr, " %s =", fl.f->var);
-			fprintf(stderr, " %s", fl.f->name);
-			if (fl.f->argcount > 0)
-				fprintf(stderr, " %s", fl.f->args[0]);
-			for (size_t k = 1; k < fl.f->argcount; k++)
-				fprintf(stderr, ",%s", fl.f->args[k]);
-			fprintf(stderr, "\n");
-#endif
-			break;
-		case GOTO:
-			LDEBUG("  GOTO       %s", fl.g->label);
-			break;
-		case IF:
-			if (fl.i->inv)
-				LDEBUG("  IF         NOT %s THEN %s", fl.i->var, fl.i->label);
-			else
-				LDEBUG("  IF         %s THEN %s", fl.i->var, fl.i->label);
-			break;
-		case LABEL:
-			LDEBUG("  LABEL      %s", fl.l->label);
-			break;
-		case MATH:
-			if (fl.m->op == MATH_INV)
-				LDEBUG("  MATH       %s = !%s", fl.m->x, fl.m->y);
-			else if (fl.m->op == MATH_NOT)
-				LDEBUG("  MATH       %s = ~%s", fl.m->x, fl.m->y);
-			else if (fl.m->op == MATH_LOADAT)
-				LDEBUG("  MATH       %s = %s[%s]", fl.m->x, fl.m->y, fl.m->z);
-			else
-				LDEBUG("  MATH       %s = %s %s %s", fl.m->x, fl.m->y, mathop2str(fl.m->op), fl.m->z);
-			break;
-		case RETURN:
-			LDEBUG("  RETURN      %s", fl.r->val);
-			break;
-		case STORE:
-			LDEBUG("  STORE       %s[%s] = %s", fl.s->var, fl.s->index, fl.s->val);
-			break;
-		default:
-			ERROR("  Unknown line type (%d)", f->lines[j]->type);
-			EXIT(1);
-		}
-#undef LDEBUG
-	}
-	DEBUG("");
 }
 
 
@@ -281,8 +203,6 @@ static void _lines2funcs(const line_t *lines, size_t linecount,
 			changed |= optimize_func_branches(l.func);
 		} while (changed);
 	}
-	for (size_t i = 0; i < funclnc; i++)
-		_printfunc(funclns[i].func);
 	*funccount = funclnc;
 	*funcs     = malloc(funclnc * sizeof **funcs);
 	for (size_t i = 0; i < funclnc; i++)
@@ -290,12 +210,101 @@ static void _lines2funcs(const line_t *lines, size_t linecount,
 }
 
 
-int main(int argc, char **argv)
-{	
-	if (argc < 3) {
-		ERROR("Usage: %s <input> <output>", argv[0]);
-		return 1;
+
+
+static void _print_usage(int argc, char **argv, int code)
+{
+	ERROR("Usage: %s <input> [-o <output>] [-cSiE]", argc > 0 ? argv[0] : "compiler");
+	ERROR("     <input>    The file to generate the output from");
+	ERROR("  -o <output>   The file to write the final binary to");
+	ERROR("  -c            Output object file");
+	ERROR("  -S            Output assembly file");
+	ERROR("  -i            Output immediate file");
+	ERROR("  -E            Output processed file");
+	ERROR("  -L            Link object or library");
+	EXIT(code);
+}
+
+
+static void _parse_args(int argc, char **argv)
+{
+	if (argc < 2)
+		_print_usage(argc, argv, 2);
+	for (size_t i = 1; i < argc; i++) {
+		const char *v = argv[i];
+		if (*v == '-') {
+			v++;
+			if (streq(v, "S")) {
+				output_type = ASSEMBLY;
+			} else if (streq(v, "c")) {
+				output_type = OBJECT;
+			} else if (streq(v, "E")) {
+				output_type = PROCESSED;
+			} else if (streq(v, "i")) {
+				output_type = IMMEDIATE;
+			} else if (streq(v, "o")) {
+				i++;
+				if (i >= argc) {
+					ERROR("-o must be followed by a file path");
+					EXIT(1);
+				}
+				output_file = argv[i];
+			} else if (streq(v, "L")) {
+				i++;
+				if (i >= argc) {
+					ERROR("-L must be followed by a file path");
+					EXIT(1);
+				}
+				libraries[librarycount++] = argv[i];
+			} else if (streq(v, "h") || streq(v, "-help")) {
+				_print_usage(argc, argv, 0);
+			} else {
+				ERROR("Unknown option '%s'", v - 1);
+				EXIT(1);
+			}
+		} else {
+			if (input_file != NULL) {
+				ERROR("You can only specify one input file");
+				DEBUG("  Input file: '%s'", input_file);
+				EXIT(1);
+			}
+			input_file = argv[i];
+		}
 	}
+	if (input_file == NULL) {
+		ERROR("No input file specified");
+		EXIT(1);
+	}
+	if (output_file == NULL) {
+		const char *b = strrchr(input_file, '/') + 1,
+		           *e = strrchr(input_file, '.');
+		char bi[1 << 12], bo[sizeof bi];
+		memcpy(bi, b, e - b);
+		bi[e - b] = 0;
+		const char *fmt;
+		switch (output_type) {
+		case EXECUTABLE   : fmt = "%s"    ; break;
+		case RAW      : fmt = "%s.bin"; break;
+		case OBJECT   : fmt = "%s.sso"; break;
+		case ASSEMBLY : fmt = "%s.ssa"; break;
+		case IMMEDIATE: fmt = "%s.ssi"; break;
+		case PROCESSED: fmt = "%s.sst"; break;
+		}
+		snprintf(bo, sizeof bo, fmt, bi);
+		output_file = strclone(bo);
+	}
+	if (streq(input_file, output_file)) {
+		ERROR("Input file cannot be the same as the output file");
+		EXIT(1);
+	}
+}
+
+
+
+
+int main(int argc, char **argv)
+{
+	_parse_args(argc, argv);
 
 	// ALL THE WAAAY
 	optimize_lines_options = -1;
@@ -310,54 +319,153 @@ int main(int argc, char **argv)
 
 	// Read source
 	char buf[0x10000];
-	int fd = open(argv[1], O_RDONLY);
-	if (fd < 0) {
-		ERROR("Failed to open '%s': %s", argv[1], strerror(errno));
-		EXIT(1);
-	}
+	int fd = open(input_file, O_RDONLY);
+	if (fd < 0)
+		EXITERRNO("Failed to open input file", 1);
 	size_t n = read(fd, buf, sizeof buf - 1);
+	if (n == -1)
+		EXITERRNO("Failed to read input file", 3);
 	buf[n] = 0;
 	close(fd);
 
+	// Preprocess source to a more consistent format
+	DEBUG("Preprocessing source");
 	if (_text2lines(buf, &lines, &linecount, &strings, &stringcount) < 0) {
 		ERROR("Failed text to lines stage");
 		EXIT(1);
 	}
+	if (output_type == PROCESSED)
+		goto end;
 
+	// Convert source lines to immediate
+	DEBUG("Converting source to immediate");
 	_lines2funcs(lines, linecount, &funcs, &funccount, &functbl, buf);
+	if (output_type == IMMEDIATE)
+		goto end;
 
+	// Convert immediate to assembly
 	union vasm_all **vasms = malloc(funccount * sizeof *vasms);
 	size_t *vasmcount = malloc(funccount * sizeof *vasmcount);
-	DEBUG("Converting functions to assembly");
+	DEBUG("Converting immediate to assembly");
 	for (size_t i = 0; i < funccount; i++) {
-		DEBUG("  Converting '%s'", funcs[i].name);
+		DEBUG("Converting '%s'", funcs[i].name);
 		func2vasm(&vasms[i], &vasmcount[i], &funcs[i]);
 		optimizevasm(vasms[i], &vasmcount[i]);
 	}
-	DEBUG("");
-	FILE *_f = fopen(argv[2], "w");
-	for (size_t h = 0; h < funccount; h++) {
-		for (size_t i = 0; i < vasmcount[h]; i++) {
-			char buf[80];
-			vasm2str(vasms[h][i], buf, sizeof buf);
-			if (vasms[h][i].op != VASM_OP_LABEL) {
-				DEBUG("\t\t%s", buf);
+	if (output_type == ASSEMBLY)
+		goto end;
+
+	// Convert assembly to binary
+	char vbins[1 << 4][1 << 16];
+	size_t vbinlens[1 << 4];
+	struct lblmap maps[1 << 4];
+	DEBUG("Converting assembly to binary");
+	for (size_t i = 0; i < funccount; i++) {
+		DEBUG("Assembling '%s'", funcs[i].name);
+		vasm2vbin(vasms[i], vasmcount[i], vbins[i], &vbinlens[i], &maps[i]);
+	}
+	if (output_type == RAW || output_type == OBJECT)
+		goto end;
+
+	// Link binary
+	char vbin[1 << 20];
+	size_t vbinlen;
+	const char *v[1 << 4];
+	for (size_t i = 0; i < funccount; i++)
+		v[i] = vbins[i];
+	for (size_t i = 0; i < librarycount; i++) {
+		size_t k = i + funccount;
+		int fd = open(libraries[i], O_RDONLY);
+		if (fd < 0)
+			EXITERRNO("Failed to open object", 1);
+		char buf[1 << 16];
+		size_t l = read(fd, buf, sizeof buf);
+		if (l == -1)
+			EXITERRNO("Failed to read object", 3);
+		close(fd);
+		obj_parse(buf, l, vbins[k], &vbinlens[k], &maps[k]);
+		v[k] = vbins[k];
+	}
+	DEBUG("Linking binary");
+	linkobj(v, vbinlens, funccount + librarycount, maps, vbin, &vbinlen);
+	if (output_type == EXECUTABLE)
+		goto end;
+
+	ERROR("This point should not be reachable.");
+	EXIT(1);
+
+end:
+	// Write the output
+	; FILE *_f = fopen(output_file, "w");
+	if (_f == NULL)
+		EXITERRNO("Failed to open output file", 1);
+
+	if (output_type == EXECUTABLE) {
+		DEBUG("Writing executable to '%s'", output_file);
+		int fd = fileno(_f);
+		write(fd, "\x55\x00\x20\x19", 4); // Magic number
+		write(fd, vbin, vbinlen);
+	} else if (output_type == OBJECT) {
+		DEBUG("Writing object to '%s'", output_file);
+		int fd = fileno(_f);
+		write(fd, "\x55\x10\x20\x19", 4); // Magic number
+		unsigned int l = (unsigned int)funccount;
+		write(fd, &l, 4);
+		for (size_t i = 0; i < funccount; i++) {
+			dumplbl(fd, &maps[i]);
+			unsigned int l = (unsigned int)vbinlens[i];
+			write(fd, &l, 4);
+			write(fd, vbins[i], vbinlens[i]);
+		}
+	} else if (output_type == RAW) {
+		ERROR("Not implemented");
+		EXIT(1);
+	} else if (output_type == ASSEMBLY) {
+		DEBUG("Writing assembly to '%s'", output_file);
+		for (size_t h = 0; h < funccount; h++) {
+			for (size_t i = 0; i < vasmcount[h]; i++) {
+				char buf[80];
+				vasm2str(vasms[h][i], buf, sizeof buf);
+				if (vasms[h][i].op != VASM_OP_LABEL)
+					fprintf(_f, "\t%s\n", buf);
+				else
+					fprintf(_f, "%s\n", buf);
+			}
+			fprintf(_f, "\n");
+		}
+		for (size_t i = 0; i < stringcount; i++) {
+			fprintf(_f, ".long %lu\n"
+				    "_str_%lu:\t.str \"%s\"\n",
+			        strlen(strings[i]), i, strings[i]);
+		}
+	} else if (output_type == IMMEDIATE) {
+		DEBUG("Writing immediate to '%s'", output_file);
+		for (size_t i = 0; i < funccount; i++) {
+			if (i > 0)
+				fprintf(_f, "\n\n");
+			func f = &funcs[i];
+			fprintf(_f, "# lines: %lu\n", f->linecount);
+			fprintf(_f, "%s (", f->name);
+			for (size_t j = 0; j < f->argcount; j++)
+				fprintf(_f, "%s%s %s", j > 0 ? "," : "",
+				        f->args[j].type, f->args[j].name);
+			fprintf(_f, ") -> %s\n", f->type);
+			for (size_t j = 0; j < f->linecount; j++) {
+				char buf[256];
+				line2str(f->lines[j], buf, sizeof buf);
 				fprintf(_f, "\t%s\n", buf);
-			} else {
-				DEBUG("\t%s", buf);
-				fprintf(_f, "%s\n", buf);
 			}
 		}
-		DEBUG("");
-		fprintf(_f, "\n");
+	} else if (output_type == PROCESSED) {
+		DEBUG("Writing processed to '%s'", output_file);
+		for (size_t i = 0; i < linecount; i++) {
+			line_t l = lines[i];
+			DEBUG("%-40s # %lu,%u,%u", l.text, l.pos.c, l.pos.y, l.pos.x);
+		}
 	}
-	for (size_t i = 0; i < stringcount; i++) {
-		DEBUG(".long %lu", strlen(strings[i]));
-		DEBUG("_str_%lu:\t.str \"%s\"", i, strings[i]);
-		fprintf(_f, ".long %lu\n"
-		            "_str_%lu:\t.str \"%s\"\n",
-			  strlen(strings[i]), i, strings[i]);
-	}
+
+	if (output_type == EXECUTABLE)
+		chmod(output_file, 0766);
 
 	return 0;
 }

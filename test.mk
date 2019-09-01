@@ -1,5 +1,7 @@
 SH = sh
 
+TEST_LIB = -L $(STD_DIR)/_start.sso -L $(STD_DIR)/core/io.sso
+
 test-hello: all
 	./build/compiler	test/hello/main.sst	/tmp/hello.ssa
 	./build/assembler	/tmp/hello.ssa		/tmp/hello.sso
@@ -11,32 +13,17 @@ test-hello: all
 	$(SH) -c './build/interpreter /tmp/hello.ss'
 
 test-count: all
-	./build/compiler	test/sst/count.sst	/tmp/count.ssa
-	./build/assembler	/tmp/count.ssa		/tmp/count.sso
-	./build/linker		/tmp/_start.sso		/tmp/count.sso		\
-				/tmp/count.ss
+	$(SSC) $(TEST_LIB) test/sst/count.sst -o /tmp/count.ss
 	$(SH) -c 'time ./build/interpreter /tmp/count.ss'
 
 test-prime: all
-	./build/compiler	test/sst/prime.sst	/tmp/prime.ssa
-	./build/assembler	/tmp/prime.ssa		/tmp/prime.sso
-	./build/linker		$(STD_DIR)/_start.sso	/tmp/prime.sso		\
-				$(STD_DIR)/core/io.sso				\
-				/tmp/prime.ss
+	$(SSC) $(TEST_LIB) test/sst/prime.sst -o /tmp/prime.ss
 	$(SH) -c 'time ./build/interpreter /tmp/prime.ss'
 
 test-writeln_num: all
-	./build/compiler	test/sst/writeln-num.sst	/tmp/writeln-num.ssa
-	./build/assembler	/tmp/writeln-num.ssa		/tmp/writeln-num.sso
-	./build/linker		/tmp/_start.sso			/tmp/writeln-num.sso	\
-				/tmp/std/core/io.sso					\
-				/tmp/writeln-num.ss
+	$(SSC) $(TEST_LIB) test/sst/writeln-num.sst -o /tmp/writeln-num.ss
 	$(SH) -c './build/interpreter /tmp/writeln-num.ss'
 
 test-readln: all
-	./build/compiler	test/sst/readln.sst	/tmp/readln.ssa
-	./build/assembler	/tmp/readln.ssa		/tmp/readln.sso
-	./build/linker		/tmp/std/_start.sso	/tmp/std/io.sso		/tmp/std/core/io.sso \
-				/tmp/readln.sso \
-				/tmp/readln.ss
+	$(SSC) $(TEST_LIB) test/sst/readln.sst -o /tmp/readln.ss
 	$(SH) -c './build/interpreter /tmp/readln.ss'

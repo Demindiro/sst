@@ -2,6 +2,7 @@
 #define FUNC_H
 
 #include "util.h"
+#include "vasm.h"
 
 enum func_type {
 	NONE,
@@ -160,5 +161,7 @@ void line_store(func f, const char *arr, const char *index, const char *val);
 const char *new_temp_var(func f, const char *type, const char *name);
 
 struct func_line *copy_line(const struct func_line *l);
+
+void line2str(struct func_line *l, char *buf, size_t bufsize);
 
 #endif

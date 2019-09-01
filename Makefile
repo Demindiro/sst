@@ -39,6 +39,7 @@ build/compiler:		src/compiler.c		src/text2lines.c	\
 			src/hashtbl.c		src/optimize/lines.c	\
 			src/optimize/vasm.c	src/func.c		\
 			src/vasm.c		src/optimize/branch.c	\
+			src/vasm2vbin.c		src/linkobj.c		\
 			| build/					\
 			include/util.h		include/vasm.h		\
 			include/text2lines.h	include/func2vasm.h	\

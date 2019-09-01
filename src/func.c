@@ -164,3 +164,86 @@ struct func_line *copy_line(const struct func_line *l)
 	memcpy(a.a, l, s);
 	return a.line;
 }
+
+
+
+static const char *mathop2str(int op)
+{
+	switch (op) {
+	case MATH_ADD:    return "+";
+	case MATH_SUB:    return "-";
+	case MATH_MUL:    return "*";
+	case MATH_DIV:    return "/";
+	case MATH_MOD:    return "%";
+	//case MATH_NOT:    return "~";
+	//case MATH_INV:    return "!";
+	case MATH_RSHIFT: return ">>";
+	case MATH_LSHIFT: return "<<";
+	case MATH_XOR:    return "^";
+	case MATH_LESS:   return "<";
+	case MATH_LESSE:  return "<=";
+	default: fprintf(stderr, "Invalid op (%d)\n", op); abort();
+	}
+}
+
+
+
+
+void line2str(struct func_line *l, char *buf, size_t bufsize)
+{
+	union func_line_all_p fl = { .line = l } ;
+	size_t n;
+	switch (l->type) {
+	case ASSIGN:
+		n = snprintf(buf, bufsize, "ASSIGN     %s = %s", fl.a->var, fl.a->value);
+		if (fl.a->cons)
+			snprintf(buf + n, bufsize - n, "  # const");
+		break;
+	case DECLARE:
+		snprintf(buf, bufsize, "DECLARE    %s %s", fl.d->type, fl.d->var);
+		break;
+	case DESTROY:
+		snprintf(buf, bufsize, "DESTROY    %s", fl.d->var);
+		break;
+	case FUNC:
+		n = snprintf(buf, bufsize, "FUNCTION  ");
+		if (fl.f->var != NULL)
+			n += snprintf(buf + n, bufsize - n, " %s =", fl.f->var);
+		n += snprintf(buf + n, bufsize - n, " %s", fl.f->name);
+		if (fl.f->argcount > 0)
+			n += snprintf(buf + n, bufsize - n, " %s", fl.f->args[0]);
+		for (size_t k = 1; k < fl.f->argcount; k++)
+			n += snprintf(buf + n, bufsize - n, ",%s", fl.f->args[k]);
+		break;
+	case GOTO:
+		snprintf(buf, bufsize, "GOTO       %s", fl.g->label);
+		break;
+	case IF:
+		snprintf(buf, bufsize, "IF         %s%s THEN %s",
+		         fl.i->inv ? "NOT " : "", fl.i->var, fl.i->label);
+		break;
+	case LABEL:
+		snprintf(buf, bufsize, "LABEL      %s", fl.l->label);
+		break;
+	case MATH:
+		if (fl.m->op == MATH_INV)
+			snprintf(buf, bufsize, "MATH       %s = !%s", fl.m->x, fl.m->y);
+		else if (fl.m->op == MATH_NOT)
+			snprintf(buf, bufsize, "MATH       %s = ~%s", fl.m->x, fl.m->y);
+		else if (fl.m->op == MATH_LOADAT)
+			snprintf(buf, bufsize, "MATH       %s = %s[%s]", fl.m->x, fl.m->y, fl.m->z);
+		else
+			snprintf(buf, bufsize, "MATH       %s = %s %s %s", fl.m->x, fl.m->y, mathop2str(fl.m->op), fl.m->z);
+		break;
+	case RETURN:
+		snprintf(buf, bufsize, "RETURN     %s", fl.r->val);
+		break;
+	case STORE:
+		snprintf(buf, bufsize, "STORE      %s[%s] = %s", fl.s->var, fl.s->index, fl.s->val);
+		break;
+	default:
+		ERROR("Unknown line type (%d)", l->type);
+		EXIT(1);
+	}
+#undef LDEBUG
+}
