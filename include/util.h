@@ -27,6 +27,12 @@ static char *strnclone(const char *text, size_t max) {
 	m[l] = 0;
 	return m;
 }
+static char *num2str(ssize_t n)
+{
+	char buf[22];
+	snprintf(buf, sizeof buf, "%ld", n);
+	return strclone(buf);
+}
 #pragma GCC diagnostic pop
 
 #define streq(x,y) (strcmp(x,y) == 0)

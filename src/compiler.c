@@ -352,6 +352,26 @@ int main(int argc, char **argv)
 		func2vasm(&vasms[i], &vasmcount[i], &funcs[i]);
 		optimizevasm(vasms[i], &vasmcount[i]);
 	}
+	// Create extra assembly with string constants
+	vasms     = realloc(vasms    , (funccount + 1) * sizeof *vasms    );
+	vasmcount = realloc(vasmcount, (funccount + 1) * sizeof *vasmcount);
+	vasms    [funccount] = malloc(stringcount * 3 * sizeof **vasms);
+	vasmcount[funccount] = stringcount * 3;
+	for (size_t i = 0; i < stringcount; i++) {
+		union vasm_all a;
+		char b[64];
+		snprintf(b, sizeof b, "_str_%lu", i);
+		DEBUG("%s = \"%s\"", b, strings[i]);
+		a.s.op  = OP_RAW_LONG;
+		a.s.str = num2str(strlen(strings[i]));
+		vasms[funccount][i * 3 + 0] = a;
+		a.s.op  = OP_LABEL;
+		a.s.str = strclone(b);
+		vasms[funccount][i * 3 + 1] = a;
+		a.s.op  = OP_RAW_STR;
+		a.s.str = strings[i];
+		vasms[funccount][i * 3 + 2] = a;
+	}
 	if (output_type == ASSEMBLY)
 		goto end;
 
@@ -360,8 +380,11 @@ int main(int argc, char **argv)
 	size_t vbinlens[1 << 4];
 	struct lblmap maps[1 << 4];
 	DEBUG("Converting assembly to binary");
-	for (size_t i = 0; i < funccount; i++) {
-		DEBUG("Assembling '%s'", funcs[i].name);
+	for (size_t i = 0; i < funccount + 1; i++) {
+		if (i != funccount)
+			DEBUG("Assembling '%s'", funcs[i].name);
+		else
+			DEBUG("Assembling strings");
 		vasm2vbin(vasms[i], vasmcount[i], vbins[i], &vbinlens[i], &maps[i]);
 	}
 	if (output_type == RAW || output_type == OBJECT)
@@ -371,10 +394,10 @@ int main(int argc, char **argv)
 	char vbin[1 << 20];
 	size_t vbinlen;
 	const char *v[1 << 4];
-	for (size_t i = 0; i < funccount; i++)
+	for (size_t i = 0; i < funccount + 1; i++)
 		v[i] = vbins[i];
 	for (size_t i = 0; i < librarycount; i++) {
-		size_t k = i + funccount;
+		size_t k = i + funccount + 1;
 		int fd = open(libraries[i], O_RDONLY);
 		if (fd < 0)
 			EXITERRNO("Failed to open object", 1);
@@ -387,7 +410,7 @@ int main(int argc, char **argv)
 		v[k] = vbins[k];
 	}
 	DEBUG("Linking binary");
-	linkobj(v, vbinlens, funccount + librarycount, maps, vbin, &vbinlen);
+	linkobj(v, vbinlens, funccount + 1 + librarycount, maps, vbin, &vbinlen);
 	if (output_type == EXECUTABLE)
 		goto end;
 
@@ -422,7 +445,7 @@ end:
 		EXIT(1);
 	} else if (output_type == ASSEMBLY) {
 		DEBUG("Writing assembly to '%s'", output_file);
-		for (size_t h = 0; h < funccount; h++) {
+		for (size_t h = 0; h < funccount + 1; h++) {
 			for (size_t i = 0; i < vasmcount[h]; i++) {
 				char buf[80];
 				vasm2str(vasms[h][i], buf, sizeof buf);
@@ -432,11 +455,6 @@ end:
 					fprintf(_f, "%s\n", buf);
 			}
 			fprintf(_f, "\n");
-		}
-		for (size_t i = 0; i < stringcount; i++) {
-			fprintf(_f, ".long %lu\n"
-				    "_str_%lu:\t.str \"%s\"\n",
-			        strlen(strings[i]), i, strings[i]);
 		}
 	} else if (output_type == IMMEDIATE) {
 		DEBUG("Writing immediate to '%s'", output_file);

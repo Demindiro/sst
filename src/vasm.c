@@ -4,9 +4,6 @@
 
 void vasm2str(union vasm_all a, char *buf, size_t bufsize) {
 	switch (a.op) {
-	default:
-		ERROR("Unknown OP (%d)", a.op);
-		EXIT(1);
 	case OP_NONE:
 		buf[0] = 0;
 		break;
@@ -106,5 +103,14 @@ void vasm2str(union vasm_all a, char *buf, size_t bufsize) {
 	case OP_LESSE:
 		snprintf(buf, bufsize, "lesse\tr%d,r%d,r%d", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 		break;
+	case OP_RAW_LONG:
+		snprintf(buf, bufsize, ".long\t%s", a.s.str);
+		break;
+	case OP_RAW_STR:
+		snprintf(buf, bufsize, ".str\t\"%s\"", a.s.str);
+		break;
+	default:
+		ERROR("Unknown OP (%d)", a.op);
+		EXIT(3);
 	}
 }
