@@ -203,120 +203,74 @@ static int parse_op_args(union vasm_all *v, char *args)
 
 	long num;
 
-	switch ((char)v->op) {
-	// Nothing
-	case VASM_OP_SYSCALL:
-	case VASM_OP_RET:
+	switch(get_vasm_args_type(v->op)) {
+	case VASM_ARGS_TYPE_NONE:
 		break;
-	// 1 addr
-	case VASM_OP_JMP:
-	case VASM_OP_CALL:
-		STR(v->s.str);
-		break;
-	// 1 reg
-	case VASM_OP_PUSH:
-	case VASM_OP_POP:
-		REG(v->r.r);
-		break;
-	// 1 reg, 1 addr
-	case VASM_OP_SET:
-		REG(v->rs.r);
-		SKIP;
-		STR(v->rs.str);
-		break;
-	// 1 addr, 1 reg
-	case VASM_OP_JZ:
-	case VASM_OP_JNZ:
-	case VASM_OP_JP:
-	case VASM_OP_JPZ:
-		STR(v->rs.str);
-		SKIP;
-		REG(v->rs.r);
-		break;
-	// 2 reg, 1 addr
-		STR(v->r2s.str);
-		SKIP;
-		REG(v->r2s.r[0]);
-		SKIP;
-		REG(v->r2s.r[1]);
-		break;
-	// 2 reg
-	case VASM_OP_STRL:
-	case VASM_OP_STRI:
-	case VASM_OP_STRS:
-	case VASM_OP_STRB:
-	case VASM_OP_LDL:
-	case VASM_OP_LDI:
-	case VASM_OP_LDS:
-	case VASM_OP_LDB:
-	case VASM_OP_MOV:
-	case VASM_OP_NOT:
-	case VASM_OP_INV:
-		REG(v->r2.r[0]);
-		SKIP;
-		REG(v->r2.r[1]);
-		break;
-	// 3 reg
-	case VASM_OP_ADD:
-	case VASM_OP_SUB:
-	case VASM_OP_MUL:
-	case VASM_OP_DIV:
-	case VASM_OP_MOD:
-	case VASM_OP_REM:
-	case VASM_OP_RSHIFT:
-	case VASM_OP_LSHIFT:
-	case VASM_OP_XOR:
-	case VASM_OP_STRLAT:
-	case VASM_OP_STRIAT:
-	case VASM_OP_STRSAT:
-	case VASM_OP_STRBAT:
-	case VASM_OP_LDLAT:
-	case VASM_OP_LDIAT:
-	case VASM_OP_LDSAT:
-	case VASM_OP_LDBAT:
-	case VASM_OP_LESS:
-	case VASM_OP_LESSE:
+	case VASM_ARGS_TYPE_REG3:
 		REG(v->r3.r[0]);
 		SKIP;
 		REG(v->r3.r[1]);
 		SKIP;
 		REG(v->r3.r[2]);
 		break;
-	// Raw (aka str)
-	case VASM_OP_RAW_LONG:
-	case VASM_OP_RAW_INT:
-	case VASM_OP_RAW_SHORT:
-	case VASM_OP_RAW_BYTE:
+	case VASM_ARGS_TYPE_REG2:
+		REG(v->r2.r[0]);
+		SKIP;
+		REG(v->r2.r[1]);
+		break;
+	case VASM_ARGS_TYPE_REG1:
+		REG(v->r.r);
+		break;
+	case VASM_ARGS_TYPE_VAL:
 		STR(v->s.str);
 		break;
-	// Special case of STR
-	case VASM_OP_RAW_STR:
-		if (*ptr != '"') {
-			printf("Strings must start with '\"'\n");
-			return -1;
-		}
-		ptr++;
-		char *start = ptr;
-		while (*ptr != '"') {
-			if (*ptr == 0) {
-				printf("Strings must end with '\"'\n");
+	case VASM_ARGS_TYPE_REGVAL:
+		REG(v->rs.r);
+		SKIP;
+		STR(v->rs.str);
+		break;
+	case VASM_ARGS_TYPE_VALREG:
+		STR(v->rs.str);
+		SKIP;
+		REG(v->rs.r);
+		break;
+	case VASM_ARGS_TYPE_SPECIAL:
+		switch (v->op) {
+		// Raw (aka str)
+		case VASM_OP_RAW_LONG:
+		case VASM_OP_RAW_INT:
+		case VASM_OP_RAW_SHORT:
+		case VASM_OP_RAW_BYTE:
+			STR(v->s.str);
+			break;
+		// Special case of STR
+		case VASM_OP_RAW_STR:
+			if (*ptr != '"') {
+				printf("Strings must start with '\"'\n");
 				return -1;
 			}
 			ptr++;
+			char *start = ptr;
+			while (*ptr != '"') {
+				if (*ptr == 0) {
+					printf("Strings must end with '\"'\n");
+					return -1;
+				}
+				ptr++;
+			}
+			size_t l = ptr - start;
+			char *m  = malloc(l + 1);
+			memcpy(m, start, l);
+			m[l] = 0;
+			v->s.str = m;
+			break;
+		// Do nothing
+		case VASM_OP_LABEL:
+			break;
+		default:
+			printf("Invalid special op (%d)\n", v->op);
+			return -1;
 		}
-		size_t l = ptr - start;
-		char *m  = malloc(l + 1);
-		memcpy(m, start, l);
-		m[l] = 0;
-		v->s.str = m;
-		break;
-	// Do nothing
-	case VASM_OP_LABEL:
-		break;
-	// idk
-	default:
-		printf("Invalid op (%d)\n", v->op);
-		return -1;
 	}
 
 	return 0;

@@ -148,6 +148,7 @@ struct lblmap {
 #define VASM_ARGS_TYPE_REG3    4
 #define VASM_ARGS_TYPE_VAL     5
 #define VASM_ARGS_TYPE_REGVAL  6
+#define VASM_ARGS_TYPE_VALREG  7
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -202,14 +203,30 @@ static int get_vasm_args_type(int op)
 	case VASM_OP_SETI:
 	case VASM_OP_SETL:
 		return VASM_ARGS_TYPE_REGVAL;
-	default: EXIT(1);
+	case VASM_OP_JZ:
+	case VASM_OP_JNZ:
+	case VASM_OP_JP:
+	case VASM_OP_JPZ:
+		return VASM_ARGS_TYPE_VALREG;
+	case VASM_OP_NONE:
+	case VASM_OP_COMMENT:
+	case VASM_OP_LABEL:
+	case VASM_OP_RAW_LONG:
+	case VASM_OP_RAW_INT:
+	case VASM_OP_RAW_SHORT:
+	case VASM_OP_RAW_BYTE:
+	case VASM_OP_RAW_STR:
+		return VASM_ARGS_TYPE_SPECIAL;
+	default:
+		ERROR("Undefined OP (%d)", op);
+		EXIT(1);
 	}
 }
 
 #pragma GCC diagnostic pop
 
 
-int vasm2str(union vasm_all a, char *buf, size_t bufsize, int indent);
+void vasm2str(union vasm_all a, char *buf, size_t bufsize);
 
 
 #endif

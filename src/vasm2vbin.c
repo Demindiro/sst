@@ -21,91 +21,49 @@ static size_t _getlblpos(const char *lbl, struct lblmap *map)
 	return -1;
 }
 
-
-static size_t _getoplen(char op)
+/**
+ * Note that it is actually an estimate since a value can be between 1 and 8
+ * bytes.
+ */
+static size_t _getoplen(struct vasm v)
 {
-	switch (op) {
-	// No args
-	case VASM_OP_SYSCALL:
-	case VASM_OP_RET:
-	// 1 byte
-	case VASM_OP_RAW_BYTE:
+	switch (get_vasm_args_type(v.op)) {
+	case VASM_ARGS_TYPE_NONE:
 		return 1;
-	// 1 reg
-	case VASM_OP_PUSH:
-	case VASM_OP_POP:
-	// 1 short
-	case VASM_OP_RAW_SHORT:
+	case VASM_ARGS_TYPE_REG1:
 		return 2;
-	// 2 reg
-	case VASM_OP_STRL:
-	case VASM_OP_STRI:
-	case VASM_OP_STRS:
-	case VASM_OP_STRB:
-	case VASM_OP_LDL:
-	case VASM_OP_LDI:
-	case VASM_OP_LDS:
-	case VASM_OP_LDB:
-	case VASM_OP_MOV:
-	case VASM_OP_NOT:
-	case VASM_OP_INV:
-	// 1 reg, 1 byte
-	case VASM_OP_SETB:
-	case VASM_OP_SETS:
-	case VASM_OP_SETI:
-	case VASM_OP_SETL:
-	case VASM_OP_JZB:
-	case VASM_OP_JNZB:
-	case VASM_OP_JPB:
-	case VASM_OP_JPZB:
+	case VASM_ARGS_TYPE_REG2:
 		return 3;
-	// 3 reg
-	case VASM_OP_ADD:
-	case VASM_OP_SUB:
-	case VASM_OP_MUL:
-	case VASM_OP_DIV:
-	case VASM_OP_MOD:
-	case VASM_OP_REM:
-	case VASM_OP_RSHIFT:
-	case VASM_OP_LSHIFT:
-	case VASM_OP_XOR:
-	case VASM_OP_STRLAT:
-	case VASM_OP_STRIAT:
-	case VASM_OP_STRSAT:
-	case VASM_OP_STRBAT:
-	case VASM_OP_LDLAT:
-	case VASM_OP_LDIAT:
-	case VASM_OP_LDSAT:
-	case VASM_OP_LDBAT:
-	case VASM_OP_LESS:
-	case VASM_OP_LESSE:
-	// 1 int
-	case VASM_OP_RAW_INT:
+	case VASM_ARGS_TYPE_REG3:
 		return 4;
-	// 1 long
-	case VASM_OP_RAW_LONG:
-		return 8;
-	// 1 addr
-	case VASM_OP_JMP:
-	case VASM_OP_CALL:
+	case VASM_ARGS_TYPE_VAL:
 		return 9;
-	// 1 reg, 1 addr
-	case VASM_OP_SET:
-	case VASM_OP_JZ:
-	case VASM_OP_JNZ:
-	case VASM_OP_JP:
-	case VASM_OP_JPZ:
+	case VASM_ARGS_TYPE_REGVAL:
+	case VASM_ARGS_TYPE_VALREG:
 		return 10;
-	// string
-	case VASM_OP_RAW_STR:
-		ERROR("TODO");
-		EXIT(1);
-		//return strlen(a.s.str);
-	// none
-	case VASM_OP_LABEL:
-		return 0;
+	case VASM_ARGS_TYPE_SPECIAL:
+		switch (v.op) {
+		case VASM_OP_RAW_BYTE:
+			return 1;
+		case VASM_OP_RAW_SHORT:
+			return 2;
+		case VASM_OP_RAW_INT:
+			return 4;
+		case VASM_OP_RAW_LONG:
+			return 8;
+		case VASM_OP_RAW_STR:
+			; struct vasm_str *a = (struct vasm_str *)&v;
+			return strlen(a->str);
+			ERROR("TODO");
+			EXIT(1);
+		case VASM_OP_LABEL:
+			return 0;
+		default:
+			ERROR("Unknown op '%d'", v.op);
+			EXIT(1);
+		}
 	default:
-		ERROR("Unknown length for op '%d'", op);
+		ERROR("Unknown op '%d'", v.op);
 		EXIT(1);
 	}
 }
@@ -301,7 +259,7 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 				size_t d = 3; // op (1) + reg (1) + offset (1)
 				for (size_t j = i + 1; j < vasmcount; j++) {
 					union vasm_all b = vasms[j];
-					d += _getoplen(b.op);
+					d += _getoplen(b.a);
 					if (d > 0x7F)
 						break;
 					if (b.op == VASM_OP_LABEL &&

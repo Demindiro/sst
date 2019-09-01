@@ -1,3 +1,5 @@
+include std.io
+
 int main()
 	writeln_num 1
 	writeln_num 2

@@ -2,11 +2,7 @@
 #include <string.h>
 #include "util.h"
 
-int vasm2str(union vasm_all a, char *buf, size_t bufsize, int indent) {
-	if (indent) {
-		*buf++ = '\t';
-		bufsize--;
-	}
+void vasm2str(union vasm_all a, char *buf, size_t bufsize) {
 	switch (a.op) {
 	default:
 		ERROR("Unknown OP (%d)", a.op);
@@ -111,6 +107,4 @@ int vasm2str(union vasm_all a, char *buf, size_t bufsize, int indent) {
 		snprintf(buf, bufsize, "lesse\tr%d,r%d,r%d", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 		break;
 	}
-
-	return 0;
 }

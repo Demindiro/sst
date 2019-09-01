@@ -84,8 +84,7 @@ static const char *_get_var_type(func f, ssize_t k, const char *var)
 		if (l.line->type == DECLARE && streq(var, l.d->var))
 			return l.d->type;
 	}
-	ERROR("Variable '%s' not declared", var);
-	EXIT(1);
+	ENOTDECLARED(var);
 }
 
 
@@ -222,10 +221,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			if (fl.a->cons && h_get(&tbl, fl.a->var) != -1)
 				break;
 			reg = h_get(&tbl, fl.a->var);
-			if (reg == -1) {
-				ERROR("Variable '%s' not declared", fl.a->var);
-				EXIT(1);
-			}
+			if (reg == -1)
+				ENOTDECLARED(fl.a->var);
 			if ('0' <= *fl.a->var && *fl.a->var <= '9') {
 				ERROR("You can't assign to a number");
 				EXIT(1);
@@ -238,10 +235,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				a.r2.op   = VASM_OP_MOV;
 				a.r2.r[0] = reg;
 				reg = h_get(&tbl, fl.a->value);
-				if (reg == -1) {
-					ERROR("Variable '%s' not declared", fl.a->value);
-					EXIT(1);
-				}
+				if (reg == -1)
+					ENOTDECLARED(fl.a->value);
 				a.r2.r[1] = reg;
 			}
 			v[vc++] = a;
@@ -271,10 +266,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			if (fl.d->var[1] == '.')
 				break;
 			reg = h_get(&tbl, fl.d->var);
-			if (reg == -1) {
-				ERROR("Variable '%s' not declared", fl.d->var);
-				EXIT(1);
-			}
+			if (reg == -1)
+				ENOTDECLARED(fl.d->var);
 			allocated_regs[reg] = 0;
 			h_rem(&tbl, fl.d->var);
 			break;
@@ -332,10 +325,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			// Check if function assigns to var
 			if (flf->var != NULL) {
 				size_t r;
-				if (h_get2(&tbl, flf->var, &r) < 0) {
-					ERROR("Variable '%s' is not declared", flf->var);
-					EXIT(1);
-				}
+				if (h_get2(&tbl, flf->var, &r) < 0)
+					ENOTDECLARED(flf->var);
 				// Move the returned value to the variable
 				a.r2.op  = VASM_OP_MOV;
 				a.r2.r[0]= r;
@@ -364,10 +355,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				v[vc++] = a;
 			} else {
 				ra = h_get(&tbl, fli->var);
-				if (ra == -1) {
-					ERROR("Variable '%s' not declared", fl.i->var);
-					EXIT(1);
-				}
+				if (ra == -1)
+					ENOTDECLARED(fl.i->var);
 			}
 			rb = 0;
 			a.r2s.op   = fli->inv ? VASM_OP_JZ : VASM_OP_JNZ;
@@ -395,10 +384,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				v[vc++] = a;
 			} else {
 				ra = h_get(&tbl, flm->y);
-				if (ra == -1) {
-					ERROR("Variable '%s' not declared", flm->y);
-					EXIT(1);
-				}
+				if (ra == -1)
+					ENOTDECLARED(flm->y);
 			}
 			if (flm->op != MATH_INV && flm->op != MATH_NOT) {
 				if (isnum(*flm->z)) {
@@ -409,10 +396,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				} else {
 					// TODO
 					rb = h_get(&tbl, flm->z);
-					if (rb == -1) {
-						ERROR("Variable '%s' not declared", flm->z);
-						EXIT(1);
-					}
+					if (rb == -1)
+						ENOTDECLARED(flm->z);
 				}
 				if (flm->op == MATH_LOADAT) {
 					const char *t = _get_var_type(f, i, flm->x);
@@ -442,10 +427,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 					h_add(&tbl, flm->x, reg);
 				}
 			} else {
-				if (h_get2(&tbl, flm->x, &reg) < 0) {
-					ERROR("Variable '%s' not declared", flm->x);
-					EXIT(1);
-				}
+				if (h_get2(&tbl, flm->x, &reg) < 0)
+					ENOTDECLARED(flm->x);
 				a.r2.op   = flm->op;
 				a.r2.r[0] = h_get(&tbl, flm->x);
 				a.r2.r[1] = ra;
@@ -480,10 +463,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				a.r2.op  = VASM_OP_MOV;
 				a.r2.r[0]= 0;
 				a.r2.r[1]= h_get(&tbl, fl.r->val);
-				if (a.r2.r[1] == -1) {
-					ERROR("Variable '%s' not declared", fl.r->val);
-					EXIT(1);
-				}
+				if (a.r2.r[1] == -1)
+					ENOTDECLARED(fl.r->val);
 			}
 			v[vc++] = a;
 			v[vc++].op = VASM_OP_RET;
@@ -500,10 +481,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				v[vc++] = a;
 			} else {
 				ra = h_get(&tbl, fl.s->val);
-				if (ra == -1) {
-					ERROR("Variable '%s' not declared", fl.s->val);
-					EXIT(1);
-				}
+				if (ra == -1)
+					ENOTDECLARED(fl.s->val);
 			}
 			if (isnum(*fl.s->index)) {
 				a.rs.op  = VASM_OP_SET;
@@ -512,19 +491,15 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				v[vc++] = a;
 			} else {
 				rb = h_get(&tbl, fl.s->index);
-				if (rb == -1) {
-					ERROR("Variable '%s' not declared", fl.s->index);
-					EXIT(1);
-				}
+				if (rb == -1)
+					ENOTDECLARED(fl.s->index);
 			}
 			a.r3.op = VASM_OP_STRBAT; // TODO determine required length
 			a.r3.r[0] = ra;
 			a.r3.r[1] = h_get(&tbl, fl.s->var);
 			a.r3.r[2] = rb;
-			if (a.r2.r[1] == -1) {
-				ERROR("Variable '%s' not declared", fl.s->var);
-				EXIT(1);
-			}
+			if (a.r2.r[1] == -1)
+				ENOTDECLARED(fl.s->var);
 			v[vc++] = a;
 			break;
 		default:

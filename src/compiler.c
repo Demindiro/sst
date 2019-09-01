@@ -73,12 +73,6 @@ static void _printfunc(struct func *f)
 	for (size_t j = 0; j < f->linecount; j++) {
 #define LDEBUG(m, ...) DEBUG("%4lu " m, j, ##__VA_ARGS__)
 		union  func_line_all_p   fl = { .line = f->lines[j] } ;
-		struct func_line_func   *flf;
-		struct func_line_goto   *flg;
-		struct func_line_if     *fli;
-		struct func_line_label  *fll;
-		struct func_line_math   *flm;
-		struct func_line_return *flr;
 		switch (f->lines[j]->type) {
 		case ASSIGN:
 			if (fl.a->cons)
@@ -93,48 +87,42 @@ static void _printfunc(struct func *f)
 			LDEBUG("  DESTROY    %s", fl.d->var);
 			break;
 		case FUNC:
-			flf = (struct func_line_func *)f->lines[j];
 #ifndef NDEBUG
 			fprintf(stderr, "DEBUG: %4lu   FUNCTION  ", j);
-			if (flf->var != NULL)
-				fprintf(stderr, " %s =", flf->var);
-			fprintf(stderr, " %s", flf->name);
-			if (flf->argcount > 0)
-				fprintf(stderr, " %s", flf->args[0]);
-			for (size_t k = 1; k < flf->argcount; k++)
-				fprintf(stderr, ",%s", flf->args[k]);
+			if (fl.f->var != NULL)
+				fprintf(stderr, " %s =", fl.f->var);
+			fprintf(stderr, " %s", fl.f->name);
+			if (fl.f->argcount > 0)
+				fprintf(stderr, " %s", fl.f->args[0]);
+			for (size_t k = 1; k < fl.f->argcount; k++)
+				fprintf(stderr, ",%s", fl.f->args[k]);
 			fprintf(stderr, "\n");
 #endif
 			break;
 		case GOTO:
-			flg = (struct func_line_goto *)f->lines[j];
-			LDEBUG("  GOTO       %s", flg->label);
+			LDEBUG("  GOTO       %s", fl.g->label);
 			break;
 		case IF:
-			fli = (struct func_line_if *)f->lines[j];
-			if (fli->inv)
-				LDEBUG("  IF         NOT %s THEN %s", fli->var, fli->label);
+			if (fl.i->inv)
+				LDEBUG("  IF         NOT %s THEN %s", fl.i->var, fl.i->label);
 			else
-				LDEBUG("  IF         %s THEN %s", fli->var, fli->label);
+				LDEBUG("  IF         %s THEN %s", fl.i->var, fl.i->label);
 			break;
 		case LABEL:
-			fll = (struct func_line_label *)f->lines[j];
-			LDEBUG("  LABEL      %s", fll->label);
+			LDEBUG("  LABEL      %s", fl.l->label);
 			break;
 		case MATH:
-			flm = (struct func_line_math *)f->lines[j];
-			if (flm->op == MATH_INV)
-				LDEBUG("  MATH       %s = !%s", flm->x, flm->y);
-			else if (flm->op == MATH_NOT)
-				LDEBUG("  MATH       %s = ~%s", flm->x, flm->y);
-			else if (flm->op == MATH_LOADAT)
-				LDEBUG("  MATH       %s = %s[%s]", flm->x, flm->y, flm->z);
+			if (fl.m->op == MATH_INV)
+				LDEBUG("  MATH       %s = !%s", fl.m->x, fl.m->y);
+			else if (fl.m->op == MATH_NOT)
+				LDEBUG("  MATH       %s = ~%s", fl.m->x, fl.m->y);
+			else if (fl.m->op == MATH_LOADAT)
+				LDEBUG("  MATH       %s = %s[%s]", fl.m->x, fl.m->y, fl.m->z);
 			else
-				LDEBUG("  MATH       %s = %s %s %s", flm->x, flm->y, mathop2str(flm->op), flm->z);
+				LDEBUG("  MATH       %s = %s %s %s", fl.m->x, fl.m->y, mathop2str(fl.m->op), fl.m->z);
 			break;
 		case RETURN:
-			flr = (struct func_line_return *)f->lines[j];
-			LDEBUG("  RETURN      %s", flr->val);
+			LDEBUG("  RETURN      %s", fl.r->val);
 			break;
 		case STORE:
 			LDEBUG("  STORE       %s[%s] = %s", fl.s->var, fl.s->index, fl.s->val);
@@ -333,7 +321,7 @@ int main(int argc, char **argv)
 
 	if (_text2lines(buf, &lines, &linecount, &strings, &stringcount) < 0) {
 		ERROR("Failed text to lines stage");
-		return 1;
+		EXIT(1);
 	}
 
 	_lines2funcs(lines, linecount, &funcs, &funccount, &functbl, buf);
@@ -351,9 +339,14 @@ int main(int argc, char **argv)
 	for (size_t h = 0; h < funccount; h++) {
 		for (size_t i = 0; i < vasmcount[h]; i++) {
 			char buf[80];
-			vasm2str(vasms[h][i], buf, sizeof buf, vasms[h][i].op != VASM_OP_LABEL);
-			DEBUG("\t%s", buf);
-			fprintf(_f, "%s\n", buf);
+			vasm2str(vasms[h][i], buf, sizeof buf);
+			if (vasms[h][i].op != VASM_OP_LABEL) {
+				DEBUG("\t\t%s", buf);
+				fprintf(_f, "\t%s\n", buf);
+			} else {
+				DEBUG("\t%s", buf);
+				fprintf(_f, "%s\n", buf);
+			}
 		}
 		DEBUG("");
 		fprintf(_f, "\n");

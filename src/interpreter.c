@@ -138,7 +138,7 @@ static void run() {
 		icounter++;
 #endif
 #ifndef NDEBUG
-		fprintf(stderr, "0x%08lx: ", ip);
+		fprintf(stderr, "0x%06lx: ", ip);
 #endif
 		char op = mem[ip];
 		ip++;

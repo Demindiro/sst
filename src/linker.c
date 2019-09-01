@@ -11,7 +11,7 @@
 int main(int argc, char **argv) {
 	
 	if (argc < 2) {
-		fprintf(stderr, "Usage: %s <input ...> output\n", argv[0]);
+		DEBUG("Usage: %s <input ...> output", argv[0]);
 	}
 
 	char buf[0x10000];
@@ -27,14 +27,14 @@ int main(int argc, char **argv) {
 	h_create(&lbl2pos, 32);
 
 	for (size_t i = 1; i < argc - 1; i++) {
-		printf("%s:\n", argv[i]);
+		DEBUG("%s:", argv[i]);
 		int fd = open(argv[i], O_RDONLY);
 		size_t len = read(fd, buf, sizeof buf);
 		close(fd);
 
 		char *ptr = buf + 4;
 
-		printf("  lbl2pos:\n");
+		DEBUG("  lbl2pos:");
 		uint32_t l = be32toh(*(uint32_t *)ptr);
 		ptr += sizeof l;
 		for (size_t i = 0; i < l; i++) {
@@ -51,15 +51,14 @@ int main(int argc, char **argv) {
 			uint64_t pos = *(uint64_t *)ptr;
 			pos = be64toh(pos);
 			ptr += sizeof pos;
-			printf("    %s = %lu (%lu + %lu)\n", s, pos + vbinlen,
-			       vbinlen, pos);
+			DEBUG("    %s = %lu (%lu + %lu)", s, pos + vbinlen, vbinlen, pos);
 			if (h_add(&lbl2pos, s, pos + vbinlen)) {
 				perror("h_add");
 				return 1;
 			}
 		}
 
-		printf("  pos2lbl:\n");
+		DEBUG("  pos2lbl:");
 		l = be32toh(*(uint32_t *)ptr);
 		ptr += sizeof l;
 		for (size_t i = 0; i < l; i++) {
@@ -76,7 +75,7 @@ int main(int argc, char **argv) {
 			uint64_t pos = *(uint64_t *)ptr;
 			pos = be64toh(pos);
 			ptr += sizeof pos;
-			printf("    %lu (%lu + %lu) = %s\n", pos + vbinlen, vbinlen, pos, s);
+			DEBUG("    %lu (%lu + %lu) = %s", pos + vbinlen, vbinlen, pos, s);
 			pos2lbl[pos2lblcount].lbl = s;
 			pos2lbl[pos2lblcount].pos = pos + vbinlen;
 			pos2lblcount++;
@@ -87,11 +86,11 @@ int main(int argc, char **argv) {
 		vbinlen += len;
 	}
 
-	printf("%s\n", argv[argc - 1]);
+	DEBUG("%s", argv[argc - 1]);
 	for (size_t i = 0; i < pos2lblcount; i++) {
 		size_t pos = h_get(&lbl2pos, pos2lbl[i].lbl);
 		*(size_t *)(vbin + pos2lbl[i].pos) = htobe64(pos);
-		printf("  %s @ %lu (0x%lx)--> %lu (0x%lx)\n", pos2lbl[i].lbl,
+		DEBUG("  %s @ %lu (0x%lx) --> %lu (0x%lx)", pos2lbl[i].lbl,
 		       pos2lbl[i].pos, pos2lbl[i].pos, pos, pos);
 	}
 

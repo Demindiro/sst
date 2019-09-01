@@ -28,12 +28,8 @@ test-prime: all
 test-writeln_num: all
 	./build/compiler	test/sst/writeln-num.sst	/tmp/writeln-num.ssa
 	./build/assembler	/tmp/writeln-num.ssa		/tmp/writeln-num.sso
-	./build/compiler	lib/std/io.sst			/tmp/writeln.ssa
-	./build/assembler	/tmp/writeln.ssa		/tmp/writeln.sso
-	./build/assembler	lib/std/core/io.ssa		/tmp/core_io.sso
-	./build/assembler	lib/std/_start.ssa		/tmp/_start.sso
-	./build/linker		/tmp/_start.sso /tmp/writeln-num.sso /tmp/writeln.sso \
-	       			/tmp/core_io.sso \
+	./build/linker		/tmp/_start.sso			/tmp/writeln-num.sso	\
+				/tmp/std/core/io.sso					\
 				/tmp/writeln-num.ss
 	$(SH) -c './build/interpreter /tmp/writeln-num.ss'
 
