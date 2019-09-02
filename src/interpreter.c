@@ -191,6 +191,70 @@ static void run() {
 	rstart = _rdtsc();
 #endif
 
+	static void *table[] = {
+		[OP_NOP] = &&op_nop,
+
+		[OP_JMP] = &&op_jmp,
+		[OP_JZ] = &&op_jz,
+		[OP_JNZ] = &&op_jnz,
+		[OP_JP] = &&op_jp,
+		[OP_JPZ] = &&op_jpz,
+		[OP_CALL] = &&op_call,
+		[OP_RET] = &&op_ret,
+		[OP_JMPRB] = &&op_jmprb,
+		[OP_JZB] = &&op_jzb,
+		[OP_JNZB] = &&op_jnzb,
+		[OP_JPB] = &&op_jpb,
+		[OP_JPZB] = &&op_jpzb,
+
+		[OP_LDL] = &&op_ldl,
+		[OP_LDI] = &&op_ldi,
+		[OP_LDS] = &&op_lds,
+		[OP_LDB] = &&op_ldb,
+		[OP_STRL] = &&op_strl,
+		[OP_STRI] = &&op_stri,
+		[OP_STRS] = &&op_strs,
+		[OP_STRB] = &&op_strb,
+
+		[OP_LDLAT] = &&op_ldlat,
+		[OP_LDIAT] = &&op_ldiat,
+		[OP_LDSAT] = &&op_ldsat,
+		[OP_LDBAT] = &&op_ldbat,
+		[OP_STRLAT] = &&op_strlat,
+		[OP_STRIAT] = &&op_striat,
+		[OP_STRSAT] = &&op_strsat,
+		[OP_STRBAT] = &&op_strbat,
+
+		[OP_PUSH] = &&op_push,
+		[OP_POP] = &&op_pop,
+		[OP_MOV] = &&op_mov,
+		[OP_SETL] = &&op_setl,
+		[OP_SETI] = &&op_seti,
+		[OP_SETS] = &&op_sets,
+		[OP_SETB] = &&op_setb,
+
+		[OP_ADD] = &&op_add,
+		[OP_SUB] = &&op_sub,
+		[OP_MUL] = &&op_mul,
+		[OP_DIV] = &&op_div,
+		[OP_MOD] = &&op_mod,
+		[OP_REM] = &&op_rem,
+		[OP_LSHIFT] = &&op_lshift,
+		[OP_RSHIFT] = &&op_rshift,
+		[OP_LROT] = &&op_lrot,
+		[OP_RROT] = &&op_rrot,
+		[OP_AND] = &&op_and,
+		[OP_OR] = &&op_or,
+		[OP_XOR] = &&op_xor,
+		[OP_NOT] = &&op_not,
+		[OP_INV] = &&op_inv,
+		[OP_LESS] = &&op_less,
+		[OP_LESSE] = &&op_lesse,
+
+		[OP_SYSCALL] = &&op_syscall,
+	};
+
+
 	while (1) {
 #ifndef NOPROF
 		icounter++;
@@ -198,295 +262,332 @@ static void run() {
 #ifndef NDEBUG
 		fprintf(stderr, "0x%06lx:\t", ip);
 #endif
+#ifdef THROTTLE
+		usleep(THROTTLE * 1000);
+#endif
 		enum vasm_op op = mem[ip];
 		ip++;
+		goto *table[op];
 
 		unsigned char regi, regj, regk;
 		size_t addr, val;
 
-		switch (op) {
-		case OP_NOP:
-			DEBUG("nop");
-			break;
-		case OP_CALL:
-			addr = htobe64(ip + sizeof ip);
-			*(size_t *)(mem + sp) = addr;
-			sp += sizeof ip;
-			ip = *(size_t *)(mem + ip);
-			ip = be64toh(ip);
-			DEBUG("call\t0x%lx", ip);
-			break;
-		case OP_RET: 
-			sp -= sizeof ip;
-			ip = *(size_t *)(mem + sp);
-			ip = htobe64(ip);
-			DEBUG("ret\t\t(0x%lx)", ip);
-			break;
-		case OP_JMP:
-			ip = *(size_t *)(mem + ip);
-			ip = be64toh(ip);
-			DEBUG("jmp\t0x%lx", ip);
-			break;
-		case OP_JZ:
-			JUMPIF("jz", !REGI);
-			break;
-		case OP_JNZ:
-			JUMPIF("jnz", REGI);
-			break;
-		case OP_JP:
-			JUMPIF("jp", REGI > 0);
-			break;
-		case OP_JPZ:
-			JUMPIF("jpz", REGI >= 0);
-			break;
-		case OP_JMPRB:
+	op_nop:
+		DEBUG("nop");
+		continue;
+
+	op_call:
+		addr = htobe64(ip + sizeof ip);
+		*(size_t *)(mem + sp) = addr;
+		sp += sizeof ip;
+		ip = *(size_t *)(mem + ip);
+		ip = be64toh(ip);
+		DEBUG("call\t0x%lx", ip);
+		continue;
+
+	op_ret:
+		sp -= sizeof ip;
+		ip = *(size_t *)(mem + sp);
+		ip = htobe64(ip);
+		DEBUG("ret\t\t(0x%lx)", ip);
+		continue;
+
+	op_jmp:
+		ip = *(size_t *)(mem + ip);
+		ip = be64toh(ip);
+		DEBUG("jmp\t0x%lx", ip);
+		continue;
+
+	op_jz:
+		JUMPIF("jz", !REGI);
+		continue;
+
+	op_jnz:
+		JUMPIF("jnz", REGI);
+		continue;
+
+	op_jp:
+		JUMPIF("jp", REGI > 0);
+		continue;
+
+	op_jpz:
+		JUMPIF("jpz", REGI >= 0);
+		continue;
+
+	op_jmprb:
 #ifndef NDEBUG
-			{
-				int8_t c = mem[ip];
-				if (c >= 0)
-					DEBUG("jmprb\t0x%x\t(0x%lx)",
-					      (uint8_t)c, ip + c);
-				else
-					DEBUG("jmprb\t0x%x\t(0x%lx)",
-					      (uint8_t)c, ip + c);
-				ip += c;
-			}
-#else
-			ip += (int8_t)mem[ip];
-#endif
-			break;
-		case OP_JZB:
-			JUMPRELIF("jzb", !REGI, int8_t, (int8_t));
-			break;
-		case OP_JNZB:
-			JUMPRELIF("jnzb", REGI, int8_t, (int8_t));
-			break;
-		case OP_JPB:
-			JUMPRELIF("jpb", REGI > 0, int8_t, (int8_t));
-			break;
-		case OP_JPZB:
-			JUMPRELIF("jpzb", REGI >= 0, int8_t, (int8_t));
-			break;
-		case OP_LDL:
-			REG2;
-			REGI = *(uint64_t *)(mem + REGJ);
-			REGI = be64toh(REGI);
-			DEBUG("ldl\tr%d,r%d\t(%lu <-- 0x%lx)", regi, regj, REGI, REGJ);
-			break;
-		case OP_LDI:
-			REG2;
-			REGI = *(uint32_t *)(mem + REGJ);
-			REGI = be32toh(REGI);
-			DEBUG("ldl\tr%d,r%d\t(%lu <-- 0x%lx)", regi, regj, REGI, REGJ);
-			break;
-		case OP_LDS:
-			REG2;
-			REGI = *(uint16_t *)(mem + REGJ);
-			REGI = be16toh(REGI);
-			DEBUG("ldl\tr%d,r%d\t(%lu <-- 0x%lx)", regi, regj, REGI, REGJ);
-			break;
-		case OP_LDB:
-			REG2;
-			REGI = *(uint8_t *)(mem + REGJ);
-			DEBUG("ldl\tr%d,r%d\t(%lu <-- 0x%lx)", regi, regj, REGI, REGJ);
-			break;
-		case OP_LDLAT:
-			REG3;
-			REGI = *(uint64_t *)(mem + REGJ + REGK);
-			REGI = be64toh(REGI);
-			DEBUG("ldlat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
-			      regi, regj, regk, REGI, REGJ, REGK);
-			break;
-		case OP_LDIAT:
-			REG3;
-			REGI = *(uint32_t *)(mem + REGJ + REGK);
-			REGI = be32toh(REGI);
-			DEBUG("ldiat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
-			      regi, regj, regk, REGI, REGJ, REGK);
-			break;
-		case OP_LDSAT:
-			REG3;
-			REGI = *(uint16_t *)(mem + REGJ + REGK);
-			REGI = be16toh(REGI);
-			DEBUG("ldsat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
-			      regi, regj, regk, REGI, REGJ, REGK);
-			break;
-		case OP_LDBAT:
-			REG3;
-			REGI = *(uint8_t *)(mem + REGJ + REGK);
-			DEBUG("ldbat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
-			      regi, regj, regk, REGI, REGJ, REGK);
-			break;
-		case OP_STRL:
-			REG2;
-			*(uint64_t *)(mem + REGJ) = htobe64(REGI);
-			DEBUG("strl\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
-			break;
-		case OP_STRI:
-			REG2;
-			*(uint32_t *)(mem + REGJ) = htobe32(REGI);
-			DEBUG("stri\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
-			break;
-		case OP_STRS:
-			REG2;
-			*(uint16_t *)(mem + REGJ) = htobe16(REGI);
-			DEBUG("strs\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
-			break;
-		case OP_STRB:
-			REG2;
-			*(uint8_t *)(mem + REGJ) = REGI;
-			DEBUG("strb\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
-			break;
-		case OP_STRLAT:
-			REG3;
-			*(uint64_t *)(mem + REGJ + REGK) = htobe64(REGI);
-			DEBUG("strlat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
-			      regi, regj, regk, REGI, REGJ, REGK);
-			break;
-		case OP_STRIAT:
-			REG3;
-			*(uint32_t *)(mem + REGJ + REGK) = htobe32(REGI);
-			DEBUG("striat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
-			      regi, regj, regk, REGI, REGJ, REGK);
-			break;
-		case OP_STRSAT:
-			REG3;
-			*(uint16_t *)(mem + REGJ + REGK) = htobe16(REGI);
-			DEBUG("strsat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
-			      regi, regj, regk, REGI, REGJ, REGK);
-			break;
-		case OP_STRBAT:
-			REG3;
-			*(uint8_t *)(mem + REGJ + REGK) = REGI;
-			DEBUG("strbat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
-			      regi, regj, regk, REGI, REGJ, REGK);
-			break;
-		case OP_PUSH:
-			REG1;
-			*(size_t *)(mem + sp) = REGI;
-			DEBUG("push\tr%d\t(%lu)", regi, *(size_t *)(mem + sp));
-			sp += sizeof regs[regi];
-			break;
-		case OP_POP:
-			REG1;
-			sp -= sizeof REGI;
-			REGI = *(size_t *)(mem + sp);
-			DEBUG("pop\tr%d\t(%ld)", regi, REGI);
-			break;
-		case OP_MOV:
-			REG2;
-			REGI = REGJ;
-			DEBUG("mov\tr%d,r%d\t(%lu)", regi, regj, REGI);
-			break;
-		case OP_SETL:
-			REG1;
-			val = *(uint64_t *)(mem + ip);
-			val = be64toh(val);
-			ip += 8;
-			REGI = val;
-			DEBUG("setl\tr%d,%lu\t(%lu)", regi, val, REGI);
-			break;
-		case OP_SETI:
-			REG1;
-			val = *(uint32_t *)(mem + ip);
-			val = be32toh(val);
-			ip += 4;
-			REGI = val;
-			DEBUG("seti\tr%d,%lu\t(%lu)", regi, val, REGI);
-			break;
-		case OP_SETS:
-			REG1;
-			val = *(uint16_t *)(mem + ip);
-			val = be16toh(val);
-			ip += 2;
-			REGI = val;
-			DEBUG("sets\tr%d,%lu\t(%lu)", regi, val, REGI);
-			break;
-		case OP_SETB:
-			REG1;
-			val = *(uint8_t *)(mem + ip);
-			ip += 1;
-			REGI = val;
-			DEBUG("setb\tr%d,%lu\t(%lu)", regi, val, REGI);
-			break;
-		case OP_ADD:
-			REG3OP("add", +);
-			break;
-		case OP_SUB:
-			REG3OP("sub", -);
-			break;
-		case OP_MUL:
-			REG3OP("mul", *);
-			break;
-		case OP_DIV:
-			REG3OP("div", /);
-			break;
-		case OP_MOD:
-			REG3OPSTR("mod", %, "%%");
-			break;
-		case OP_REM:
-			REG3OPSTR("rem", %, "%%");
-			break;
-		case OP_AND:
-			REG3OP("and", &);
-			break;
-		case OP_OR:
-			REG3OP("or", |);
-			break;
-		case OP_XOR:
-			REG3OP("xor", ^);
-			break;
-		case OP_LSHIFT:
-			REG3OP("lshift", <<);
-			break;
-		case OP_RSHIFT:
-			REG3OP("rshift", >>);
-			break;
-		case OP_LESS:
-			REG3OP("less", <);
-			break;
-		case OP_LESSE:
-			REG3OP("lesse", <=);
-			break;
-		case OP_RROT:
-			REG3OPSTRFUNC("rrot", RROT64, "RR", "%lx");
-			break;
-		case OP_LROT:
-			REG3OPSTRFUNC("rrot", LROT64, "RR", "%lx");
-			break;
-		case OP_NOT:
-			REG2;
-			REGI = ~REGJ;
-			DEBUG("not\tr%d,r%d\t(%lu)", regi, regj, REGI);
-			break;
-		case OP_INV:
-			REG2;
-			REGI = !REGJ;
-			DEBUG("inv\tr%d,r%d\t(%lu)", regi, regj, REGI);
-			break;
-		case OP_SYSCALL:
-			DEBUG("syscall");
-			vasm_syscall();
-			break;
-		case OP_OP_LIMIT:
-		case OP_NONE:
-		case OP_SET:
-		case OP_LABEL:
-		case OP_COMMENT:
-		case OP_RAW:
-		case OP_RAW_LONG:
-		case OP_RAW_INT:
-		case OP_RAW_SHORT:
-		case OP_RAW_BYTE:
-		case OP_RAW_STR:
-#ifdef NDEBUG
-		default:
-#endif
-			assert(0);
+		{
+			int8_t c = mem[ip];
+			if (c >= 0)
+				DEBUG("jmprb\t0x%x\t(0x%lx)",
+				      (uint8_t)c, ip + c);
+			else
+				DEBUG("jmprb\t0x%x\t(0x%lx)",
+				      (uint8_t)c, ip + c);
+			ip += c;
 		}
-#ifdef THROTTLE
-		usleep(THROTTLE * 1000);
+#else
+		ip += (int8_t)mem[ip];
 #endif
+		continue;
+
+	op_jzb:
+		JUMPRELIF("jzb", !REGI, int8_t, (int8_t));
+		continue;
+
+	op_jnzb:
+		JUMPRELIF("jnzb", REGI, int8_t, (int8_t));
+		continue;
+
+	op_jpb:
+		JUMPRELIF("jpb", REGI > 0, int8_t, (int8_t));
+		continue;
+
+	op_jpzb:
+		JUMPRELIF("jpzb", REGI >= 0, int8_t, (int8_t));
+		continue;
+
+	op_ldl:
+		REG2;
+		REGI = *(uint64_t *)(mem + REGJ);
+		REGI = be64toh(REGI);
+		DEBUG("ldl\tr%d,r%d\t(%lu <-- 0x%lx)", regi, regj, REGI, REGJ);
+		continue;
+
+	op_ldi:
+		REG2;
+		REGI = *(uint32_t *)(mem + REGJ);
+		REGI = be32toh(REGI);
+		DEBUG("ldl\tr%d,r%d\t(%lu <-- 0x%lx)", regi, regj, REGI, REGJ);
+		continue;
+
+	op_lds:
+		REG2;
+		REGI = *(uint16_t *)(mem + REGJ);
+		REGI = be16toh(REGI);
+		DEBUG("ldl\tr%d,r%d\t(%lu <-- 0x%lx)", regi, regj, REGI, REGJ);
+		continue;
+
+	op_ldb:
+		REG2;
+		REGI = *(uint8_t *)(mem + REGJ);
+		DEBUG("ldl\tr%d,r%d\t(%lu <-- 0x%lx)", regi, regj, REGI, REGJ);
+		continue;
+
+	op_ldlat:
+		REG3;
+		REGI = *(uint64_t *)(mem + REGJ + REGK);
+		REGI = be64toh(REGI);
+		DEBUG("ldlat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
+		      regi, regj, regk, REGI, REGJ, REGK);
+		continue;
+
+	op_ldiat:
+		REG3;
+		REGI = *(uint32_t *)(mem + REGJ + REGK);
+		REGI = be32toh(REGI);
+		DEBUG("ldiat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
+		      regi, regj, regk, REGI, REGJ, REGK);
+		continue;
+
+	op_ldsat:
+		REG3;
+		REGI = *(uint16_t *)(mem + REGJ + REGK);
+		REGI = be16toh(REGI);
+		DEBUG("ldsat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
+		      regi, regj, regk, REGI, REGJ, REGK);
+		continue;
+
+	op_ldbat:
+		REG3;
+		REGI = *(uint8_t *)(mem + REGJ + REGK);
+		DEBUG("ldbat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
+		      regi, regj, regk, REGI, REGJ, REGK);
+		continue;
+
+	op_strl:
+		REG2;
+		*(uint64_t *)(mem + REGJ) = htobe64(REGI);
+		DEBUG("strl\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
+		continue;
+
+	op_stri:
+		REG2;
+		*(uint32_t *)(mem + REGJ) = htobe32(REGI);
+		DEBUG("stri\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
+		continue;
+
+	op_strs:
+		REG2;
+		*(uint16_t *)(mem + REGJ) = htobe16(REGI);
+		DEBUG("strs\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
+		continue;
+
+	op_strb:
+		REG2;
+		*(uint8_t *)(mem + REGJ) = REGI;
+		DEBUG("strb\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
+		continue;
+
+	op_strlat:
+		REG3;
+		*(uint64_t *)(mem + REGJ + REGK) = htobe64(REGI);
+		DEBUG("strlat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
+		      regi, regj, regk, REGI, REGJ, REGK);
+		continue;
+
+	op_striat:
+		REG3;
+		*(uint32_t *)(mem + REGJ + REGK) = htobe32(REGI);
+		DEBUG("striat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
+		      regi, regj, regk, REGI, REGJ, REGK);
+		continue;
+
+	op_strsat:
+		REG3;
+		*(uint16_t *)(mem + REGJ + REGK) = htobe16(REGI);
+		DEBUG("strsat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
+		      regi, regj, regk, REGI, REGJ, REGK);
+		continue;
+
+	op_strbat:
+		REG3;
+		*(uint8_t *)(mem + REGJ + REGK) = REGI;
+		DEBUG("strbat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
+		      regi, regj, regk, REGI, REGJ, REGK);
+		continue;
+
+	op_push:
+		REG1;
+		*(size_t *)(mem + sp) = REGI;
+		DEBUG("push\tr%d\t(%lu)", regi, *(size_t *)(mem + sp));
+		sp += sizeof regs[regi];
+		continue;
+
+	op_pop:
+		REG1;
+		sp -= sizeof REGI;
+		REGI = *(size_t *)(mem + sp);
+		DEBUG("pop\tr%d\t(%ld)", regi, REGI);
+		continue;
+
+	op_mov:
+		REG2;
+		REGI = REGJ;
+		DEBUG("mov\tr%d,r%d\t(%lu)", regi, regj, REGI);
+		continue;
+
+	op_setl:
+		REG1;
+		val = *(uint64_t *)(mem + ip);
+		val = be64toh(val);
+		ip += 8;
+		REGI = val;
+		DEBUG("setl\tr%d,%lu\t(%lu)", regi, val, REGI);
+		continue;
+
+	op_seti:
+		REG1;
+		val = *(uint32_t *)(mem + ip);
+		val = be32toh(val);
+		ip += 4;
+		REGI = val;
+		DEBUG("seti\tr%d,%lu\t(%lu)", regi, val, REGI);
+		continue;
+
+	op_sets:
+		REG1;
+		val = *(uint16_t *)(mem + ip);
+		val = be16toh(val);
+		ip += 2;
+		REGI = val;
+		DEBUG("sets\tr%d,%lu\t(%lu)", regi, val, REGI);
+		continue;
+
+	op_setb:
+		REG1;
+		val = *(uint8_t *)(mem + ip);
+		ip += 1;
+		REGI = val;
+		DEBUG("setb\tr%d,%lu\t(%lu)", regi, val, REGI);
+		continue;
+
+	op_add:
+		REG3OP("add", +);
+		continue;
+
+	op_sub:
+		REG3OP("sub", -);
+		continue;
+
+	op_mul:
+		REG3OP("mul", *);
+		continue;
+
+	op_div:
+		REG3OP("div", /);
+		continue;
+
+	op_mod:
+		REG3OPSTR("mod", %, "%%");
+		continue;
+
+	op_rem:
+		REG3OPSTR("rem", %, "%%");
+		continue;
+
+	op_and:
+		REG3OP("and", &);
+		continue;
+
+	op_or:
+		REG3OP("or", |);
+		continue;
+
+	op_xor:
+		REG3OP("xor", ^);
+		continue;
+
+	op_lshift:
+		REG3OP("lshift", <<);
+		continue;
+
+	op_rshift:
+		REG3OP("rshift", >>);
+		continue;
+
+	op_less:
+		REG3OP("less", <);
+		continue;
+
+	op_lesse:
+		REG3OP("lesse", <=);
+		continue;
+
+	op_rrot:
+		REG3OPSTRFUNC("rrot", RROT64, "RR", "%lx");
+		continue;
+
+	op_lrot:
+		REG3OPSTRFUNC("rrot", LROT64, "RR", "%lx");
+		continue;
+
+	op_not:
+		REG2;
+		REGI = ~REGJ;
+		DEBUG("not\tr%d,r%d\t(%lu)", regi, regj, REGI);
+		continue;
+
+	op_inv:
+		REG2;
+		REGI = !REGJ;
+		DEBUG("inv\tr%d,r%d\t(%lu)", regi, regj, REGI);
+		continue;
+
+	op_syscall:
+		DEBUG("syscall");
+		vasm_syscall();
+		continue;
 	}
 }
 
