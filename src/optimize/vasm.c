@@ -83,18 +83,18 @@ foundpop:
 			}
 			break;
 		case ARGS_TYPE_REG2:
-			if (a.r2.r[0] == pushr)
+			if (a.r2.r0 == pushr)
 				pushwritten = 1;
-			if (a.r2.r[1] == popr)
+			if (a.r2.r1 == popr)
 				popused = 1;
 			break;
 		case ARGS_TYPE_REG3:
-			if (a.r3.r[0] == pushr)
+			if (a.r3.r0 == pushr)
 				pushwritten = 1;
-			if (a.r3.r[1] == popr || a.r3.r[2] == popr)
+			if (a.r3.r1 == popr || a.r3.r2 == popr)
 				popused = 1;
 			break;
-		case ARGS_TYPE_REGVAL:
+		case ARGS_TYPE_REGLONG:
 			if (a.op == OP_SET && a.rs.r == pushr)
 				pushwritten = 1;
 			break;
@@ -105,15 +105,15 @@ foundpop:
 	if (pushwritten) {
 		// Replace push and remove pop
 		vasms[pushi].op = OP_MOV;
-		vasms[pushi].r2.r[0] = popr;
-		vasms[pushi].r2.r[1] = pushr;
+		vasms[pushi].r2.r0 = popr;
+		vasms[pushi].r2.r1 = pushr;
 		(*vasmcount)--;
 		memmove(vasms + popi, vasms + popi + 1, (*vasmcount - popi) * sizeof *vasms);
 	} else {
 		// Replace pop and remove push
 		vasms[popi].op = OP_MOV;
-		vasms[popi].r2.r[0] = popr;
-		vasms[popi].r2.r[1] = pushr;
+		vasms[popi].r2.r0 = popr;
+		vasms[popi].r2.r1 = pushr;
 		(*vasmcount)--;
 		memmove(vasms + pushi, vasms + pushi + 1, (*vasmcount - pushi) * sizeof *vasms);
 	}
@@ -171,17 +171,17 @@ static int optimizevasm_replace(union vasm_all *vasms, size_t *vasmcount)
 					case OP_AND:
 					case OP_OR:
 					case OP_XOR:
-						if (a.r3.r[1] == reg || a.r3.r[2] == reg)
+						if (a.r3.r1 == reg || a.r3.r2 == reg)
 							goto used;
-						if (a.r3.r[0] == reg)
+						if (a.r3.r0 == reg)
 							goto unused;
 						break;
 					case OP_MOV:
 					case OP_NOT:
 					case OP_INV:
-						if (a.r3.r[1] == reg)
+						if (a.r3.r1 == reg)
 							goto used;
-						if (a.r3.r[0] == reg)
+						if (a.r3.r0 == reg)
 							goto unused;
 						break;
 					}
@@ -195,7 +195,7 @@ static int optimizevasm_replace(union vasm_all *vasms, size_t *vasmcount)
 			}
 			break;
 		case OP_MOV:
-			if (a.r2.r[0] == a.r2.r[1]) {
+			if (a.r2.r0 == a.r2.r1) {
 				(*vasmcount)--;
 				memmove(vasms + i, vasms + i + 1, (*vasmcount - i) * sizeof *vasms);
 				i--;
@@ -243,9 +243,9 @@ static int optimizevasm_peephole3(union vasm_all *vasms, size_t *vasmcount)
 		case OP_JNZ:
 			if (a1.op == OP_JMP   &&
 			    a2.op == OP_LABEL &&
-			    streq(a0.rs.str, a2.s.str)) {
+			    streq(a0.rs.s, a2.s.s)) {
 				a0.op = (a0.op == OP_JZ) ? OP_JNZ : OP_JZ;
-				a0.rs.str = a1.s.str;
+				a0.rs.s = a1.s.s;
 				vasms[i] = a0;
 				(*vasmcount)--;
 				memmove(vasms + i + 1, vasms + i + 2, (*vasmcount - i) * sizeof vasms[i]);

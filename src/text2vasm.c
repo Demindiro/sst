@@ -213,32 +213,27 @@ static int parse_op_args(union vasm_all *v, char *args)
 	case ARGS_TYPE_NONE:
 		break;
 	case ARGS_TYPE_REG3:
-		REG(v->r3.r[0]);
+		REG(v->r3.r0);
 		SKIP;
-		REG(v->r3.r[1]);
+		REG(v->r3.r1);
 		SKIP;
-		REG(v->r3.r[2]);
+		REG(v->r3.r2);
 		break;
 	case ARGS_TYPE_REG2:
-		REG(v->r2.r[0]);
+		REG(v->r2.r0);
 		SKIP;
-		REG(v->r2.r[1]);
+		REG(v->r2.r1);
 		break;
 	case ARGS_TYPE_REG1:
 		REG(v->r.r);
 		break;
-	case ARGS_TYPE_VAL:
-		STR(v->s.str);
+	case ARGS_TYPE_LONG:
+		STR(v->s.s);
 		break;
-	case ARGS_TYPE_REGVAL:
+	case ARGS_TYPE_REGLONG:
 		REG(v->rs.r);
 		SKIP;
-		STR(v->rs.str);
-		break;
-	case ARGS_TYPE_VALREG:
-		STR(v->rs.str);
-		SKIP;
-		REG(v->rs.r);
+		STR(v->rs.s);
 		break;
 	case ARGS_TYPE_SPECIAL:
 		switch (v->op) {
@@ -247,7 +242,7 @@ static int parse_op_args(union vasm_all *v, char *args)
 		case OP_RAW_INT:
 		case OP_RAW_SHORT:
 		case OP_RAW_BYTE:
-			STR(v->s.str);
+			STR(v->s.s);
 			break;
 		// Special case of STR
 		case OP_RAW_STR:
@@ -268,7 +263,7 @@ static int parse_op_args(union vasm_all *v, char *args)
 			char *m  = malloc(l + 1);
 			memcpy(m, start, l);
 			m[l] = 0;
-			v->s.str = m;
+			v->s.s = m;
 			break;
 		// Do nothing
 		case OP_LABEL:
@@ -325,7 +320,7 @@ int text2vasm(char *buf, size_t len, union vasm_all *vasms, size_t *vasmcount_p)
 			char *m = malloc(l);
 			memcpy(m, b, l - 1);
 			m[l] = 0;
-			vasms[vasmcount].s.str = m;
+			vasms[vasmcount].s.s = m;
 			vasmcount++;
 			continue;
 		}

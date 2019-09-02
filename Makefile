@@ -11,7 +11,7 @@ ld = $(LD) $< -o $@
 as = $(AS) $< -o $@
 
 
-all: compiler assembler interpreter linker stdlib
+all: compiler assembler interpreter linker dumper stdlib
 
 clean:
 	@echo Removing build directory
@@ -24,6 +24,8 @@ assembler:	build/assembler
 interpreter:	build/interpreter
 
 linker:		build/linker
+
+dumper:		build/dump
 
 
 include std.mk
@@ -41,7 +43,6 @@ build/compiler:		src/compiler.c		src/text2lines.c	\
 			src/vasm.c		src/optimize/branch.c	\
 			src/vasm2vbin.c		src/linkobj.c		\
 			src/expr.c		src/var.c		\
-			| build/					\
 			include/util.h		include/vasm.h		\
 			include/text2lines.h	include/func2vasm.h	\
 			include/hashtbl.h	include/optimize/lines.h\
@@ -51,21 +52,23 @@ build/compiler:		src/compiler.c		src/text2lines.c	\
 	@$(cc)
 
 build/assembler:	src/assembler.c		src/vasm2vbin.c		\
-			src/text2vasm.c					\
-			| build/					\
+			src/text2vasm.c		src/vasm.c		\
 			include/vasm.h		include/vasm2vbin.h	\
 			include/text2vasm.h
 	@echo Building assembler
 	@$(cc)
 
 build/interpreter:	src/interpreter.c				\
-			| build/					\
 			include/vasm.h
 	@echo Building interpreter
 	@$(cc)
 
 build/linker:		src/linker.c		src/hashtbl.c		\
-			| build/					\
 			include/hashtbl.h
 	@echo Building linker
+	@$(cc)
+
+build/dump:		src/dump.c		src/vasm.c		\
+			include/vasm.h
+	@echo Building dumper
 	@$(cc)

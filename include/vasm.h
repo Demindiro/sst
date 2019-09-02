@@ -84,12 +84,11 @@ enum vasm_op {
 
 struct vasm {
 	short op;
-	char _[14];
 };
 
 struct vasm_str {
 	short op;
-	const char *str;
+	const char *s;
 };
 
 struct vasm_reg {
@@ -99,24 +98,18 @@ struct vasm_reg {
 
 struct vasm_reg2 {
 	short op;
-	char  r[2];
+	char  r0, r1;
 };
 
 struct vasm_reg3 {
 	short op;
-	char  r[3];
+	char  r0, r1, r2;
 };
 
 struct vasm_reg_str {
 	short op;
 	char  r;
-	const char *str;
-};
-
-struct vasm_reg2_str {
-	short op;
-	char  r[2];
-	const char *str;
+	const char *s;
 };
 
 union vasm_all {
@@ -127,7 +120,6 @@ union vasm_all {
 	struct vasm_reg3     r3;
 	struct vasm_str      s;
 	struct vasm_reg_str  rs;
-	struct vasm_reg2_str r2s;
 };
 
 
@@ -147,94 +139,25 @@ struct lblmap {
 
 
 enum vasm_args {
-	ARGS_TYPE_SPECIAL = 0,
-	ARGS_TYPE_NONE    = 1,
-	ARGS_TYPE_REG1    = 2,
-	ARGS_TYPE_REG2    = 3,
-	ARGS_TYPE_REG3    = 4,
-	ARGS_TYPE_VAL     = 5,
-	ARGS_TYPE_REGVAL  = 6,
-	ARGS_TYPE_VALREG  = 7,
+	ARGS_TYPE_SPECIAL,
+	ARGS_TYPE_NONE,
+	ARGS_TYPE_REG1,
+	ARGS_TYPE_REG2,
+	ARGS_TYPE_REG3,
+	ARGS_TYPE_BYTE,
+	ARGS_TYPE_SHORT,
+	ARGS_TYPE_INT,
+	ARGS_TYPE_LONG,
+	ARGS_TYPE_REGBYTE,
+	ARGS_TYPE_REGSHORT,
+	ARGS_TYPE_REGINT,
+	ARGS_TYPE_REGLONG,
 };
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
 
-static int get_vasm_args_type(int op)
-{
-	switch (op) {
-	case OP_SYSCALL:
-	case OP_RET:
-		return ARGS_TYPE_NONE;
-	case OP_PUSH:
-	case OP_POP:
-		return ARGS_TYPE_REG1;
-	case OP_STRL:
-	case OP_STRI:
-	case OP_STRS:
-	case OP_STRB:
-	case OP_LDL:
-	case OP_LDI:
-	case OP_LDS:
-	case OP_LDB:
-	case OP_MOV:
-	case OP_NOT:
-	case OP_INV:
-		return ARGS_TYPE_REG2;
-	case OP_ADD:
-	case OP_SUB:
-	case OP_MUL:
-	case OP_DIV:
-	case OP_MOD:
-	case OP_REM:
-	case OP_RSHIFT:
-	case OP_LSHIFT:
-	case OP_AND:
-	case OP_OR:
-	case OP_XOR:
-	case OP_STRLAT:
-	case OP_STRIAT:
-	case OP_STRSAT:
-	case OP_STRBAT:
-	case OP_LDLAT:
-	case OP_LDIAT:
-	case OP_LDSAT:
-	case OP_LDBAT:
-	case OP_LESS:
-	case OP_LESSE:
-		return ARGS_TYPE_REG3;
-	case OP_JMP:
-	case OP_CALL:
-		return ARGS_TYPE_VAL;
-	case OP_SET:
-	case OP_SETB:
-	case OP_SETS:
-	case OP_SETI:
-	case OP_SETL:
-		return ARGS_TYPE_REGVAL;
-	case OP_JZ:
-	case OP_JNZ:
-	case OP_JP:
-	case OP_JPZ:
-		return ARGS_TYPE_VALREG;
-	case OP_NONE:
-	case OP_COMMENT:
-	case OP_LABEL:
-	case OP_RAW_LONG:
-	case OP_RAW_INT:
-	case OP_RAW_SHORT:
-	case OP_RAW_BYTE:
-	case OP_RAW_STR:
-		return ARGS_TYPE_SPECIAL;
-	default:
-		EXIT(1, "Undefined OP (%d)", op);
-	}
-}
+int get_vasm_args_type(int op);
 
-#pragma GCC diagnostic pop
-
-
-void vasm2str(union vasm_all a, char *buf, size_t bufsize);
+int vasm2str(union vasm_all a, char *buf, size_t bufsize);
 
 
 #endif

@@ -36,10 +36,21 @@ static size_t _getoplen(struct vasm v)
 		return 3;
 	case ARGS_TYPE_REG3:
 		return 4;
-	case ARGS_TYPE_VAL:
+	case ARGS_TYPE_BYTE:
+		return 2;	
+	case ARGS_TYPE_SHORT:
+		return 3;
+	case ARGS_TYPE_INT:
+		return 5;	
+	case ARGS_TYPE_LONG:
 		return 9;
-	case ARGS_TYPE_REGVAL:
-	case ARGS_TYPE_VALREG:
+	case ARGS_TYPE_REGBYTE:
+		return 3;	
+	case ARGS_TYPE_REGSHORT:
+		return 4;
+	case ARGS_TYPE_REGINT:
+		return 6;
+	case ARGS_TYPE_REGLONG:
 		return 10;
 	case ARGS_TYPE_SPECIAL:
 		switch (v.op) {
@@ -53,7 +64,7 @@ static size_t _getoplen(struct vasm v)
 			return 8;
 		case OP_RAW_STR:
 			; struct vasm_str *a = (struct vasm_str *)&v;
-			return strlen(a->str);
+			return strlen(a->s);
 		case OP_LABEL:
 			return 0;
 		default:
@@ -114,10 +125,8 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		case OP_MOV:
 		case OP_NOT:
 		case OP_INV:
-			vbin[vbinlen] = a.r2.r[0];
-			vbinlen++;
-			vbin[vbinlen] = a.r2.r[1];
-			vbinlen++;
+			vbin[vbinlen++] = a.r2.r0;
+			vbin[vbinlen++] = a.r2.r1;
 			break;
 		// 3 reg
 		case OP_ADD:
@@ -141,14 +150,13 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		case OP_LDBAT:
 		case OP_LESS:
 		case OP_LESSE:
-			for (size_t i = 0; i < 3; i++) {
-				vbin[vbinlen] = a.r3.r[i];
-				vbinlen++;
-			}
+			vbin[vbinlen++] = a.r3.r0;
+			vbin[vbinlen++] = a.r3.r1;
+			vbin[vbinlen++] = a.r3.r2;
 			break;
 		// 1 addr
 		case OP_JMP:
-			val = _getlblpos(a.rs.str, map);
+			val = _getlblpos(a.s.s, map);
 			if (val != -1) {
 				ssize_t d = (ssize_t)val - (ssize_t)vbinlen;
 				if (-0x80 <= d && d <= 0x7F) {
@@ -159,10 +167,10 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 			}
 		case OP_CALL:
 			val = -1;
-			if ('0' <= a.rs.str[0] && a.rs.str[0] <= '9')
-				val = strtol(a.rs.str, NULL, 0);
+			if (isnum(*a.s.s))
+				val = strtol(a.s.s, NULL, 0);
 			else 
-				POS2LBL(a.rs.str);
+				POS2LBL(a.s.s);
 			*(size_t *)(vbin + vbinlen) = val;
 			vbinlen += sizeof val;
 			break;
@@ -172,13 +180,12 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		case OP_SETS:
 		case OP_SETI:
 		case OP_SETL:
-			vbin[vbinlen] = a.rs.r;
-			vbinlen++;
+			vbin[vbinlen++] = a.rs.r;
 			val = -1;
-			if ('0' <= a.rs.str[0] && a.rs.str[0] <= '9')
-				val = strtol(a.rs.str, NULL, 0);
+			if (isnum(*a.rs.s))
+				val = strtol(a.rs.s, NULL, 0);
 			else 
-				POS2LBL(a.rs.str);
+				POS2LBL(a.rs.s);
 			if (a.op == OP_SET) {
 #ifndef FORCE_SETL
 				if (val <= 0xFF)
@@ -230,7 +237,7 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		case OP_JPZ:
 			vbin[vbinlen] = a.rs.r;
 			vbinlen++;
-			val = _getlblpos(a.rs.str, map);
+			val = _getlblpos(a.rs.s, map);
 			if (val != -1) {
 				ssize_t d = (ssize_t)val - (ssize_t)vbinlen;
 				if (-0x80 <= d && d <= 0x7F) {
@@ -255,7 +262,7 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 					if (d > 0x7F)
 						break;
 					if (b.op == OP_LABEL &&
-					    streq(a.rs.str, b.s.str)) {
+					    streq(a.rs.s, b.s.s)) {
 						char op;
 						switch (a.op) {
 						case OP_JZ : op = OP_JZB ; break;
@@ -266,7 +273,7 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 						}
 						vbin[vbinlen - 2] = op;
 						vbin[vbinlen++  ] = 0xFF;
-						jmprelmap[jmprelmapcount].lbl = a.rs.str;
+						jmprelmap[jmprelmapcount].lbl = a.rs.s;
 						jmprelmap[jmprelmapcount].pos = vbinlen - 1;
 						jmprelmapcount++;
 						goto shortop;
@@ -274,10 +281,10 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 				}
 			}
 			val = -1;
-			if ('0' <= a.rs.str[0] && a.rs.str[0] <= '9')
-				val = strtol(a.rs.str, NULL, 0);
+			if (isnum(*a.rs.s))
+				val = strtol(a.rs.s, NULL, 0);
 			else 
-				POS2LBL(a.rs.str);
+				POS2LBL(a.rs.s);
 			*(size_t *)(vbin + vbinlen) = val;
 			vbinlen += sizeof val;
 		shortop:
@@ -285,36 +292,36 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		// Other
 		case OP_RAW_LONG:
 			vbinlen--;
-			val = strtol(a.s.str, NULL, 0);
+			val = strtol(a.s.s, NULL, 0);
 						*(unsigned long *)(vbin + vbinlen) = htobe64(val);
 			vbinlen += sizeof (unsigned long);
 			break;
 		case OP_RAW_INT:
 			vbinlen--;
-			val = strtol(a.s.str, NULL, 0);
+			val = strtol(a.s.s, NULL, 0);
 			*(unsigned int *)(vbin + vbinlen) = htobe32(val);
 			vbinlen += sizeof (unsigned int);
 			break;
 		case OP_RAW_SHORT:
 			vbinlen--;
-			val = strtol(a.s.str, NULL, 0);
+			val = strtol(a.s.s, NULL, 0);
 			*(unsigned short*)(vbin + vbinlen) = htobe16(val);
 			vbinlen += sizeof (unsigned short);
 			break;
 		case OP_RAW_BYTE:
 			vbinlen--;
-			val = strtol(a.s.str, NULL, 0);
+			val = strtol(a.s.s, NULL, 0);
 			*(unsigned char*)(vbin + vbinlen) = val;
 			vbinlen += sizeof (unsigned char);
 			break;
 		case OP_RAW_STR:
 			vbinlen--;
-			val = strlen(a.s.str);
+			val = strlen(a.s.s);
 			for (size_t k = 0; k < val; k++) {
-				char c = a.s.str[k];
+				char c = a.s.s[k];
 				if (c == '\\') {
 					k++;
-					switch (a.s.str[k]) {
+					switch (a.s.s[k]) {
 					case '\'':c = '\''; break;
 					case '"': c = '"' ; break;
 					case 'a': c = '\a'; break;
@@ -332,13 +339,13 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 			break;
 		case OP_LABEL:
 			vbinlen--;
-			map->lbl2pos[map->lbl2poscount].lbl = a.s.str;
+			map->lbl2pos[map->lbl2poscount].lbl = a.s.s;
 			map->lbl2pos[map->lbl2poscount].pos = vbinlen;
 			map->lbl2poscount++;
 			// Fill in short jumps
 			for (size_t j = 0; j < jmprelmapcount; j++) {
 				const char *lbl = jmprelmap[j].lbl;
-				if (streq(a.s.str, lbl)) {
+				if (streq(a.s.s, lbl)) {
 					size_t pos = jmprelmap[j].pos;
 					DEBUG("Filling in '%s'\t@ 0x%02lx (0x%02lx)", lbl, pos, vbinlen - pos);
 					if (vbinlen - pos > 0x7F) {

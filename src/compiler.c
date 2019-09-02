@@ -353,13 +353,13 @@ int main(int argc, char **argv)
 				backslash = 1;
 		}
 		a.s.op  = OP_RAW_LONG;
-		a.s.str = num2str(l);
+		a.s.s = num2str(l);
 		vasms[funccount][i * 3 + 0] = a;
 		a.s.op  = OP_LABEL;
-		a.s.str = strclone(b);
+		a.s.s = strclone(b);
 		vasms[funccount][i * 3 + 1] = a;
 		a.s.op  = OP_RAW_STR;
-		a.s.str = strings[i];
+		a.s.s = strings[i];
 		vasms[funccount][i * 3 + 2] = a;
 	}
 	if (output_type == ASSEMBLY)
