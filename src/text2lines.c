@@ -204,6 +204,44 @@ static int can_extend_shortmath(const char *c)
 }
 
 
+static void _substitute_char_with_num(const char **_c, char **_ptr)
+{
+	const char *c = *_c;
+	char *ptr = *_ptr;
+	if (*c == '\'') {
+		c++;
+		int v = *c;
+		c++;
+		if (v == '\\') {
+			switch (*c) {
+			case '0' : v = '\0'; break;
+			case 'a' : v = '\a'; break;
+			case 'b' : v = '\b'; break;
+			case 'f' : v = '\f'; break;
+			case 'n' : v = '\n'; break;
+			case 'r' : v = '\r'; break;
+			case 't' : v = '\t'; break;
+			case 'v' : v = '\v'; break;
+			case '\'': v = '\''; break;
+			case 'x':
+				c++;
+				v = _hex2chr(c);
+				c++;
+				break;
+			default:
+				  EXIT(1);
+			}
+			c++;
+		}
+		size_t l = sprintf(ptr, "%d", v);
+		ptr += l;
+		c++;
+	}
+	*_c   = c;
+	*_ptr = ptr;
+}
+
+
 int text2lines(const char *text,
                line_t **lines , size_t *linecount,
                char ***strings, size_t *stringcount) {
@@ -220,10 +258,6 @@ int text2lines(const char *text,
 	const char *c = text;
 
 	while (*c != 0) {
-
-		// EOL
-		if (*c == 0)
-			break;
 
 		// Skip comments
 		if (*c == '#') {
@@ -281,7 +315,7 @@ int text2lines(const char *text,
 			const char *d = c;
 			while (*c != ' ')
 				c++;
-			const char *buf0 = strnclone(d, c - d);
+			char *buf0 = strnclone(d, c - d);
 
 			c++;
 			char op = *c;
@@ -290,10 +324,16 @@ int text2lines(const char *text,
 			d  = c;
 			while (*c != '\n')
 				c++;
-			const char *buf1 = strnclone(d, c - d);
+			char *buf1 = strnclone(d, c - d);
+			char *e = buf1;
+			do {
+				_substitute_char_with_num((const char **)&e, &e);
+			} while (*e++ != 0);
 			// TODO: braces
 			char buf[2048];
 			snprintf(buf, sizeof buf, "%s = %s %c %s", buf0, buf0, op, buf1);
+			free(buf0);
+			free(buf1);
 			pos2_t p = _getpos(pos, poscount, *c);
 			lns[lc].text = strclone(buf);
 			lns[lc].pos  = p.p;
@@ -306,7 +346,7 @@ int text2lines(const char *text,
 		char buf[256], *ptr = buf;
 		const char *d = c;
 
-		while (*c != '\n') {
+		while (*c != '\n' && *c != '#') {
 			*ptr++ = *c++;
 			if (*c == '=' && (*(c + 2) == '+' || *(c + 2) == '-')) {
 				*ptr++ = '=';
@@ -383,7 +423,9 @@ int text2lines(const char *text,
 		lns[lc].text = m;
 		lns[lc].pos  = p.p;
 		lc++;
-		c++;
+		// Don't increment so that the next iteration detects the comment
+		if (*c != '#')
+			c++;
 	}
 
 	*linecount   = lc;

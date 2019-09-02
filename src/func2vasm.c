@@ -254,9 +254,9 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			}
 			if (fl.d->type == NULL) {
 				ERROR("=== !!! ===  Bug: DECLARE type is NULL for variable '%s'", fl.d->var);
-				ERROR("=== !!! ===  Assuming and setting type to 'long'");
+				ERROR("=== !!! ===  Assuming and setting type to 'byte' since");
+				ERROR("=== !!! ===  type derivation from arrays is broken");
 				ERROR("=== !!! ===  This will be a fatal error in the future");
-				fl.d->type = "long";
 				fl.d->type = "byte";
 			}
 			_reserve_stack_space(&v, &vc, reg, fl.d->type);

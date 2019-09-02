@@ -9,21 +9,26 @@ end
 
 int main()
 	long num = rand
-	writeln "Guess a number between 1 and 10"
+	writeln "Guess a number between 1 and 10\n"
 	while 1
 		byte[] s = readln
 		long n = 0
 		for c in s
+			if c == '\n'
+				break
+			end
 			n *= 10
 			n += c - '0'
 		end
+		writeln_num n
 		if n == num
-			writeln "Yay! You found it!"
+			writeln "Yay! You found it!\n"
+			break
 		else
 			if n > num
-				writeln "Lower"
+				writeln "Lower\n"
 			else
-				writeln "Higher"
+				writeln "Higher\n"
 			end
 		end
 	end

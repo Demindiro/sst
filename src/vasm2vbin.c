@@ -312,8 +312,25 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		case OP_RAW_STR:
 			vbinlen--;
 			val = strlen(a.s.str);
-			memcpy(vbin + vbinlen, a.s.str, val);
-			vbinlen += val;
+			for (size_t k = 0; k < val; k++) {
+				char c = a.s.str[k];
+				if (c == '\\') {
+					k++;
+					switch (a.s.str[k]) {
+					case '\'':c = '\''; break;
+					case '"': c = '"' ; break;
+					case 'a': c = '\a'; break;
+					case 'b': c = '\b'; break;
+					case 'f': c = '\f'; break;
+					case 'n': c = '\n'; break;
+					case 'r': c = '\r'; break;
+					case 't': c = '\t'; break;
+					case 'v': c = '\v'; break;
+					case 'x': EXIT(4) ; break;
+					}
+				}
+				vbin[vbinlen++] = c;
+			}
 			break;
 		case OP_LABEL:
 			vbinlen--;

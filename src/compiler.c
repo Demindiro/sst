@@ -361,8 +361,16 @@ int main(int argc, char **argv)
 		char b[64];
 		snprintf(b, sizeof b, "_str_%lu", i);
 		DEBUG("%s = \"%s\"", b, strings[i]);
+		size_t l = 0;
+		int backslash = 0;
+		for (const char *c = strings[i]; *c != 0; c++) {
+			if (backslash || *c != '\\')
+				l++, backslash = 0;
+			else
+				backslash = 1;
+		}
 		a.s.op  = OP_RAW_LONG;
-		a.s.str = num2str(strlen(strings[i]));
+		a.s.str = num2str(l);
 		vasms[funccount][i * 3 + 0] = a;
 		a.s.op  = OP_LABEL;
 		a.s.str = strclone(b);

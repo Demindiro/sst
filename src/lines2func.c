@@ -336,8 +336,10 @@ void lines2func(const line_t *lines, size_t linecount,
 
 			// Set variable to be used by the inner body of the loop
 			// Only applies if fromarray is set
-			if (fromarray != NULL)
+			if (fromarray != NULL) {
+				line_declare(f, var, NULL); // TODO
 				line_math(f, MATH_LOADAT, var, fromarray, iterator);
+			}
 
 			// Set loop incrementer
 			formath[loopcount] = calloc(sizeof *formath[loopcount], 1);
