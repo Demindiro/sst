@@ -142,9 +142,13 @@ typedef struct func {
 // Only used for debugging!
 #ifndef NDEBUG
 extern thread_local func _current_func;
-#define SETCURRENTFUNC(f) _current_func = f
-#define CLEARCURRENTFUNC _current_func = NULL
-#define FDEBUG(m, ...) DEBUG("[%s] " m, f ? f->name : "", ##__VA_ARGS__);
+# define SETCURRENTFUNC(f) _current_func = f
+# define CLEARCURRENTFUNC _current_func = NULL
+# define FDEBUG(m, ...) DEBUG("[%s] " m, f ? f->name : "", ##__VA_ARGS__)
+#else
+# define SETCURRENTFUNC(f) NULL
+# define CLEARCURRENTFUNC  NULL
+# define FDEBUG(m, ...) DEBUG(m, ##__VA_ARGS__)
 #endif
 
 
@@ -165,7 +169,7 @@ void line_function(func f, const char *var, const char *func,
 
 void line_goto(func f, const char *label);
 
-void line_if(func f, const char *condition, const char *label);
+void line_if(func f, const char *condition, const char *label, int inv);
 
 void line_label(func f, const char *label);
 

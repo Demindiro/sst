@@ -1,3 +1,5 @@
+include std.io
+
 int main(string[] args)
 	writeln "Hello world!"
 end

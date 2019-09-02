@@ -38,6 +38,7 @@ void line_assign(func f, const char *var, const char *val)
 
 void line_declare(func f, const char *name, const char *type)
 {
+	assert(type != NULL);
 	struct func_line_declare *d = malloc(sizeof *d);
 	d->_type = DECLARE;
 	d->var   = name;
@@ -79,13 +80,13 @@ void line_goto(func f, const char *label)
 }
 
 
-void line_if(func f, const char *val, const char *label)
+void line_if(func f, const char *val, const char *label, int inv)
 {
 	struct func_line_if *i = malloc(sizeof *i);
 	i->type  = IF;
 	i->label = label;
 	i->var   = val;
-	i->inv   = 0;
+	i->inv   = inv;
 	insert_line(f, (struct func_line *)i);	
 }
 

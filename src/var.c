@@ -17,20 +17,33 @@ static const char *deref_arr(const char *w, struct func *f,
 	static int counter = 0;
 	const char *p = strchr(w, '[');
 	if (p != NULL) {
+		// Get array and index
 		p++;
-		char *q = strchr(p, ']');
+		const char *q = strchr(p, ']');
+		const char *array = strnclone(w, p - w - 1);
+		const char *index = strnclone(p, q - p);
+		// Get type
+		const char *type;
+		if (h_get2(vartypes, array, (size_t *)&type) == -1)
+			EXIT(1, "Variable '%s' not declared", array);
+		// Extract 'dereferenced' type
+		const char *tq = strrchr(type, '[');
+		if (tq == NULL)
+			tq = strrchr(type, '*');
+		if (tq == NULL)
+			EXIT(1, "Variable '%s' of type '%s' cannot be dereferenced", array, type);
+		type = strnclone(type, tq - type);
+		// Create temporary variable
 		char var[16];
-		snprintf(var, sizeof var, "_elem_%d", counter++);
+		snprintf(var, sizeof var, "__elem%d", counter++);
 		char *v = strclone(var);
-		line_declare(f, v, NULL);
-		line_math(f, MATH_LOADAT, v, strnclone(w, p - w - 1),
-		          strnclone(p, q - p));
-		if (etemp)
-			*etemp = 1;
+		// Add lines
+		line_declare(f, v, type);
+		line_math(f, MATH_LOADAT, v, array, index);
+		*etemp = 1;
 		return v;
 	}
-	if (etemp)
-		*etemp = 0;
+	*etemp = 0;
 	return w;
 }
 

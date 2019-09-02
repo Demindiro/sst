@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
@@ -244,13 +245,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			}
 			if (h_add(&tbl, fl.d->var, reg) < 0)
 				EXIT(1, "Failed to add variable to hashtable");
-			if (fl.d->type == NULL) {
-				ERROR("=== !!! ===  Bug: DECLARE type is NULL for variable '%s'", fl.d->var);
-				ERROR("=== !!! ===  Assuming and setting type to 'byte' since");
-				ERROR("=== !!! ===  type derivation from arrays is broken");
-				ERROR("=== !!! ===  This will be a fatal error in the future");
-				fl.d->type = "byte";
-			}
+			assert(fl.d->type != NULL);
 			_reserve_stack_space(&v, &vc, reg, fl.d->type);
 			break;
 		case DESTROY:

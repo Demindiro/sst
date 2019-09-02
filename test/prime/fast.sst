@@ -1,6 +1,6 @@
 include std.io
 
-void main()
+int main()
 
 	writeln_num 2
 	writeln_num 3
@@ -26,4 +26,6 @@ void main()
 			#writeln_num i
 		end
 	end
+
+	return 0
 end

@@ -160,6 +160,8 @@ noargs:
 void lines2func(const line_t *lines, size_t linecount,
                 struct func *f, struct hashtbl *functbl)
 {
+	FDEBUG("Converting to immediate");
+
 	size_t li = 0;
 	line_t line = lines[li];
 	struct func_line_goto  *loopjmps[16];
@@ -320,14 +322,24 @@ void lines2func(const line_t *lines, size_t linecount,
 			char expr[64];
 			snprintf(expr, sizeof expr, "%s == %s", iterator, toval);
 			const char *e = parse_expr(f, expr, &istemp, "long", &vartypes);
-			line_if(f, e, strclone(lbll));
+			line_if(f, e, strclone(lbll), 0);
 			if (istemp)
 				line_destroy(f, e);
 
 			// Set variable to be used by the inner body of the loop
 			// Only applies if fromarray is set
 			if (fromarray != NULL) {
-				line_declare(f, var, NULL); // TODO
+				// Get type
+				const char *type; 
+				if (h_get2(&vartypes, fromarray, (size_t *)&type) == -1)
+					EXIT(1, "Variable '%s' not declared", fromarray);
+				// Extract 'dereferenced' type
+				const char *tq = strrchr(type, '[');
+				if (tq == NULL)
+					EXIT(1, "Variable '%s' of type '%s' cannot be iterated", fromarray, type);
+				type = strnclone(type, tq - type);
+				// Add lines
+				line_declare(f, var, type);
 				line_math(f, MATH_LOADAT, var, fromarray, iterator);
 			}
 
@@ -374,8 +386,7 @@ void lines2func(const line_t *lines, size_t linecount,
 
 			char istemp; // TODO
 			const char *e = parse_expr(f, ptr, &istemp, "bool", &vartypes);
-			line_if(f, e, lbllc);
-			((struct func_line_if *)f->lines[f->linecount - 1])->inv = 1;
+			line_if(f, e, lbllc, 1);
 			if (istemp)
 				line_destroy(f, e);
 
@@ -405,8 +416,7 @@ void lines2func(const line_t *lines, size_t linecount,
 
 			char istemp;
 			const char *e = parse_expr(f, ptr, &istemp, "bool", &vartypes);
-			line_if(f, e, lbllc);
-			((struct func_line_if *)f->lines[f->linecount - 1])->inv = 1;
+			line_if(f, e, lbllc, 1);
 			if (istemp)
 				line_destroy(f, e);
 
