@@ -13,11 +13,11 @@ test-hello: all
 	$(SH) -c './build/interpreter /tmp/hello.ss'
 
 test-count: all
-	$(SSC) $(TEST_LIB) test/sst/count.sst -o /tmp/count.ss
+	$(SSC) $(TEST_LIB) test/count/main.sst -o /tmp/count.ss
 	$(SH) -c 'time ./build/interpreter /tmp/count.ss'
 
-test-prime: all
-	$(SSC) $(TEST_LIB) test/sst/prime.sst -o /tmp/prime.ss
+test-prime-naive: all
+	$(SSC) $(TEST_LIB) test/prime/naive.sst -o /tmp/prime.ss
 	$(SH) -c 'time ./build/interpreter /tmp/prime.ss'
 
 test-prime-fast: all
@@ -25,9 +25,13 @@ test-prime-fast: all
 	$(SH) -c 'time ./build/interpreter /tmp/prime.ss'
 
 test-writeln_num: all
-	$(SSC) $(TEST_LIB) test/sst/writeln-num.sst -o /tmp/writeln-num.ss
+	$(SSC) $(TEST_LIB) test/io/writeln-num.sst -o /tmp/writeln-num.ss
 	$(SH) -c './build/interpreter /tmp/writeln-num.ss'
 
 test-readln: all
-	$(SSC) $(TEST_LIB) test/sst/readln.sst -o /tmp/readln.ss
+	$(SSC) $(TEST_LIB) test/io/readln.sst -o /tmp/readln.ss
 	$(SH) -c './build/interpreter /tmp/readln.ss'
+
+test-guess-the-number:
+	$(SSC) $(TEST_LIB) test/game/guess-the-number.sst -o /tmp/guess-the-number.ss
+	$(SH) -c './build/interpreter /tmp/guess-the-number.ss'

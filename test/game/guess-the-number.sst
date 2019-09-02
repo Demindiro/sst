@@ -1,12 +1,17 @@
-extern void   writeln(char[] text)
-extern char[] readln()
-extern long   rand()
+include std.io
+
+
+long rand()
+	return 4 # chosen by fair dice roll
+	         # guaranteed to be random
+end
+
 
 int main()
 	long num = rand
 	writeln "Guess a number between 1 and 10"
 	while 1
-		char[] s = readln
+		byte[] s = readln
 		long n = 0
 		for c in s
 			n *= 10
