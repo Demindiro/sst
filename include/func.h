@@ -4,6 +4,7 @@
 #include "util.h"
 #include "vasm.h"
 
+
 enum func_type {
 	NONE,
 	ASSIGN,
@@ -32,6 +33,8 @@ enum func_type {
 #define MATH_AND    OP_AND
 #define MATH_OR     OP_OR
 #define MATH_XOR    OP_XOR
+#define MATH_L_AND  EXIT(4, "Not implemented")
+#define MATH_L_OR   EXIT(4, "Not implemented")
 #define MATH_LOADAT (-43) // IDK man
 #define MATH_LESS   OP_LESS
 #define MATH_LESSE  OP_LESSE
@@ -133,6 +136,18 @@ typedef struct func {
 	struct func_arg    args[32];
 	struct func_line **lines;
 } func_t, *func;
+
+
+
+// Only used for debugging!
+#ifndef NDEBUG
+extern thread_local func _current_func;
+#define SETCURRENTFUNC(f) _current_func = f
+#define CLEARCURRENTFUNC _current_func = NULL
+#define FDEBUG(m, ...) DEBUG("[%s] " m, f ? f->name : "", ##__VA_ARGS__);
+#endif
+
+
 
 
 void insert_line(func f, struct func_line *l);

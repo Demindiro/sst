@@ -84,7 +84,7 @@ static size_t _find_func_length(const line_t *lines, size_t linecount, const cha
 			size_t k = nestlines[j];
 			PRINTLINE(lines[k]);
 		}	
-		EXIT(1);
+		EXIT(1, "");
 	}
 	return i;
 }
@@ -150,10 +150,8 @@ static void _include(const char *f, struct hashtbl *functbl,
 	getcwd(cwd, sizeof cwd);
 	chdir("lib"); // TODO
 	int fd = open(buf, O_RDONLY);
-	if (fd == -1) {
-		ERROR("Couldn't open '%s': %s", buf, strerror(errno));
-		EXIT(1);
-	}
+	if (fd == -1)
+		EXIT(1, "Couldn't open '%s': %s", buf, strerror(errno));
 	size_t n = read(fd, buf, sizeof buf - 1);
 	buf[n] = 0;
 	close(fd);
@@ -163,10 +161,8 @@ static void _include(const char *f, struct hashtbl *functbl,
 	line_t *lines;
 	size_t stringcount, linecount;
 
-	if (_text2lines(buf, &lines, &linecount, &strings, &stringcount) < 0) {
-		ERROR("Failed text to lines stage");
-		EXIT(1);
-	}
+	if (_text2lines(buf, &lines, &linecount, &strings, &stringcount) < 0)
+		EXIT(1, "Failed text to lines stage");
 
 	_findboundaries(lines, linecount, functbl,
 			funclns, funclncount, incltbl, buf);
@@ -192,16 +188,15 @@ static void _lines2funcs(const line_t *lines, size_t linecount,
 	for (size_t i = 0; i < funclnc; i++) {
 		struct linerange l = funclns[i];
 		l.func->linecount = 0;
-		DEBUG("  Parsing '%s'", l.func->name);
+		SETCURRENTFUNC(l.func);
 		lines2func(l.lines, l.count, l.func, functbl);
 		int changed;
 		do {
 			changed = 0;
-			DEBUG("  Applying basic optimization on '%s'", l.func->name);
-			changed |= optimizefunc(l.func);
-			DEBUG("  Applying branch optimization on '%s'", l.func->name);
+			changed |= optimize_func_linear(l.func);
 			changed |= optimize_func_branches(l.func);
 		} while (changed);
+		CLEARCURRENTFUNC;
 	}
 	*funccount = funclnc;
 	*funcs     = malloc(funclnc * sizeof **funcs);
@@ -222,7 +217,7 @@ static void _print_usage(int argc, char **argv, int code)
 	ERROR("  -i            Output immediate file");
 	ERROR("  -E            Output processed file");
 	ERROR("  -L            Link object or library");
-	EXIT(code);
+	exit(code);
 }
 
 
@@ -244,37 +239,29 @@ static void _parse_args(int argc, char **argv)
 				output_type = IMMEDIATE;
 			} else if (streq(v, "o")) {
 				i++;
-				if (i >= argc) {
-					ERROR("-o must be followed by a file path");
-					EXIT(1);
-				}
+				if (i >= argc)
+					EXIT(1, "-o must be followed by a file path");
 				output_file = argv[i];
 			} else if (streq(v, "L")) {
 				i++;
-				if (i >= argc) {
-					ERROR("-L must be followed by a file path");
-					EXIT(1);
-				}
+				if (i >= argc)
+					EXIT(1, "-L must be followed by a file path");
 				libraries[librarycount++] = argv[i];
 			} else if (streq(v, "h") || streq(v, "-help")) {
 				_print_usage(argc, argv, 0);
 			} else {
-				ERROR("Unknown option '%s'", v - 1);
-				EXIT(1);
+				EXIT(1, "Unknown option '%s'", v - 1);
 			}
 		} else {
 			if (input_file != NULL) {
-				ERROR("You can only specify one input file");
 				DEBUG("  Input file: '%s'", input_file);
-				EXIT(1);
+				EXIT(1, "You can only specify one input file");
 			}
 			input_file = argv[i];
 		}
 	}
-	if (input_file == NULL) {
-		ERROR("No input file specified");
-		EXIT(1);
-	}
+	if (input_file == NULL)
+		EXIT(1, "No input file specified");
 	if (output_file == NULL) {
 		const char *b = strrchr(input_file, '/') + 1,
 		           *e = strrchr(input_file, '.');
@@ -293,10 +280,8 @@ static void _parse_args(int argc, char **argv)
 		snprintf(bo, sizeof bo, fmt, bi);
 		output_file = strclone(bo);
 	}
-	if (streq(input_file, output_file)) {
-		ERROR("Input file cannot be the same as the output file");
-		EXIT(1);
-	}
+	if (streq(input_file, output_file))
+		EXIT(1, "Input file cannot be the same as the output file");
 }
 
 
@@ -329,10 +314,8 @@ int main(int argc, char **argv)
 
 	// Preprocess source to a more consistent format
 	DEBUG("Preprocessing source");
-	if (_text2lines(buf, &lines, &linecount, &strings, &stringcount) < 0) {
-		ERROR("Failed text to lines stage");
-		EXIT(1);
-	}
+	if (_text2lines(buf, &lines, &linecount, &strings, &stringcount) < 0)
+		EXIT(1, "Failed text to lines stage");
 	if (output_type == PROCESSED)
 		goto end;
 
@@ -426,8 +409,7 @@ int main(int argc, char **argv)
 	if (output_type == EXECUTABLE)
 		goto end;
 
-	ERROR("This point should not be reachable.");
-	EXIT(1);
+	EXIT(1, "This point should not be reachable.");
 
 end:
 	// Write the output
@@ -453,8 +435,7 @@ end:
 			write(fd, vbins[i], vbinlens[i]);
 		}
 	} else if (output_type == RAW) {
-		ERROR("Not implemented");
-		EXIT(1);
+		EXIT(1, "Not implemented");
 	} else if (output_type == ASSEMBLY) {
 		DEBUG("Writing assembly to '%s'", output_file);
 		for (size_t h = 0; h < funccount + 1; h++) {

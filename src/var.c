@@ -78,10 +78,8 @@ const char *deref_var(const char *m, func f,
 			c++;
 			const char *d = c;
 			c = strchr(d, ']');
-			if (c == NULL) {
-				ERROR("Expected ']'");
-				EXIT(1);
-			}
+			if (c == NULL)
+				EXIT(1, "Expected ']'");
 			c--;
 			//index = strnclone(d, c - d);
 			break;
@@ -101,8 +99,7 @@ const char *deref_var(const char *m, func f,
 	if (deref_type != -1) {
 		if (h_get2(vartypes, var, (size_t *)&type) < 0) {
 			DEBUG("%s", m);
-			ERROR("Variable '%s' is not declared", var);
-			EXIT(1);
+			EXIT(1, "Variable '%s' is not declared", var);
 		}
 	}
 
@@ -133,8 +130,7 @@ const char *deref_var(const char *m, func f,
 					if (etemp) *etemp = 0;
 					return parent;
 				} else {
-					ERROR("Dynamic array '%s' doesn't have member '%s'", parent, member);
-					EXIT(1);
+					EXIT(1, "Dynamic array '%s' doesn't have member '%s'", parent, member);
 				}
 			} else {
 				// Fixed array
@@ -149,15 +145,13 @@ const char *deref_var(const char *m, func f,
 					if (etemp) *etemp = 0;
 					return parent;
 				} else {
-					ERROR("Fixed array '%s' doesn't have member '%s'", parent, member);
-					EXIT(1);
+					EXIT(1, "Fixed array '%s' doesn't have member '%s'", parent, member);
 				}
 			}
 		} else {
-			ERROR("'%s' doesn't have member '%s'", parent, member);
-			EXIT(1);
+			EXIT(1, "'%s' doesn't have member '%s'", parent, member);
 		}
 	}
 	}
-	EXIT(2);
+	EXIT(3, "This point should be unreachable");
 }

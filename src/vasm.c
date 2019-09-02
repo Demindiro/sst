@@ -113,7 +113,6 @@ void vasm2str(union vasm_all a, char *buf, size_t bufsize) {
 		snprintf(buf, bufsize, ".str\t\"%s\"", a.s.str);
 		break;
 	default:
-		ERROR("Unknown OP (%d)", a.op);
-		EXIT(3);
+		EXIT(3, "Unknown OP (%d)", a.op);
 	}
 }

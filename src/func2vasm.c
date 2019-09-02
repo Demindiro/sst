@@ -10,10 +10,7 @@
 
 
 
-#define ENOTDECLARED(x) do { 			\
-	ERROR("Variable '%s' not declared", x);	\
-	EXIT(1);				\
-} while (0)
+#define ENOTDECLARED(x) EXIT(1, "Variable '%s' not declared", x);
 
 
 static size_t _get_type_size(const char *type)
@@ -26,8 +23,7 @@ static size_t _get_type_size(const char *type)
 		return 2;
 	if (streq(type, "byte" ) || streq(type, "ubyte" ))
 		return 1;
-	ERROR("Unknown size for type '%s'", type);
-	EXIT(1);
+	EXIT(1, "Unknown size for type '%s'", type);
 }
 
 
@@ -223,10 +219,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			reg = h_get(&tbl, fl.a->var);
 			if (reg == -1)
 				ENOTDECLARED(fl.a->var);
-			if ('0' <= *fl.a->var && *fl.a->var <= '9') {
-				ERROR("You can't assign to a number");
-				EXIT(1);
-			}
+			if ('0' <= *fl.a->var && *fl.a->var <= '9')
+				EXIT(1, "You can't assign to a number");
 			if ('0' <= *fl.a->value && *fl.a->value <= '9') {
 				a.rs.op  = OP_SET;
 				a.rs.r   = reg;
@@ -248,10 +242,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 					break;
 				}
 			}
-			if (h_add(&tbl, fl.d->var, reg) < 0) {
-				ERROR("Failed to add variable to hashtable");
-				EXIT(1);
-			}
+			if (h_add(&tbl, fl.d->var, reg) < 0)
+				EXIT(1, "Failed to add variable to hashtable");
 			if (fl.d->type == NULL) {
 				ERROR("=== !!! ===  Bug: DECLARE type is NULL for variable '%s'", fl.d->var);
 				ERROR("=== !!! ===  Assuming and setting type to 'byte' since");
@@ -373,10 +365,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			break;
 		case MATH:
 			flm = (struct func_line_math *)f->lines[i];
-			if (isnum(*flm->x)) {
-				ERROR("You can't assign to a number");
-				EXIT(1);
-			}
+			if (isnum(*flm->x))
+				EXIT(1, "You can't assign to a number");
 			if (isnum(*flm->y)) {
 				a.rs.op  = OP_SET;
 				a.rs.r   = ra = 20;
@@ -407,8 +397,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 					case 4: a.r3.op = OP_LDIAT; break;
 					case 8: a.r3.op = OP_LDLAT; break;
 					default:
-						ERROR("Dunno");
-						EXIT(1);
+						EXIT(1, "Dunno");
 					}
 				} else {
 					a.r3.op = flm->op;
@@ -470,10 +459,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			v[vc++].op = OP_RET;
 			break;
 		case STORE:
-			if (isnum(*fl.s->var)) {
-				ERROR("You can't index a number");
-				EXIT(1);
-			}
+			if (isnum(*fl.s->var))
+				EXIT(1, "You can't index a number");
 			if (isnum(*fl.s->val)) {
 				a.rs.op  = OP_SET;
 				a.rs.r   = ra = 20;
@@ -503,8 +490,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			v[vc++] = a;
 			break;
 		default:
-			ERROR("Unknown line type (%d)", f->lines[i]->type);
-			EXIT(1);
+			EXIT(1, "Unknown line type (%d)", f->lines[i]->type);
 		}
 	}
 	// Restore stack pointer

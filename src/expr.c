@@ -17,12 +17,12 @@ static int _op_precedence(char c0, char c1)
 			return 7;
 	case '/':
 		if (c1 != 0)
-			EXIT(1);
+			goto _default;
 		return 7;
 	case '+':
 	case '-':
 		if (c1 != 0)
-			EXIT(1);
+			goto _default;
 		return 6;
 	case '|':
 	case '&':
@@ -30,7 +30,7 @@ static int _op_precedence(char c0, char c1)
 			return 4;
 	case '^':
 		if (c1 != 0)
-			EXIT(1);
+			goto _default;
 		return 5;
 	case '=':
 	case '!':
@@ -39,9 +39,9 @@ static int _op_precedence(char c0, char c1)
 		if (c1 == '=') // Comparison
 			return 3;
 	default:
-		ERROR("Invalid math operator: '%s'", &c0); // *pukes*
+	_default:
 		DEBUG("%d", c0);
-		EXIT(1);
+		EXIT(1, "Invalid math operator: '%s'", &c0); // *pukes*
 	}
 }
 
@@ -65,7 +65,7 @@ static int _str2op(const char *op)
 	else if (streq(op, "+"))
 		return MATH_ADD;
 	else if (streq(op, "**"))
-		EXIT(4);
+		EXIT(4, "Not implemented");
 	else if (streq(op, "&"))
 		return MATH_AND;
 	else if (streq(op, "|"))
@@ -73,9 +73,9 @@ static int _str2op(const char *op)
 	else if (streq(op, "^"))
 		return MATH_XOR;
 	else if (streq(op, "||"))
-		EXIT(4);
+		/*return */MATH_L_OR;
 	else if (streq(op, "&&"))
-		EXIT(4);
+		/*return */MATH_L_AND;
 	else if (streq(op, "<"))
 		return MATH_LESS;
 	else if (streq(op, ">"))
@@ -84,8 +84,7 @@ static int _str2op(const char *op)
 		return MATH_LESSE;
 	else if (streq(op, ">="))
 		return -MATH_LESSE;
-	ERROR("Unknown OP '%s'", op);
-	EXIT(1);
+	EXIT(1, "Unknown OP '%s'", op);
 }
 
 
@@ -283,7 +282,6 @@ done:
 		line_math(f, MATH_INV, x, x, NULL);
 	char _[256];
 	line2str(f->lines[f->linecount - 1], _, sizeof _);
-	DEBUG("      '%s'", _);
 
 	// Destroy the temporary variables
 	if (ity) line_destroy(f, y);

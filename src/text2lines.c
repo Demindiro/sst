@@ -43,7 +43,7 @@ static int _hex2chr(const char *c)
 		else if ('A' <= x && x <= 'F')
 			x -= 'A';
 		else
-			EXIT(1);
+			EXIT(1, "Invalid character in hex number: '%c'", x);
 		y <<= 4;
 		y  |= x;
 	}
@@ -229,7 +229,7 @@ static void _substitute_char_with_num(const char **_c, char **_ptr)
 				c++;
 				break;
 			default:
-				  EXIT(1);
+				WARN("Invalid escape: '\\%c'", *c);
 			}
 			c++;
 		}
@@ -408,7 +408,8 @@ int text2lines(const char *text,
 						c++;
 						break;
 					default:
-						  EXIT(1);
+						WARN("Invalid escape: '\\%c'", *c);
+						break;
 					}
 					c++;
 				}

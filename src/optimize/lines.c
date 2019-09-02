@@ -703,8 +703,9 @@ static void _findconst(struct func *f)
 
 
 
-int optimizefunc(struct func *f)
+int optimize_func_linear(struct func *f)
 {
+	FDEBUG("Applying lineair optimization");
 	struct hashtbl h_const;
 	h_create(&h_const, 4);
 	// Looping works well enough

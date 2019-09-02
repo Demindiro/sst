@@ -2,6 +2,10 @@
 #include "func.h"
 #include "util.h"
 
+#ifndef NDEBUG
+thread_local func _current_func;
+#endif
+
 /*****
  * Shorthand functions for common lines
  ***/
@@ -157,8 +161,7 @@ struct func_line *copy_line(const struct func_line *l)
 	case RETURN : s = sizeof *a.r; break;
 	case STORE  : s = sizeof *a.s; break;
 	default:
-		ERROR("Unknown line type (%d)", l->type);
-		EXIT(1);
+		EXIT(1, "Unknown line type (%d)", l->type);
 	}
 	a.a = malloc(s);
 	memcpy(a.a, l, s);
@@ -243,8 +246,7 @@ void line2str(struct func_line *l, char *buf, size_t bufsize)
 		snprintf(buf, bufsize, "STORE      %s[%s] = %s", fl.s->var, fl.s->index, fl.s->val);
 		break;
 	default:
-		ERROR("Unknown line type (%d)", l->type);
-		EXIT(1);
+		EXIT(1, "Unknown line type (%d)", l->type);
 	}
 #undef LDEBUG
 }

@@ -227,8 +227,7 @@ static int get_vasm_args_type(int op)
 	case OP_RAW_STR:
 		return ARGS_TYPE_SPECIAL;
 	default:
-		ERROR("Undefined OP (%d)", op);
-		EXIT(1);
+		EXIT(1, "Undefined OP (%d)", op);
 	}
 }
 

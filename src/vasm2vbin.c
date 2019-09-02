@@ -54,17 +54,13 @@ static size_t _getoplen(struct vasm v)
 		case OP_RAW_STR:
 			; struct vasm_str *a = (struct vasm_str *)&v;
 			return strlen(a->str);
-			ERROR("TODO");
-			EXIT(1);
 		case OP_LABEL:
 			return 0;
 		default:
-			ERROR("Unknown op '%d'", v.op);
-			EXIT(1);
+			EXIT(1, "Unknown op '%d'", v.op);
 		}
 	default:
-		ERROR("Unknown op '%d'", v.op);
-		EXIT(1);
+		EXIT(1, "Unknown op '%d'", v.op);
 	}
 }
 
@@ -328,7 +324,7 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 					case 'r': c = '\r'; break;
 					case 't': c = '\t'; break;
 					case 'v': c = '\v'; break;
-					case 'x': EXIT(4) ; break;
+					case 'x': EXIT(4, "Not implemented"); break;
 					}
 				}
 				vbin[vbinlen++] = c;
@@ -346,9 +342,8 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 					size_t pos = jmprelmap[j].pos;
 					DEBUG("Filling in '%s'\t@ 0x%02lx (0x%02lx)", lbl, pos, vbinlen - pos);
 					if (vbinlen - pos > 0x7F) {
-						ERROR("Underestimated distance between label and relative"
-						      " jump (%lu)", vbinlen - pos);
-						EXIT(1);
+						EXIT(1, "Underestimated distance between label and relative"
+						        " jump (%lu)", vbinlen - pos);
 					}
 					vbin[pos] = vbinlen - pos;
 					jmprelmapcount--;

@@ -60,8 +60,9 @@ static size_t _get_index(struct branch **ba, size_t bac, struct branch *b)
 	assert(!"Nonexistent block");
 }
 
-static void _print_block_layout(struct branch *b)
+#if 0
 #ifndef NDEBUG
+static void _print_block_layout(struct branch *b)
 {
 	char _[256];
 	assert(b->linecount != 0);
@@ -85,8 +86,8 @@ static void _print_block_layout(struct branch *b)
 	DEBUG("%2lu --> %s", b->refcount, _);
 }
 #else
-{
-}
+#define _print_block_layout(b) NULL
+#endif
 #endif
 
 
@@ -108,7 +109,6 @@ static int _immediate_goto(struct branch **ba, size_t *bac, size_t *i)
 	    c->lines[0]->type == LABEL &&
 	    c->lines[1]->type == GOTO) {
 		const char *lbl = ((struct func_line_goto  *)c->lines[1])->label;
-		DEBUG("IMM GOTO '%s'", lbl);
 		union func_line_all_p l = { .line = b->branchline.l };
 		if (l.line->type == IF) {
 			if (streq(l.i->label, lbl))
@@ -347,9 +347,6 @@ static int _unroll(struct branch **ba, size_t *bac, size_t *i)
 	memcpy(ba + j, ac, bc * sizeof *ba);
 	(*bac) += bc;
 
-	for (size_t i = 0; i < *bac; i++)
-		_print_block_layout(ba[i]);
-
 	return 1;
 }
 
@@ -360,7 +357,7 @@ static int _unroll(struct branch **ba, size_t *bac, size_t *i)
 
 int optimize_func_branches(func f)
 {
-#define FDEBUG(m, ...) DEBUG("[%s] " m, f->name, ##__VA_ARGS__)
+	FDEBUG("Applying branch optimization");
 	struct branch b[256];
 	size_t bc = 0;
 	struct hashtbl labels;
@@ -427,9 +424,8 @@ int optimize_func_branches(func f)
 			switch (l.line->type) {
 			case IF:
 				if (h_get2(&labels, l.i->label, &bi) < 0) {
-					ERROR("Label '%s' doesn't map to any index!",
-					      l.i->label);
-					EXIT(1);
+					EXIT(1, "Label '%s' doesn't map to any index!",
+					        l.i->label);
 				}
 				assert(i + 1 < bc);
 				b[i].branch0 = &b[bi];
@@ -439,9 +435,8 @@ int optimize_func_branches(func f)
 				break;
 			case GOTO:
 				if (h_get2(&labels, l.g->label, &bi) < 0) {
-					ERROR("Label '%s' doesn't map to any index!",
-					      l.g->label);
-					EXIT(1);
+					EXIT(1, "Label '%s' doesn't map to any index!",
+					        l.g->label);
 				}
 				b[i].branch0 = &b[bi];
 				b[i].branch1 = NULL;
@@ -452,7 +447,7 @@ int optimize_func_branches(func f)
 				b[i].branch1 = NULL;
 				break;
 			default:
-				EXIT(1);
+				EXIT(1, "Unexpected line type (%d)", l.line->type);
 			}
 		} else if (i + 1 == bc) {
 			b[i].branch0 = NULL;

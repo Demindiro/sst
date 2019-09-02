@@ -20,10 +20,8 @@ static int is_array_dereference(const char *str, const char **arr, const char **
 	if (p != NULL) {
 		p++;
 		const char *q = strchr(p, ']');
-		if (q == NULL) {
-			ERROR("Expected ']'");
-			EXIT(1);
-		}
+		if (q == NULL)
+			EXIT(1, "Expected ']'");
 		*arr   = strnclone(str, p - str - 1);
 		*index = strnclone(p, q - p);
 		return 1;
@@ -41,10 +39,8 @@ static void _parsefunc(func f, const char *ptr, const char *var,
 		c++;
 	const char *name = strnclone(ptr, c - ptr);
 	func g;
-	if (h_get2(functbl, name, (size_t *)&g) == -1) {
-		ERROR("Function '%s' not declared", name);
-		EXIT(1);
-	}
+	if (h_get2(functbl, name, (size_t *)&g) == -1)
+		EXIT(1, "Function '%s' not declared", name);
 	size_t      argcount = 0;
 	const char *args [32];
 	char        etemp[32];
@@ -58,8 +54,6 @@ static void _parsefunc(func f, const char *ptr, const char *var,
 			memcpy(b, ptr, c - ptr);
 			b[c - ptr] = 0;
 			const char *type = g->args[argcount].type;
-			DEBUG("TYPE %s", type);
-			assert(type != NULL); // =================
 			args[argcount] = parse_expr(f, b, &etemp[argcount], type, vartypes);
 			if (!etemp[argcount])
 				args[argcount] = strclone(args[argcount]);
@@ -102,7 +96,7 @@ int parsefunc_header(struct func *f, const line_t line, const char *text)
 		if (t[j] == 0) {
 			ERROR("Expected function name");
 			PRINTLINEX(line, j, text);
-			EXIT(1);
+			EXIT(1, "");
 		}
 	}
 	f->type = strnclone(t + i, j - i);
@@ -118,7 +112,7 @@ int parsefunc_header(struct func *f, const line_t line, const char *text)
 		if (t[j] == 0) {
 			ERROR("Expected '('");
 			PRINTLINEX(line, j, text);
-			EXIT(1);
+			EXIT(1, "");
 		}
 	}
 	f->name = strnclone(t + i, j - i);
@@ -132,7 +126,7 @@ int parsefunc_header(struct func *f, const line_t line, const char *text)
 	if (t[j] != '(') {
 		ERROR("Expected '('");
 		PRINTLINEX(line, j, text);	
-		EXIT(1);
+		EXIT(1, "");
 	}
 	j++;
 	size_t k = 0;
@@ -151,7 +145,6 @@ int parsefunc_header(struct func *f, const line_t line, const char *text)
 		while (t[j] != ',' && t[j] != ')')
 			j++;
 		f->args[k].name = strnclone(t + i, j - i);
-		DEBUG("%s --> %s", f->args[k].name, f->args[k].type);
 		k++;
 		// Argument list done
 		if (t[j] == ')')
@@ -209,12 +202,10 @@ void lines2func(const line_t *lines, size_t linecount,
 			size_t l = loopcount - 1;
 			while (l >= 0 && looptype[l] == 3)
 				l--;
-			if (l >= 0) {
+			if (l >= 0)
 				line_goto(f, loopends[l]->label);
-			} else {
-				ERROR("'break' outside loop");
-				EXIT(1);
-			}
+			else
+				EXIT(1, "'break' outside loop");
 		} else if (streq(word, "end")) {
 			if (loopcount > 0) {
 				loopcount--;
@@ -231,8 +222,7 @@ void lines2func(const line_t *lines, size_t linecount,
 						insert_line(f, (struct func_line *)loopelse[loopcount]);
 						break;
 					default:
-						ERROR("Invalid loop type (%d)", looptype[loopcount]);
-						EXIT(1);
+						EXIT(1, "Invalid loop type (%d)", looptype[loopcount]);
 					}
 				}
 				insert_line(f, (struct func_line *)loopends[loopcount]);
@@ -259,13 +249,11 @@ void lines2func(const line_t *lines, size_t linecount,
 					loopelse[loopcount] = NULL;
 					break;
 				default:
-					ERROR("Invalid loop type (%d)", looptype[loopcount]);
-					EXIT(1);
+					EXIT(1, "Invalid loop type (%d)", looptype[loopcount]);
 				}
 				loopcount++;
 			} else {
-				ERROR("Unexpected 'else'");
-				EXIT(1);
+				EXIT(1, "Unexpected 'else'");
 			}
 
 		} else if (streq(word, "for")) {
@@ -277,10 +265,8 @@ void lines2func(const line_t *lines, size_t linecount,
 
 			NEXTWORD;
 
-			if (!streq(word, "in")) {
-				ERROR("Expected 'in', got '%s'", word);
-				EXIT(1);
-			}
+			if (!streq(word, "in"))
+				EXIT(1, "Expected 'in', got '%s'", word);
 
 			const char *p = ptr;
 			const char *fromarray = NULL;
@@ -465,20 +451,16 @@ void lines2func(const line_t *lines, size_t linecount,
 					const char *arr, *index;
 					const char *v, *e;
 					if (is_array_dereference(name, &arr, &index)) {
-						if (h_get2(&vartypes, arr, (size_t *)&type) < 0) {
-							ERROR("Variable '%s' not declared", arr);
-							EXIT(1);
-						}
+						if (h_get2(&vartypes, arr, (size_t *)&type) < 0)
+							EXIT(1, "Variable '%s' not declared", arr);
 						const char *de    = strchr(type, '[');
 						const char *dtype = strnclone(type, de - type);
 						v = arr;
 						e = parse_expr(f, p, &etemp, dtype, &vartypes);
 						line_store(f, arr, index, e);
 					} else {
-						if (h_get2(&vartypes, name, (size_t *)&type) < 0) {
-							ERROR("Variable '%s' not declared", name);
-							EXIT(1);
-						}
+						if (h_get2(&vartypes, name, (size_t *)&type) < 0)
+							EXIT(1, "Variable '%s' not declared", name);
 						v = strclone(name);
 						e = parse_expr(f, p, &etemp, type, &vartypes);
 						line_assign(f, v, e);
@@ -488,8 +470,7 @@ void lines2func(const line_t *lines, size_t linecount,
 						line_destroy(f, e);
 				}
 			} else {
-				ERROR("Undefined thing '%s'", name);
-				EXIT(1);
+				EXIT(1, "Undefined thing '%s'", name);
 			}
 		}
 
