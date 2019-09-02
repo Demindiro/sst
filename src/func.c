@@ -174,7 +174,8 @@ static const char *mathop2str(int op)
 	case MATH_SUB:    return "-";
 	case MATH_MUL:    return "*";
 	case MATH_DIV:    return "/";
-	case MATH_MOD:    return "%";
+	case MATH_REM:    return "%";
+	case MATH_MOD:    return "%%";
 	//case MATH_NOT:    return "~";
 	//case MATH_INV:    return "!";
 	case MATH_RSHIFT: return ">>";

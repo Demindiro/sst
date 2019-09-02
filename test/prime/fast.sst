@@ -1,0 +1,29 @@
+include std.io
+
+void main()
+
+	writeln_num 2
+	writeln_num 3
+	long i = 3
+
+	while true
+
+		i += 2
+
+		if i == 200001
+			break
+		end
+
+		for p in 3 to i
+			if i % p == 0
+				break
+			end
+			if p * p >= i
+				writeln_num i
+				break
+			end
+		#else
+			#writeln_num i
+		end
+	end
+end

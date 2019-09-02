@@ -79,6 +79,9 @@ void vasm2str(union vasm_all a, char *buf, size_t bufsize) {
 	case OP_DIV:
 		snprintf(buf, bufsize, "div\tr%d,r%d,r%d", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 		break;
+	case OP_REM:
+		snprintf(buf, bufsize, "rem\tr%d,r%d,r%d", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
+		break;
 	case OP_MOD:
 		snprintf(buf, bufsize, "mod\tr%d,r%d,r%d", a.r3.r[0], a.r3.r[1], a.r3.r[2]);
 		break;

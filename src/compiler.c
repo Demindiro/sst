@@ -308,7 +308,6 @@ int main(int argc, char **argv)
 
 	// ALL THE WAAAY
 	optimize_lines_options = -1;
-	//optimize_lines_options = 0;
 
 	char  **strings;
 	line_t *lines;
@@ -319,7 +318,7 @@ int main(int argc, char **argv)
 
 	// Read source
 	char buf[0x10000];
-	int fd = open(input_file, O_RDONLY);
+	int fd = streq(input_file, "-") ? STDIN_FILENO : open(input_file, O_RDONLY);
 	if (fd < 0)
 		EXITERRNO("Failed to open input file", 1);
 	size_t n = read(fd, buf, sizeof buf - 1);
@@ -376,24 +375,26 @@ int main(int argc, char **argv)
 		goto end;
 
 	// Convert assembly to binary
-	char vbins[1 << 4][1 << 16];
-	size_t vbinlens[1 << 4];
-	struct lblmap maps[1 << 4];
+	char *vbins[1 << 5];
+	size_t vbinlens[1 << 5];
+	struct lblmap *maps = malloc((funccount + 1 + librarycount) * sizeof *maps);
 	DEBUG("Converting assembly to binary");
 	for (size_t i = 0; i < funccount + 1; i++) {
+		vbins[i] = malloc(1 << 20);
 		if (i != funccount)
 			DEBUG("Assembling '%s'", funcs[i].name);
 		else
 			DEBUG("Assembling strings");
 		vasm2vbin(vasms[i], vasmcount[i], vbins[i], &vbinlens[i], &maps[i]);
+		vbins[i] = realloc(vbins[i], vbinlens[i]);
 	}
 	if (output_type == RAW || output_type == OBJECT)
 		goto end;
 
 	// Link binary
-	char vbin[1 << 20];
+	char *vbin = malloc(1 << 20);
 	size_t vbinlen;
-	const char *v[1 << 4];
+	const char *v[1 << 5];
 	for (size_t i = 0; i < funccount + 1; i++)
 		v[i] = vbins[i];
 	for (size_t i = 0; i < librarycount; i++) {
@@ -406,11 +407,14 @@ int main(int argc, char **argv)
 		if (l == -1)
 			EXITERRNO("Failed to read object", 3);
 		close(fd);
+		vbins[k] = malloc(l);
 		obj_parse(buf, l, vbins[k], &vbinlens[k], &maps[k]);
+		vbins[k] = realloc(vbins[k], vbinlens[k]);
 		v[k] = vbins[k];
 	}
 	DEBUG("Linking binary");
 	linkobj(v, vbinlens, funccount + 1 + librarycount, maps, vbin, &vbinlen);
+	vbin = realloc(vbin, vbinlen);
 	if (output_type == EXECUTABLE)
 		goto end;
 
@@ -419,7 +423,7 @@ int main(int argc, char **argv)
 
 end:
 	// Write the output
-	; FILE *_f = fopen(output_file, "w");
+	; FILE *_f = streq(output_file, "-") ? stdout : fopen(output_file, "w");
 	if (_f == NULL)
 		EXITERRNO("Failed to open output file", 1);
 
@@ -482,7 +486,7 @@ end:
 		}
 	}
 
-	if (output_type == EXECUTABLE)
+	if (output_type == EXECUTABLE && !streq(output_file, "-"))
 		chmod(output_file, 0766);
 
 	return 0;

@@ -20,6 +20,10 @@ test-prime: all
 	$(SSC) $(TEST_LIB) test/sst/prime.sst -o /tmp/prime.ss
 	$(SH) -c 'time ./build/interpreter /tmp/prime.ss'
 
+test-prime-fast: all
+	$(SSC) $(TEST_LIB) test/prime/fast.sst -o /tmp/prime.ss
+	$(SH) -c 'time ./build/interpreter /tmp/prime.ss'
+
 test-writeln_num: all
 	$(SSC) $(TEST_LIB) test/sst/writeln-num.sst -o /tmp/writeln-num.ss
 	$(SH) -c './build/interpreter /tmp/writeln-num.ss'

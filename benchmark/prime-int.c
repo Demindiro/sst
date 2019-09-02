@@ -9,7 +9,7 @@ int main() {
 		i += 2;
 		if (i == 200001)
 			return 0;
-		for (long j = 2; j < i / 2; j++) {
+		for (int j = 2; j < i / 2; j++) {
 			if (i % j == 0)
 				goto nope;
 		}

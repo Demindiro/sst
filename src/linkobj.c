@@ -108,6 +108,7 @@ void obj_parse(const char *bin, size_t len, char *output, size_t *outputlen,
 	}
 
 	len -= ptr - bin;
+	DEBUG("%lu", len);
 	memcpy(output, ptr, len);
 	*outputlen = len;
 }

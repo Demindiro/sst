@@ -58,21 +58,21 @@ static int64_t ip;
 	REGI = func(REGJ, REGK);			\
 } while (0);
 #else
-# define REG3OP(m,op) \
-	do {\
-		REG3; \
-		size_t _v = REGJ; \
-		REGI = REGJ op REGK; \
-		DEBUG(m "\tr%d,r%d,r%d\t(%lu = %lu " #op " %lu)", \
-		      regi, regj, regk, REGI, _v, REGK); \
+# define REG3OP(m,op)							\
+	do {								\
+		REG3;							\
+		size_t _v = REGJ, _w = REGK;				\
+		REGI = REGJ op REGK;					\
+		DEBUG(m "\tr%d,r%d,r%d\t(%lu = %lu " #op " %lu)",	\
+		      regi, regj, regk, REGI, _v, _w);			\
 	} while (0)
-# define REG3OPSTR(m,op,opstr) \
-	do {\
-		REG3; \
-		size_t _v = REGJ; \
-		REGI = REGJ op REGK; \
-		DEBUG(m "\tr%d,r%d,r%d\t(%lu = %lu " opstr " %lu)", \
-		      regi, regj, regk, REGI, _v, REGK); \
+# define REG3OPSTR(m,op,opstr)						\
+	do {								\
+		REG3;							\
+		size_t _v = REGJ, _w = REGK;				\
+		REGI = REGJ op REGK;					\
+		DEBUG(m "\tr%d,r%d,r%d\t(%lu = %lu " opstr " %lu)",	\
+		      regi, regj, regk, REGI, _v, _w);			\
 	} while (0)
 # define REG3OPSTRFUNC(m,func,opstr,fmt) do {		\
 	REG3;						\

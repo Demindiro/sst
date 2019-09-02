@@ -465,11 +465,6 @@ int optimize_func_branches(func f)
 		}
 	}
 
-
-	for (size_t i = 0; i < bc; i++)
-		_print_block_layout(&b[i]);
-
-
 	// Optimization time!
 	FDEBUG("Optimizing");
 	struct branch *bn[2048];
