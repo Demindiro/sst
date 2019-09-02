@@ -189,6 +189,8 @@ static int get_vasm_args_type(int op)
 	case OP_REM:
 	case OP_RSHIFT:
 	case OP_LSHIFT:
+	case OP_AND:
+	case OP_OR:
 	case OP_XOR:
 	case OP_STRLAT:
 	case OP_STRIAT:

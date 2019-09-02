@@ -132,6 +132,8 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		case OP_REM:
 		case OP_RSHIFT:
 		case OP_LSHIFT:
+		case OP_AND:
+		case OP_OR:
 		case OP_XOR:
 		case OP_STRLAT:
 		case OP_STRIAT:

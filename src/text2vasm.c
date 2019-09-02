@@ -27,6 +27,8 @@ static int getop(char *mnem)
 	case 'a':
 		if (streq("add", mnem))
 			return OP_ADD;
+		if (streq("and", mnem))
+			return OP_AND;
 		break;
 	case 'c':
 		if (streq("call", mnem))
@@ -77,6 +79,8 @@ static int getop(char *mnem)
 			return OP_MOV;
 		if (streq("mod", mnem))
 			return OP_MOD;
+		if (streq("mul", mnem))
+			return OP_MUL;
 		break;
 	case 'n':
 		if (streq("not", mnem))
@@ -89,6 +93,8 @@ static int getop(char *mnem)
 			return OP_POP;
 		break;
 	case 'r':
+		if (streq("rem", mnem))
+			return OP_REM;
 		if (streq("ret", mnem))
 			return OP_RET;
 		if (streq("rshift", mnem))
