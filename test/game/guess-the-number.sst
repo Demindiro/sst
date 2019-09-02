@@ -20,7 +20,6 @@ int main()
 			n *= 10
 			n += c - '0'
 		end
-		writeln_num n
 		if n == num
 			writeln "Yay! You found it!\n"
 			break

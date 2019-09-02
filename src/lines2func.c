@@ -247,7 +247,11 @@ void lines2func(const line_t *lines, size_t linecount,
 					insert_line(f, (struct func_line *)formath[loopcount]);
 				case 2:
 					insert_line(f, (struct func_line *)loopjmps[loopcount]);
+					goto noend;
 				case 3:
+					DEBUG("GOTO      '%s'", loopends[loopcount]->label);
+					line_goto(f, loopends[loopcount]->label);
+				noend:
 					if (looptype[loopcount] == 1 &&
 					    !isnum(*loopvars[loopcount]))
 						line_destroy(f, loopvars[loopcount]);
