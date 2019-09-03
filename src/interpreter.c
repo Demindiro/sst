@@ -90,7 +90,7 @@ static int64_t regs[32];
 		ip = be64toh(ip);			\
 		DEBUG(m "\t0x%lx,r%d\t(%lu, true)",	\
 		      ip, regi, REGI);			\
-		goto no_ip2;				\
+		JUMPED;				\
 	} else {					\
 		DEBUG(m "\t0x%lx,r%d\t(%lu, false)",	\
 		      ip, regi, REGI);			\
@@ -105,7 +105,7 @@ static int64_t regs[32];
 		DEBUG(m "\t%s0x%x,r%d\t(%lu, true, 0x%lx)",	\
 		      v < 0 ? "-" : "", v < 0 ? -v : v,		\
 		      regi, REGI, ip);				\
-		goto no_ip2;					\
+		JUMPED;					\
 	} else {						\
 		t v = conv(*(t *)(mem + ip + 2));		\
 		DEBUG(m "\t%s0x%x,r%d\t(%lu, false, 0x%lx)",	\
@@ -318,8 +318,8 @@ static void run() {
 		[OP_SYSCALL] = &&op_syscall,
 	};
 
-	uint64_t ip;
-	uint64_t ip2 = 0;
+	uint64_t ip = 0;
+	uint64_t oplen;
 
 	while (1) {
 		// Old: ~4.26 sec for prime-fast
@@ -331,14 +331,22 @@ static void run() {
 		usleep(THROTTLE * 1000);
 #endif
 
-		ip = ip2;
-	no_ip2:
+	jumped:
 #ifndef NDEBUG
 		fprintf(stderr, "0x%06lx:\t", ip);
 #endif
 		; enum vasm_op op = mem[ip];
-		ip2 = ip + len_table[op];
+		oplen = len_table[op];
 		goto *jmp_table[op];
+#define continue				\
+		ip += oplen;			\
+		op = mem[ip];			\
+		oplen = len_table[op];		\
+		goto *jmp_table[op]
+#define JUMPED					\
+		op = mem[ip];			\
+		oplen = len_table[op];		\
+		goto *jmp_table[op]
 
 		unsigned char regi, regj, regk;
 		size_t addr, val;
@@ -354,20 +362,20 @@ static void run() {
 		ip = *(size_t *)(mem + ip + 1);
 		ip = be64toh(ip);
 		DEBUG("call\t0x%lx", ip);
-		goto no_ip2;
+		JUMPED;
 
 	op_ret:
 		sp -= sizeof ip;
 		ip = *(size_t *)(mem + sp);
 		ip = htobe64(ip);
 		DEBUG("ret\t\t(0x%lx)", ip);
-		goto no_ip2;
+		JUMPED;
 
 	op_jmp:
 		ip = *(size_t *)(mem + ip + 1);
 		ip = be64toh(ip);
 		DEBUG("jmp\t0x%lx", ip);
-		goto no_ip2;
+		JUMPED;
 
 	op_jz:
 		JUMPIF("jz", !REGI);
@@ -390,7 +398,7 @@ static void run() {
 		DEBUG("jmprb\t0x%x\t(0x%lx)",
 		      (uint8_t)c, ip + c);
 		ip += c + 1;
-		goto no_ip2;
+		JUMPED;
 
 	op_jzb:
 		JUMPRELIF("jzb", !REGI, int8_t, (int8_t));
