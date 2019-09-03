@@ -1,0 +1,79 @@
+include std.core.exception
+
+
+class InvalidAddressException : Exception
+
+end
+
+
+
+ubyte _hex2num(byte c)
+	if '0' <= c && c <= '9'
+		c -= '0'
+	elif 'a' <= c && c <= 'f'
+		c -= 'a' + 10
+	elif 'A' <= c && c <= 'F'
+		c -= 'A' + 10
+	else
+		throw InvalidAddressException
+	end
+	return c
+end
+
+
+
+struct Address
+	package byte[16] rawIp
+	public ushort port
+
+	public Address(byte[] ip, ushort port)
+		ushort raw[8]
+		long k = 0
+		long i = 0
+		while true
+			if i == raw.length
+				if k != ip.length + 1
+					throw InvalidAddressException
+				end
+			end
+			while k < ip.length && ip[k] != ':'
+				raw[i] *= 16
+				raw[i] += _hex2num ip[k]
+				k++
+			end
+			i++
+			k++
+			if k < ip.length && ip[k] == ':'
+				long l = ip.length - 1
+				long j = 7
+				while true
+					if j < i
+						throw InvalidAddressException
+					end
+					long u = 0
+					while l > k && ip[l] != ':'
+						raw[j] += (_hex2num ip[l]) << (u * 4)
+						u++
+						l--
+					end
+					j--
+					l--
+					if ip[l] == ':'
+						break
+					end
+				end
+				if ip[l] == ':'
+					if k - 1 != l
+						throw InvalidAddressException
+					end
+					break
+				end
+			end
+		end
+		for i in 0 to 8
+			rawIp[2 * i + 0] = raw[i] / 0x100
+			rawIp[2 * i + 1] = raw[i] % 0x100
+		end
+		this.port = port
+	end
+end

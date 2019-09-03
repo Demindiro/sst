@@ -1,0 +1,34 @@
+int connect(byte* ip, ushort port)
+	int fd
+	__asm
+		mov	r2,(port)
+		mov	r1,(ip)
+		set	r0,3
+		syscall
+		mov	(fd),r0
+	end
+	return fd
+end
+
+int listen(byte* ip, ushort port)
+	int fd
+	__asm
+		mov	r2,(port)
+		mov	r1,(ip)
+		set	r0,4
+		syscall
+		mov	(fd),r0
+	end
+	return fd
+end
+
+int accept(int fd)
+	int cfd
+	__asm
+		mov	r1,(fd)
+		set	r0,1
+		syscall
+		mov	(cfd),r0
+	end
+	return cfd
+end
