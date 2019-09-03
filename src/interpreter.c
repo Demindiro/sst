@@ -15,7 +15,6 @@
 
 static char    mem[0x100000];
 static int64_t regs[32];
-static int64_t ip;
 
 
 #ifdef NDEBUG
@@ -257,6 +256,7 @@ static void run() {
 		[OP_SYSCALL] = &&op_syscall,
 	};
 
+	uint64_t ip = 0;
 
 	while (1) {
 #ifndef NOPROF
