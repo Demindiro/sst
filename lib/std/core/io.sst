@@ -1,2 +1,21 @@
-extern long read (int fd, byte* buf, long length)
-extern long write(int fd, byte* buf, long length)
+long read (int fd, byte* buf, long length)
+	long len
+	__asm
+		r3 = length, r2 = buf, r1 = fd
+		len = r0
+		set	r0,2
+		syscall
+	end
+	return len
+end
+
+long write(int fd, byte* buf, long length)
+	long len
+	__asm
+		r3 = length, r2 = buf, r1 = fd
+		len = r0
+		set	r0,1
+		syscall
+	end
+	return len
+end

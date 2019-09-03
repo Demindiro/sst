@@ -136,6 +136,7 @@ int vasm2str(union vasm_all a, char *buf, size_t bufsize) {
 	case OP_XOR   : op = "xor"   ; break;
 	case OP_LESS  : op = "less"  ; break;
 	case OP_LESSE : op = "lesse" ; break;
+	case OP_SYSCALL:op ="syscall"; break;
 	case OP_RAW_LONG:
 		snprintf(buf, bufsize, ".long\t%s", a.s.s);
 		return 0;

@@ -43,11 +43,13 @@ build/compiler:		src/compiler.c		src/text2lines.c	\
 			src/vasm.c		src/optimize/branch.c	\
 			src/vasm2vbin.c		src/linkobj.c		\
 			src/expr.c		src/var.c		\
+			src/text2vasm.c					\
 			include/util.h		include/vasm.h		\
 			include/text2lines.h	include/func2vasm.h	\
 			include/hashtbl.h	include/optimize/lines.h\
 			include/optimize/vasm.h	include/func.h		\
-			include/var.h
+			include/var.h		include/lines.h		\
+			include/vasm2vbin.h
 	@echo Building compiler
 	@$(cc)
 

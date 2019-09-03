@@ -19,10 +19,10 @@ struct lblpos pos2lbl[4096];
 size_t pos2lblcount;
 
 
-static int getop(char *mnem)
+int getop(const char *mnem)
 {
 	char c = *mnem;
-	char *ptr = mnem;
+	const char *ptr = mnem;
 	switch (c) {
 	case 'a':
 		if (streq("add", mnem))
@@ -163,13 +163,13 @@ static int getop(char *mnem)
 }
 
 
-static int parse_op_args(union vasm_all *v, char *args)
+int parse_op_args(union vasm_all *v, const char *args)
 {
 #ifdef STR
 # undef STR
 #endif
 	#define STR(assign) do {          \
-		char *start = ptr;        \
+		const char *start = ptr;        \
 		while (*ptr != ' ' && *ptr != '\t' && *ptr != ',' && *ptr != 0) \
 			ptr++;            \
 		size_t l = ptr - start;   \
@@ -184,7 +184,7 @@ static int parse_op_args(union vasm_all *v, char *args)
 			return -1;  \
 		}                   \
 		ptr++;              \
-		char *start = ptr;  \
+		const char *start = ptr;  \
 		while ('0' <= *ptr && *ptr <= '9') \
 			ptr++;      \
 		num = strtol(start, NULL, 10);  \
@@ -205,7 +205,7 @@ static int parse_op_args(union vasm_all *v, char *args)
 		while (*ptr == ' ' || *ptr == '\t') \
 			ptr++
 
-	char *ptr = args;
+	const char *ptr = args;
 
 	long num;
 
@@ -251,7 +251,7 @@ static int parse_op_args(union vasm_all *v, char *args)
 				return -1;
 			}
 			ptr++;
-			char *start = ptr;
+			const char *start = ptr;
 			while (*ptr != '"') {
 				if (*ptr == 0) {
 					printf("Strings must end with '\"'\n");

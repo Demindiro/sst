@@ -36,6 +36,28 @@ void line_assign(func f, const char *var, const char *val)
 }
 
 
+void line_asm(func f, const char **vasms, size_t vasmcount,
+              const char **invars , const char *inregs , size_t incount,
+              const char **outvars, const char *outregs, size_t outcount)
+{
+	struct func_line_asm *a = malloc(sizeof *a);
+	a->type      = ASM;
+	a->vasms     = vasms;
+	a->vasmcount = vasmcount;
+	a->incount   = incount;
+	a->outcount  = outcount;
+	for (size_t i = 0; i < incount; i++) {
+		a->invars[i] = invars[i];
+		a->inregs[i] = inregs[i];
+	}
+	for (size_t i = 0; i < outcount; i++) {
+		a->outvars[i] = outvars[i];
+		a->outregs[i] = outregs[i];
+	}
+	insert_line(f, (struct func_line *)a);
+}
+
+
 void line_declare(func f, const char *name, const char *type)
 {
 	assert(type != NULL);
@@ -203,6 +225,22 @@ void line2str(struct func_line *l, char *buf, size_t bufsize)
 		n = snprintf(buf, bufsize, "ASSIGN     %s = %s", fl.a->var, fl.a->value);
 		if (fl.a->cons)
 			snprintf(buf + n, bufsize - n, "  # const");
+		break;
+	case ASM:
+		n = snprintf(buf, bufsize, "ASM        IN ");
+		for (size_t i = 0; i < fl.as->incount; i++)
+			n += snprintf(buf + n, bufsize - n, " r%d = %s,",
+					fl.as->inregs[i], fl.as->invars[i]);
+		buf[n-1] = '\n';
+		n += snprintf(buf + n, bufsize - n, "                   OUT");
+		for (size_t i = 0; i < fl.as->outcount; i++)
+			n += snprintf(buf + n, bufsize - n, " %s = r%d,",
+					fl.as->outvars[i], fl.as->outregs[i]);
+		buf[n-1] = '\n';
+		for (size_t i = 0; i < fl.as->vasmcount; i++)
+			n += snprintf(buf + n, bufsize - n, "                     %s\n",
+					fl.as->vasms[i]);
+		buf[n-1] = 0;
 		break;
 	case DECLARE:
 		snprintf(buf, bufsize, "DECLARE    %s %s", fl.d->type, fl.d->var);

@@ -18,7 +18,7 @@ typedef struct line {
 
 #define DEBUGLINE(l) DEBUG("%4u:%-2u | %s", l.pos.y, l.pos.x, l.text);
 #define PRINTLINE(l) ERROR("%4u:%-2u | %s", l.pos.y, l.pos.x, l.text);
-#define PRINTLINEX(l,x,text) _print_line_pointer(text, l, (int)x);
+#define PRINTLINEX(l,x,text) _print_line_pointer(text, l, (int)(x));
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -33,14 +33,13 @@ static void _print_line_pointer(const char *text, line_t l, int c)
 		buf[i] = buf[i] == '\t' ? ' ' : buf[i];
 	buf[s] = 0;
 	ERROR("%4u:%-2u | %s", l.pos.y, l.pos.x + c, buf);
-	// Yes, I hate it
-#ifndef NDEBUG
-	fprintf(stderr, "ERROR: ");
-#endif
-	fprintf(stderr, "        | ");
+	char *p = buf;
+	p += sprintf(p, "        | ");
 	for (size_t i = 0; i < l.pos.x + c - 1; i++)
-		fprintf(stderr, "~");
-	fprintf(stderr, "^\n");
+		p += sprintf(p, "~");
+	*p++ = '^';
+	*p   = 0;
+	ERROR("%s", buf);
 }
 #pragma GCC diagnostic pop
 

@@ -40,6 +40,7 @@ struct linerange {
 	struct func  *func;
 	const line_t *lines;
 	size_t        count;
+	const char   *text;
 };
 
 
@@ -73,7 +74,8 @@ static size_t _find_func_length(const line_t *lines, size_t linecount, const cha
 		} else if (
 		    strstart(t, "for "  ) ||
 		    strstart(t, "if "   ) ||
-		    strstart(t, "while ")) {
+		    strstart(t, "while ") ||
+		    streq   (t, "__asm")) {
 			nestlines[nestlvl] = i;
 			nestlvl++;
 		}
@@ -125,6 +127,7 @@ static void _findboundaries(const line_t *lines, size_t linecount,
 			(*funclns)[*funclncount].func  = g;
 			(*funclns)[*funclncount].lines = lines + i;
 			(*funclns)[*funclncount].count = l;
+			(*funclns)[*funclncount].text  = text;
 			(*funclncount)++;
 			i += l - 1;
 		}
@@ -189,12 +192,14 @@ static void _lines2funcs(const line_t *lines, size_t linecount,
 		struct linerange l = funclns[i];
 		l.func->linecount = 0;
 		SETCURRENTFUNC(l.func);
-		lines2func(l.lines, l.count, l.func, functbl);
+		lines2func(l.lines, l.count, l.func, functbl, l.text);
 		int changed;
 		do {
 			changed = 0;
+#if 1
 			changed |= optimize_func_linear(l.func);
 			changed |= optimize_func_branches(l.func);
+#endif
 		} while (changed);
 		CLEARCURRENTFUNC;
 	}

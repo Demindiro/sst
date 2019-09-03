@@ -14,4 +14,5 @@ int parsefunc_header(struct func *f, const line_t line, const char *text);
 
 
 void lines2func(const line_t *lines, size_t linecount,
-               struct func *f, struct hashtbl *functbl);
+                struct func *f, struct hashtbl *functbl,
+		const char *text);

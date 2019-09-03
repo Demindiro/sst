@@ -158,7 +158,8 @@ noargs:
 
 
 void lines2func(const line_t *lines, size_t linecount,
-                struct func *f, struct hashtbl *functbl)
+                struct func *f, struct hashtbl *functbl,
+		const char *text)
 {
 	FDEBUG("Converting to immediate");
 
@@ -434,6 +435,128 @@ void lines2func(const line_t *lines, size_t linecount,
 			loopcounter++;
 		} else if (streq(word, "return")) {
 			line_return(f, strclone(ptr));
+		} else if (streq(word, "__asm")) {
+			const char *invars[32] , *outvars[32] ;
+			char        inregs[32] ,  outregs[32] ;
+			size_t      incount = 0,  outcount = 0;
+			const char**vasms = malloc(64 * sizeof *vasms);
+			size_t      vasmcount = 0;
+			const char *l, *t;
+			// Get input vars
+			t = l = lines[++li].text;
+			while (1) {
+				// Extract argument
+				const char *lp = l;
+				while (*lp != ',' && *lp != 0)
+					lp++;
+				char b[256];
+				memcpy(b, l, lp - l);
+				b[lp - l] = 0;
+				// Get register
+				char *p = b, *q = p;
+				if (*q != 'r') {
+					PRINTLINEX(lines[li], l - t, text);
+					EXIT(1, "Registers must start with a 'r'");
+				}
+				q++;
+				p = q;
+				while (*q != ' ') {
+					if (!isnum(*q)) {
+						PRINTLINEX(lines[li], l - t, text);
+						EXIT(1, "Expected number");
+					}
+					q++;
+				}
+				*q = 0;
+				long r = strtol(p, NULL, 0);
+				if (r >= 32) {
+					PRINTLINEX(lines[li], l - t, text);
+					EXIT(1, "There are only 32 registers defined in the SS ISA");
+				}
+				inregs[incount] = r;
+				// Check for equal sign
+				q++; // ' '
+				if (*q != '=') {
+					PRINTLINEX(lines[li], l - t, text);
+					EXIT(1, "Expected '='");
+				}
+				q += 2; // '= '
+				// Copy var
+				p = q;
+				while (*q != 0) {
+					if (*q == 0) {
+						PRINTLINEX(lines[li], l - t, text);
+						EXIT(1, "Expected '='");
+					}
+					q++;
+				}
+				invars[incount] = strnclone(p, q - p);
+				// Next
+				incount++;
+				if (*lp == 0)
+					break;
+				l = lp + 1;
+			}
+			// Get output vars
+			t = l = lines[++li].text;
+			while (1) {
+				// Extract argument
+				const char *lp = l;
+				while (*lp != ',' && *lp != 0)
+					lp++;
+				char b[256];
+				memcpy(b, l, lp - l);
+				b[lp - l] = 0;
+				// Copy var
+				char *p = b, *q = p;
+				while (*q != ' ') {
+					if (*q == 0) {
+						PRINTLINEX(lines[li], lp - t, text);
+						EXIT(1, "Expected '='");
+					}
+					q++;
+				}
+				outvars[outcount] = strnclone(p, q - p);
+				// Check for equal sign
+				q++; // ' '
+				if (*q != '=') {
+					PRINTLINEX(lines[li], lp - t, text);
+					EXIT(1, "Expected '='");
+				}
+				q += 2; // '= '
+				// Get register
+				if (*q != 'r') {
+					PRINTLINEX(lines[li], lp - t + q - p + 1, text);
+					EXIT(1, "Registers must start with a 'r'");
+				}
+				q++;
+				p = q;
+				while (*q != 0) {
+					DEBUG("'%c' %d", *q, *q);
+					if (!isnum(*q)) {
+						PRINTLINEX(lines[li], lp - t, text);
+						EXIT(1, "Expected number");
+					}
+					q++;
+				}
+				*q = 0;
+				long r = strtol(p, NULL, 0);
+				if (r >= 32) {
+					PRINTLINEX(lines[li], lp - t, text);
+					EXIT(1, "There are only 32 registers defined in the SS ISA");
+				}
+				outregs[outcount] = r;
+				// Next
+				outcount++;
+				if (*lp == 0)
+					break;
+				l = lp + 1;
+			}
+			// Insert ops
+			li++;
+			while (!streq(lines[li].text, "end"))
+				vasms[vasmcount++] = lines[li++].text;
+			line_asm(f, vasms, vasmcount, invars, inregs, incount, outvars, outregs, outcount);
 		} else if (
 			streq(word, "bool") || streq(word, "byte") || streq(word, "byte[21]") ||
 			streq(word, "byte[4096]") ||
@@ -480,7 +603,8 @@ void lines2func(const line_t *lines, size_t linecount,
 						line_destroy(f, e);
 				}
 			} else {
-				EXIT(1, "Undefined thing '%s'", name);
+				PRINTLINEX(line, ptr - oldptr, text);
+				EXIT(1, "Undefined keyword '%s'", name);
 			}
 		}
 

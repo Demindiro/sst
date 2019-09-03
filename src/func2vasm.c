@@ -8,6 +8,7 @@
 #include "func.h"
 #include "hashtbl.h"
 #include "util.h"
+#include "text2vasm.h"
 
 
 
@@ -235,6 +236,67 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				a.r2.r1 = reg;
 			}
 			v[vc++] = a;
+			break;
+		case ASM:
+			// Preserve register contents
+			for (size_t i = 0; i < 32; i++) {
+				if (allocated_regs[i]) {
+					a.r.op  = OP_PUSH;
+					a.r.r   = i;
+					v[vc++] = a;
+				}
+			}
+			// In arguments
+			for (size_t i = fl.as->incount - 1; i != -1; i--) {
+				if (h_get2(&tbl, fl.as->invars[i], &reg) == -1)
+					ENOTDECLARED(fl.as->invars[i]);
+				a.r.op  = OP_PUSH;
+				a.r.r   = reg;
+				v[vc++] = a;
+			}
+			for (size_t i = 0; i < fl.as->incount; i++) {
+				a.r.op  = OP_POP;
+				a.r.r   = fl.as->inregs[i];
+				v[vc++] = a;
+			}
+			// Insert assembly (TODO)
+			for (size_t i = 0; i < fl.as->vasmcount; i++) {
+				char buf[32], *b = buf;
+				const char *c = fl.as->vasms[i];
+				while (*c != ' ' && *c != 0)
+					*b++ = *c++;
+				*b = 0;
+				if (*c != 0)
+					c++;
+				a.op = getop(buf);
+				b = buf;
+				while (*c != 0)
+					*b++ = *c++;
+				*b = 0;
+				parse_op_args(&a, buf);
+				v[vc++] = a;
+			}
+			// Out arguments
+			for (size_t i = 0; i < fl.as->outcount; i++) {
+				a.r.op  = OP_PUSH;
+				a.r.r   = fl.as->outregs[i];
+				v[vc++] = a;
+			}
+			for (size_t i = fl.as->outcount - 1; i != -1; i--) {
+				if (h_get2(&tbl, fl.as->outvars[i], &reg) == -1)
+					ENOTDECLARED(fl.as->outvars[i]);
+				a.r.op  = OP_POP;
+				a.r.r   = reg;
+				v[vc++] = a;
+			}
+			// Pop register contents
+			for (size_t i = 31; i != -1; i--) {
+				if (allocated_regs[i]) {
+					a.r.op  = OP_POP;
+					a.r.r   = i;
+					v[vc++] = a;
+				}
+			}
 			break;
 		case DECLARE:
 			for (reg = 0; reg < sizeof allocated_regs / sizeof *allocated_regs; reg++) {

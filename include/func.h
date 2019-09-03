@@ -8,6 +8,7 @@
 enum func_type {
 	NONE,
 	ASSIGN,
+	ASM,
 	DECLARE,
 	DESTROY,
 	FUNC,
@@ -49,6 +50,18 @@ struct func_line_assign {
 	const char *var;
 	const char *value;
 	char cons;
+};
+
+struct func_line_asm {
+	enum func_type type;
+	const char**vasms;
+	size_t      vasmcount;
+	const char *invars [32];
+	char        inregs [32];
+	size_t      incount;
+	const char *outvars[32];
+	char        outregs[32];
+	size_t      outcount;
 };
 
 struct func_line_declare {
@@ -110,6 +123,7 @@ struct func_line_store {
 union func_line_all_p {
 	struct func_line *line;
 	struct func_line_assign  *a;
+	struct func_line_asm     *as;
 	struct func_line_declare *d;
 	struct func_line_func    *f;
 	struct func_line_goto    *g;
@@ -157,6 +171,10 @@ extern thread_local func _current_func;
 void insert_line(func f, struct func_line *l);
 
 void line_assign(func f, const char *var, const char *val);
+
+void line_asm(func f, const char **vasms, size_t vasmcount,
+              const char **invars , const char *inregs , size_t incount,
+              const char **outvars, const char *outregs, size_t outcount);
 
 void line_declare(func f, const char *name, const char *type);
 

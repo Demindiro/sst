@@ -589,6 +589,12 @@ static int _unused_declare(func f, size_t *i)
 			if (streq(v, l.a->var))
 				return 0;
 			break;
+		case ASM:
+			for (size_t i = 0; i < l.as->outcount; i++) {
+				if (streq(v, l.as->outvars[i]))
+					return 0;
+			}
+			break;
 		case DESTROY:
 			if (streq(v, l.d->var)) {
 				REMOVEAT(j);
