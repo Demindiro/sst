@@ -15,7 +15,6 @@
 
 static char    mem[0x100000];
 static int64_t regs[32];
-static int64_t ip;
 
 
 #ifdef NDEBUG
@@ -39,9 +38,9 @@ static int64_t ip;
 #else
 # define _CHECKREG NULL
 #endif
-#define REG1 do { regi = mem[ip++]; _CHECKREG; } while (0)
-#define REG2 do { regi = mem[ip++]; regj = mem[ip++]; _CHECKREG; } while (0)
-#define REG3 do { regi = mem[ip++]; regj = mem[ip++]; regk = mem[ip++]; _CHECKREG; } while (0)
+#define REG1 do { regi = mem[ip+1]; _CHECKREG; } while (0)
+#define REG2 do { regi = mem[ip+1]; regj = mem[ip+2]; _CHECKREG; } while (0)
+#define REG3 do { regi = mem[ip+1]; regj = mem[ip+2]; regk = mem[ip+3]; _CHECKREG; } while (0)
 #define REGI regs[regi]
 #define REGJ regs[regj]
 #define REGK regs[regk]
@@ -87,31 +86,31 @@ static int64_t ip;
 #define JUMPIF(m,c) do {				\
 	REG1;						\
 	if (c) {					\
-		ip = *(size_t *)(mem + ip);		\
+		ip = *(size_t *)(mem + ip + 2);		\
 		ip = be64toh(ip);			\
 		DEBUG(m "\t0x%lx,r%d\t(%lu, true)",	\
 		      ip, regi, REGI);			\
+		goto no_ip2;				\
 	} else {					\
 		DEBUG(m "\t0x%lx,r%d\t(%lu, false)",	\
 		      ip, regi, REGI);			\
-		ip += sizeof ip;			\
 	}						\
 } while (0)
 
 #define JUMPRELIF(m,c,t,conv) do {				\
 	REG1;							\
 	if (c) {						\
-		t v = conv((t)mem[ip]);				\
-		ip += v;					\
+		t v = conv(*(t *)(mem + ip + 2));		\
+		ip += v + 2;					\
 		DEBUG(m "\t%s0x%x,r%d\t(%lu, true, 0x%lx)",	\
 		      v < 0 ? "-" : "", v < 0 ? -v : v,		\
 		      regi, REGI, ip);				\
+		goto no_ip2;					\
 	} else {						\
-		t v = conv((t)mem[ip]);				\
+		t v = conv(*(t *)(mem + ip + 2));		\
 		DEBUG(m "\t%s0x%x,r%d\t(%lu, false, 0x%lx)",	\
 		      v < 0 ? "-" : "", v < 0 ? -v : v,		\
 		      regi, REGI, ip);				\
-		ip += sizeof (t);				\
 	}							\
 } while (0)
 
@@ -193,8 +192,70 @@ static void run() {
 #ifndef NOPROF
 	rstart = _rdtsc();
 #endif
+	static char len_table[] = {
+		[OP_NOP]     = 1,
 
-	static void *table[] = {
+		[OP_JMP]     = 9,
+		[OP_JZ]      = 10,
+		[OP_JNZ]     = 10,
+		[OP_JP]      = 10,
+		[OP_JPZ]     = 10,
+		[OP_CALL]    = 9,
+		[OP_RET]     = 1,
+		[OP_JMPRB]   = 2,
+		[OP_JZB]     = 3,
+		[OP_JNZB]    = 3,
+		[OP_JPB]     = 3,
+		[OP_JPZB]    = 3,
+
+		[OP_LDL]     = 3,
+		[OP_LDI]     = 3,
+		[OP_LDS]     = 3,
+		[OP_LDB]     = 3,
+		[OP_STRL]    = 3,
+		[OP_STRI]    = 3,
+		[OP_STRS]    = 3,
+		[OP_STRB]    = 3,
+
+		[OP_LDLAT]   = 4,
+		[OP_LDIAT]   = 4,
+		[OP_LDSAT]   = 4,
+		[OP_LDBAT]   = 4,
+		[OP_STRLAT]  = 4,
+		[OP_STRIAT]  = 4,
+		[OP_STRSAT]  = 4,
+		[OP_STRBAT]  = 4,
+
+		[OP_PUSH]    = 2,
+		[OP_POP]     = 2,
+		[OP_MOV]     = 3,
+		[OP_SETL]    = 10,
+		[OP_SETI]    = 6,
+		[OP_SETS]    = 4,
+		[OP_SETB]    = 3,
+
+		[OP_ADD]     = 4,
+		[OP_SUB]     = 4,
+		[OP_MUL]     = 4,
+		[OP_DIV]     = 4,
+		[OP_MOD]     = 4,
+		[OP_REM]     = 4,
+		[OP_LSHIFT]  = 4,
+		[OP_RSHIFT]  = 4,
+		[OP_LROT]    = 4,
+		[OP_RROT]    = 4,
+		[OP_AND]     = 4,
+		[OP_OR]      = 4,
+		[OP_XOR]     = 4,
+		[OP_NOT]     = 3,
+		[OP_INV]     = 3,
+		[OP_LESS]    = 4,
+		[OP_LESSE]   = 4,
+
+		[OP_SYSCALL] = 1,
+	};
+
+	static void *jmp_table[] = {
 		[OP_NOP] = &&op_nop,
 
 		[OP_JMP] = &&op_jmp,
@@ -257,20 +318,27 @@ static void run() {
 		[OP_SYSCALL] = &&op_syscall,
 	};
 
+	uint64_t ip;
+	uint64_t ip2 = 0;
 
 	while (1) {
+		// Old: ~4.26 sec for prime-fast
+		// New: ~     sec for prime-fast
 #ifndef NOPROF
 		icounter++;
-#endif
-#ifndef NDEBUG
-		fprintf(stderr, "0x%06lx:\t", ip);
 #endif
 #ifdef THROTTLE
 		usleep(THROTTLE * 1000);
 #endif
-		enum vasm_op op = mem[ip];
-		ip++;
-		goto *table[op];
+
+		ip = ip2;
+	no_ip2:
+#ifndef NDEBUG
+		fprintf(stderr, "0x%06lx:\t", ip);
+#endif
+		; enum vasm_op op = mem[ip];
+		ip2 = ip + len_table[op];
+		goto *jmp_table[op];
 
 		unsigned char regi, regj, regk;
 		size_t addr, val;
@@ -280,26 +348,26 @@ static void run() {
 		continue;
 
 	op_call:
-		addr = htobe64(ip + sizeof ip);
+		addr = htobe64(ip + sizeof ip + 1);
 		*(size_t *)(mem + sp) = addr;
 		sp += sizeof ip;
-		ip = *(size_t *)(mem + ip);
+		ip = *(size_t *)(mem + ip + 1);
 		ip = be64toh(ip);
 		DEBUG("call\t0x%lx", ip);
-		continue;
+		goto no_ip2;
 
 	op_ret:
 		sp -= sizeof ip;
 		ip = *(size_t *)(mem + sp);
 		ip = htobe64(ip);
 		DEBUG("ret\t\t(0x%lx)", ip);
-		continue;
+		goto no_ip2;
 
 	op_jmp:
-		ip = *(size_t *)(mem + ip);
+		ip = *(size_t *)(mem + ip + 1);
 		ip = be64toh(ip);
 		DEBUG("jmp\t0x%lx", ip);
-		continue;
+		goto no_ip2;
 
 	op_jz:
 		JUMPIF("jz", !REGI);
@@ -318,21 +386,11 @@ static void run() {
 		continue;
 
 	op_jmprb:
-#ifndef NDEBUG
-		{
-			int8_t c = mem[ip];
-			if (c >= 0)
-				DEBUG("jmprb\t0x%x\t(0x%lx)",
-				      (uint8_t)c, ip + c);
-			else
-				DEBUG("jmprb\t0x%x\t(0x%lx)",
-				      (uint8_t)c, ip + c);
-			ip += c;
-		}
-#else
-		ip += (int8_t)mem[ip];
-#endif
-		continue;
+		;int8_t c = mem[ip + 1];
+		DEBUG("jmprb\t0x%x\t(0x%lx)",
+		      (uint8_t)c, ip + c);
+		ip += c + 1;
+		goto no_ip2;
 
 	op_jzb:
 		JUMPRELIF("jzb", !REGI, int8_t, (int8_t));
@@ -482,35 +540,31 @@ static void run() {
 
 	op_setl:
 		REG1;
-		val = *(uint64_t *)(mem + ip);
+		val = *(uint64_t *)(mem + ip + 2);
 		val = be64toh(val);
-		ip += 8;
 		REGI = val;
 		DEBUG("setl\tr%d,%lu\t(%lu)", regi, val, REGI);
 		continue;
 
 	op_seti:
 		REG1;
-		val = *(uint32_t *)(mem + ip);
+		val = *(uint32_t *)(mem + ip + 2);
 		val = be32toh(val);
-		ip += 4;
 		REGI = val;
 		DEBUG("seti\tr%d,%lu\t(%lu)", regi, val, REGI);
 		continue;
 
 	op_sets:
 		REG1;
-		val = *(uint16_t *)(mem + ip);
+		val = *(uint16_t *)(mem + ip + 2);
 		val = be16toh(val);
-		ip += 2;
 		REGI = val;
 		DEBUG("sets\tr%d,%lu\t(%lu)", regi, val, REGI);
 		continue;
 
 	op_setb:
 		REG1;
-		val = *(uint8_t *)(mem + ip);
-		ip += 1;
+		val = *(uint8_t *)(mem + ip + 2);
 		REGI = val;
 		DEBUG("setb\tr%d,%lu\t(%lu)", regi, val, REGI);
 		continue;
