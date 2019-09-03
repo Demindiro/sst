@@ -113,6 +113,14 @@ int vasm2str(union vasm_all a, char *buf, size_t bufsize) {
 	case OP_SETI  : op = "seti"  ; break;
 	case OP_SETL  : op = "setl"  ; break;
 	case OP_MOV   : op = "mov"   ; break;
+	case OP_STRL  : op = "strl"  ; break;
+	case OP_STRI  : op = "stri"  ; break;
+	case OP_STRS  : op = "strs"  ; break;
+	case OP_STRB  : op = "strb"  ; break;
+	case OP_LDL   : op = "ldl"   ; break;
+	case OP_LDI   : op = "ldi"   ; break;
+	case OP_LDS   : op = "lds"   ; break;
+	case OP_LDB   : op = "ldb"   ; break;
 	case OP_STRBAT: op = "strbat"; break;
 	case OP_STRSAT: op = "strsat"; break;
 	case OP_STRIAT: op = "striat"; break;
@@ -136,6 +144,7 @@ int vasm2str(union vasm_all a, char *buf, size_t bufsize) {
 	case OP_XOR   : op = "xor"   ; break;
 	case OP_LESS  : op = "less"  ; break;
 	case OP_LESSE : op = "lesse" ; break;
+	case OP_SYSCALL:op ="syscall"; break;
 	case OP_RAW_LONG:
 		snprintf(buf, bufsize, ".long\t%s", a.s.s);
 		return 0;

@@ -13,7 +13,7 @@
 #include "vasm.h"
 
 
-static char    mem[0x100000];
+static unsigned char mem[0x100000];
 static int64_t regs[32];
 static int64_t ip;
 
@@ -47,16 +47,34 @@ static int64_t ip;
 #define REGK regs[regk]
 
 #ifdef NDEBUG
-# define REG3OP(m,op) \
-	do { \
-		REG3; \
-		REGI = REGJ op REGK; \
+# define REG3OP(m,op)			\
+	do {				\
+		REG3;			\
+		REGI = REGJ op REGK;	\
 	} while (0)
 # define REG3OPSTR(m,op,opstr) REG3OP(m,op)
-# define REG3OPSTRFUNC(m,func,opstr,fmt) do {		\
-	REG3;						\
-	REGI = func(REGJ, REGK);			\
+# define REG3OPSTRFUNC(m,func,opstr,fmt) do {	\
+	REG3;					\
+	REGI = func(REGJ, REGK);		\
 } while (0);
+# define JUMPIF(m,c) do {			\
+	REG1;					\
+	if (c) {				\
+		ip2 = *(size_t *)(mem + ip);	\
+		ip2 = be64toh(ip2) - 16;	\
+	} else {				\
+		ip += 0*sizeof ip;		\
+	}					\
+} while (0)
+# define JUMPRELIF(m,c,t,conv) do {		\
+	REG1;					\
+	if (c) {				\
+		t v = conv((t)mem[ip]);		\
+		ip2 += v - 16;			\
+	} else {				\
+		ip += 0*sizeof (t);		\
+	}					\
+} while (0)
 #else
 # define REG3OP(m,op)							\
 	do {								\
@@ -82,9 +100,7 @@ static int64_t ip;
 	      "(" fmt " = " fmt " " opstr " " fmt ")",	\
 	      regi, regj, regk, REGI, _v, REGK);	\
 } while (0);
-#endif
-
-#define JUMPIF(m,c) do {				\
+# define JUMPIF(m,c) do {				\
 	REG1;						\
 	if (c) {					\
 		ip = *(size_t *)(mem + ip);		\
@@ -97,8 +113,7 @@ static int64_t ip;
 		ip += sizeof ip;			\
 	}						\
 } while (0)
-
-#define JUMPRELIF(m,c,t,conv) do {				\
+# define JUMPRELIF(m,c,t,conv) do {				\
 	REG1;							\
 	if (c) {						\
 		t v = conv((t)mem[ip]);				\
@@ -114,6 +129,8 @@ static int64_t ip;
 		ip += sizeof (t);				\
 	}							\
 } while (0)
+#endif
+
 
 
 #define sp regs[31]
@@ -255,19 +272,25 @@ static void run() {
 	};
 
 
+	//enum vasm_op op = mem[ip], nextop;
+	size_t ip2 = -16;
+
 	while (1) {
+		ip2 += 16;
+		ip = ip2;
 #ifndef NOPROF
 		icounter++;
 #endif
 #ifndef NDEBUG
-		fprintf(stderr, "0x%06lx:\t", ip);
+		fprintf(stderr, "%6lx\t", ip);
 #endif
 #ifdef THROTTLE
 		usleep(THROTTLE * 1000);
 #endif
-		enum vasm_op op = mem[ip];
-		ip++;
-		goto *table[op];
+		goto *table[mem[ip++]];
+
+//#define continue goto *table[mem[ip++]]
+//#define continue nextop = mem[ip++]; continue
 
 		unsigned char regi, regj, regk;
 		size_t addr, val;
@@ -277,24 +300,24 @@ static void run() {
 		continue;
 
 	op_call:
-		addr = htobe64(ip + sizeof ip);
+		addr = htobe64(ip2 + 16/* + sizeof ip*/);
 		*(size_t *)(mem + sp) = addr;
 		sp += sizeof ip;
-		ip = *(size_t *)(mem + ip);
-		ip = be64toh(ip);
+		ip2 = *(size_t *)(mem + ip);
+		ip2 = be64toh(ip2);
 		DEBUG("call\t0x%lx", ip);
 		continue;
 
 	op_ret:
 		sp -= sizeof ip;
-		ip = *(size_t *)(mem + sp);
-		ip = htobe64(ip);
+		ip2 = *(size_t *)(mem + sp);
+		ip2 = htobe64(ip2) - 16;
 		DEBUG("ret\t\t(0x%lx)", ip);
 		continue;
 
 	op_jmp:
-		ip = *(size_t *)(mem + ip);
-		ip = be64toh(ip);
+		ip2 = *(size_t *)(mem + ip);
+		ip2 = be64toh(ip2) - 16;
 		DEBUG("jmp\t0x%lx", ip);
 		continue;
 
@@ -327,7 +350,7 @@ static void run() {
 			ip += c;
 		}
 #else
-		ip += (int8_t)mem[ip];
+		ip2 += (int8_t)mem[ip] - 16;
 #endif
 		continue;
 

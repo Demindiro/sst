@@ -21,6 +21,10 @@ void linkobj(const char **vbins, size_t *vbinlens, size_t vbincount,
 	size_t outputlen = 9;
 	size_t pos2lblcount = 1;
 
+#if 1
+	outputlen = 16;
+#endif
+
 	h_create(&lbl2pos, 32);
 
 	for (size_t i = 0; i < vbincount; i++) {

@@ -221,6 +221,12 @@ int main(int argc, char **argv)
 
 			vasm2str(a, c, sizeof c);
 		undefop:
+#if 1
+			l = 16;
+			if (i % 16 != 0)
+				i += 16 - i % 16;
+#endif
+
 			printf("%6lx   ", k);
 			for (size_t k = 0; k < l; k++)
 				printf("%02x ", buf[i - l + k]);

@@ -27,6 +27,9 @@ static size_t _getlblpos(const char *lbl, struct lblmap *map)
  */
 static size_t _getoplen(struct vasm v)
 {
+#if 1
+	return 16;
+#endif
 	switch (get_vasm_args_type(v.op)) {
 	case ARGS_TYPE_NONE:
 		return 1;
@@ -349,7 +352,7 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 					size_t pos = jmprelmap[j].pos;
 					DEBUG("Filling in '%s'\t@ 0x%02lx (0x%02lx)", lbl, pos, vbinlen - pos);
 					if (vbinlen - pos > 0x7F) {
-						EXIT(1, "Underestimated distance between label and relative"
+						EXIT(3, "Underestimated distance between label and relative"
 						        " jump (%lu)", vbinlen - pos);
 					}
 					vbin[pos] = vbinlen - pos;
@@ -364,6 +367,13 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 			printf("IDK lol (%d)\n", a.op);
 			abort();
 		}
+
+#if 1
+		if (vbinlen % 16 != 0) {
+			vbinlen += 16 - vbinlen % 16;
+		}
+#endif
+
 	}
 
 	// Fill in local addresses
