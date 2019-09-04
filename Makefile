@@ -27,6 +27,8 @@ linker:		build/linker
 
 dumper:		build/dump
 
+cisc2risc-interpreter: src/interpreter/cisc2risc.c src/vasm.c include/vasm.h
+	$(CC) $(INCLUDE) $(CFLAGS) -T src/interpreter/cisc2risc.lds $+ -o $(OUTPUT)/interpreter
 
 include std.mk
 include test.mk
