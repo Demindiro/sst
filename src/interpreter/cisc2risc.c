@@ -100,12 +100,12 @@ static size_t  programlen;
 #define JUMPIF(m,c) do {				\
 	REG1;						\
 	if (c) {					\
-		ip = *(uint64_t *)(risc + ip);		\
+		ip = (uint32_t *)*(uint64_t *)ip;	\
 		DEBUG(m "\t0x%lx,r%d\t(%lu, true)",	\
-		      ip, regi, REGI);			\
+		      (uint64_t)ip, regi, REGI);	\
 	} else {					\
 		DEBUG(m "\t0x%lx,r%d\t(%lu, false)",	\
-		      ip, regi, REGI);			\
+		      (uint64_t)ip, regi, REGI);	\
 		ip += 2;				\
 	}						\
 } while (0)
@@ -481,7 +481,7 @@ static void cisc2risc(void **tbl, size_t tbllen)
 		}
 		abort();
 	found:
-		*(uint64_t *)(risc + r2c[i].rpos) = c2r[j].rpos;
+		*(uint64_t *)(risc + r2c[i].rpos) = (uint64_t)(risc + c2r[j].rpos);
 	}
 }
 
@@ -557,7 +557,7 @@ static void run()
 
 	cisc2risc(table, sizeof table / sizeof *table);
 
-	uint64_t ip = 0;
+	uint32_t *ip = risc;
 
 #ifdef GUARANTEE_BELOW_0x10000
 #define prefix 0
@@ -570,16 +570,26 @@ static void run()
 		icounter++;
 #endif
 #ifndef NDEBUG
-		fprintf(stderr, "0x%06lx:\t", ip);
+		fprintf(stderr, "0x%06lx:\t", (uint64_t)ip);
 #endif
 #ifdef THROTTLE
 		usleep(THROTTLE * 1000);
 #endif
-		uint32_t      instr = risc[ip++];
+		uint32_t      instr = *ip++;
 		size_t        addr  = ((instr      ) & 0xFFFF) + prefix;
 		unsigned char regi, regj, regk;
-		regi = (instr >> 16) & 0x1F;
+#ifdef PRECOMPUTE_REGI
+# define PREREGI regi = (instr >> 16) & 0x1F;
+#else
+# define PREREGI NULL
+#endif
+		PREREGI;
 
+		goto *(void *)addr;
+#define continue					\
+		instr = *ip++;				\
+		addr = (instr & 0xFFFF) + prefix;	\
+		PREREGI;				\
 		goto *(void *)addr;
 
 	op_nop:
@@ -587,21 +597,21 @@ static void run()
 		continue;
 
 	op_call:
-		*(uint64_t *)(mem + sp) = ip + 2;
+		*(uint64_t *)(mem + sp) = (uint64_t)(ip + 2);
 		sp += sizeof ip;
-		ip = *(uint64_t *)(risc + ip);
-		DEBUG("call\t0x%lx", ip);
+		ip = (uint32_t *)*(uint64_t *)ip;
+		DEBUG("call\t0x%lx", (uint64_t)ip);
 		continue;
 
 	op_ret:
 		sp -= sizeof ip;
-		ip = *(uint64_t *)(mem + sp);
-		DEBUG("ret\t\t(0x%lx)", ip);
+		ip = (uint32_t *)*(uint64_t *)(mem + sp);
+		DEBUG("ret\t\t(0x%lx)", (uint64_t)ip);
 		continue;
 
 	op_jmp:
-		ip = *(uint64_t *)(risc + ip);
-		DEBUG("jmp\t0x%lx", ip);
+		ip = (uint32_t *)*(uint64_t *)ip;
+		DEBUG("jmp\t0x%lx", (uint64_t)ip);
 		continue;
 
 	op_jz:
@@ -752,14 +762,14 @@ static void run()
 
 	op_setl:
 		REG1;
-		REGI = *(uint64_t *)(risc + ip);
+		REGI = *(uint64_t *)ip;
 		ip += 2;
 		DEBUG("setl\tr%d,%lu\t(%lx)", regi, REGI, REGI);
 		continue;
 
 	op_seti:
 		REG1;
-		REGI = risc[ip++];
+		REGI = *ip++;
 		DEBUG("seti\tr%d,%lu\t(%lx)", regi, REGI, REGI);
 		continue;
 
