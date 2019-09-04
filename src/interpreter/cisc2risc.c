@@ -52,10 +52,10 @@ static size_t  programlen;
 #ifdef PRECOMPUTE_REGI
 # define REG1 NULL
 #else
-# define REG1 do {       regi = (instr >> 16) & 0x1F; } while (0)
+# define REG1 do { regi = ((uint8_t *)(risc + ip))[-4]; } while (0)
 #endif
-#define REG2 do { REG1; regj = (instr >> 21) & 0x1F; } while (0)
-#define REG3 do { REG2; regk = (instr >> 26) & 0x1F; } while (0)
+#define REG2 do { REG1; regj = ((uint8_t *)(risc + ip))[-3]; } while (0)
+#define REG3 do { REG2; regk = ((uint8_t *)(risc + ip))[-2]; } while (0)
 #define REGI regs[regi]
 #define REGJ regs[regj]
 #define REGK regs[regk]
@@ -106,7 +106,7 @@ static size_t  programlen;
 	} else {					\
 		DEBUG(m "\t0x%lx,r%d\t(%lu, false)",	\
 		      ip, regi, REGI);			\
-		ip += 2;				\
+		ip += 1;				\
 	}						\
 } while (0)
 
@@ -215,7 +215,6 @@ enum risc_op {
 	RISC_POP,
 	RISC_MOV,
 	RISC_SETL,
-	RISC_SETI,
 
 	RISC_ADD,
 	RISC_SUB,
@@ -241,7 +240,7 @@ enum risc_op {
 };
 
 
-static uint32_t risc[0x1000];
+static uint64_t risc[0x1000];
 
 
 static enum risc_op cisc2risc_op(enum vasm_op cop)
@@ -280,10 +279,10 @@ static enum risc_op cisc2risc_op(enum vasm_op cop)
 
 	case OP_PUSH   : return RISC_PUSH   ;
 	case OP_POP    : return RISC_POP    ;
-	case OP_SETL   : return RISC_SETL   ;
+	case OP_SETL   :
 	case OP_SETI   :
 	case OP_SETS   :
-	case OP_SETB   : return RISC_SETI   ;
+	case OP_SETB   : return RISC_SETL   ;
 	case OP_MOV    : return RISC_MOV    ;
 
 	case OP_ADD    : return RISC_ADD    ;
@@ -331,11 +330,11 @@ static void cisc2risc(void **tbl, size_t tbllen)
 	for (size_t i = 0; i < tbllen; i++) {
 		size_t x = (size_t)tbl[0];
 		size_t y = (size_t)tbl[i];
-		DEBUG("  %lx  %04lx", (y & ~0xFFFFL) >> 16, y & 0xFFFFL);
-		if ((x & ~0xFFFFL) != (y & ~0xFFFFL))
+		DEBUG("  %lx  %04lx", (y & ~0xFFFFFFFFL) >> 16, y & 0xFFFFFFFFL);
+		if ((x & ~0xFFFFFFFFL) != (y & ~0xFFFFFFFFL))
 			abort();
 #ifdef GUARANTEE_BELOW_0x10000
-		if ((x & ~0xFFFFL) != 0)
+		if ((x & ~0xFFFFFFFFL) != 0)
 			abort();
 #endif
 	}
@@ -357,7 +356,7 @@ static void cisc2risc(void **tbl, size_t tbllen)
 		c2rc++;
 
 		enum vasm_op op = mem[i++];
-		uint8_t rx = 0, ry = 0, rz = 0;
+		uint64_t rx = 0, ry = 0, rz = 0;
 		uint64_t val = 0;
 		unsigned int vallen = 0;
 
@@ -430,13 +429,13 @@ static void cisc2risc(void **tbl, size_t tbllen)
 			break;
 		}
 
-		uint32_t instr = 0;
+		uint64_t instr = 0;
 		enum risc_op rop = cisc2risc_op(op);
-		instr |= ((size_t)tbl[rop]) & 0x0000FFFF;
+		instr |= ((size_t)tbl[rop]) & 0x00000000FFFFFFFF;
 
-		instr |= (rx  << 16) & 0x001F0000;
-		instr |= (ry  << 21) & 0x03E00000;
-		instr |= (rz  << 26) & 0x7C000000;
+		instr |= (rx  << 32L) & 0x000000FF00000000;
+		instr |= (ry  << 40L) & 0x0000FF0000000000;
+		instr |= (rz  << 48L) & 0x00FF000000000000;
 
 		risc[n++] = instr;
 
@@ -464,10 +463,7 @@ static void cisc2risc(void **tbl, size_t tbllen)
 			vallen = 8;
 		}
 
-		if (vallen == 8) {
-			*(uint64_t *)(risc + n) = val;
-			n += 2;
-		} else if (vallen > 0) {
+		if (vallen > 0) {
 			risc[n++] = val;
 		}
 	}
@@ -530,7 +526,6 @@ static void run()
 		[RISC_POP]     = &&op_pop,
 		[RISC_MOV]     = &&op_mov,
 		[RISC_SETL]    = &&op_setl,
-		[RISC_SETI]    = &&op_seti,
 
 		[RISC_ADD]     = &&op_add,
 		[RISC_SUB]     = &&op_sub,
@@ -559,12 +554,6 @@ static void run()
 
 	uint64_t ip = 0;
 
-#ifdef GUARANTEE_BELOW_0x10000
-#define prefix 0
-#else
-	size_t   prefix = ((size_t)table[0]) & ~0xFFFFL;
-#endif
-
 	while (1) {
 #ifndef NOPROF
 		icounter++;
@@ -575,10 +564,8 @@ static void run()
 #ifdef THROTTLE
 		usleep(THROTTLE * 1000);
 #endif
-		uint32_t      instr = risc[ip++];
-		size_t        addr  = ((instr      ) & 0xFFFF) + prefix;
+		size_t addr = *(uint32_t *)(risc + ip);
 		unsigned char regi, regj, regk;
-		regi = (instr >> 16) & 0x1F;
 
 		goto *(void *)addr;
 
@@ -751,13 +738,6 @@ static void run()
 		continue;
 
 	op_setl:
-		REG1;
-		REGI = *(uint64_t *)(risc + ip);
-		ip += 2;
-		DEBUG("setl\tr%d,%lu\t(%lx)", regi, REGI, REGI);
-		continue;
-
-	op_seti:
 		REG1;
 		REGI = risc[ip++];
 		DEBUG("seti\tr%d,%lu\t(%lx)", regi, REGI, REGI);
