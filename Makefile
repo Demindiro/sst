@@ -30,6 +30,10 @@ dumper:		build/dump
 cisc2risc-interpreter: src/interpreter/cisc2risc.c src/vasm.c include/vasm.h
 	$(CC) $(INCLUDE) $(CFLAGS) -T src/interpreter/cisc2risc.lds $+ -o $(OUTPUT)/interpreter
 
+cisc2risc64-interpreter: src/interpreter/cisc2risc64.c src/vasm.c include/vasm.h
+	#$(CC) $(INCLUDE) $(CFLAGS) $+ -o $(OUTPUT)/interpreter
+	$(CC) $(INCLUDE) $(CFLAGS) -T src/interpreter/cisc2risc.lds $+ -o $(OUTPUT)/interpreter
+
 include std.mk
 include test.mk
 
