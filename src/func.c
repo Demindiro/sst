@@ -160,12 +160,11 @@ void line_store(func f, const char *arr, const char *index, const char *val)
 const char *new_temp_var(func f, const char *type, const char *name)
 {
 	static int i = 0;
-	char b[256];
+	const char *v;
 	if (name != NULL)
-		snprintf(b, sizeof b, "_%s_%u", name, i++);
+		v = strprintf("_%s_%u", name, i++);
 	else
-		snprintf(b, sizeof b, "_temp_%u", i++);
-	char *v = strclone(b);
+		v = strprintf("_temp_%u", i++);
 	line_declare(f, v, type);
 	return v;
 }

@@ -203,7 +203,6 @@ void lines2func(const line_t *lines, size_t linecount,
 		const char *ptr = line.text, *oldptr;
 		NEXTWORD;
 		
-		union func_line_all_p fl;
 		// Determine line type
 		if (streq(word, "break")) {
 			size_t l = loopcount - 1;
@@ -285,14 +284,11 @@ void lines2func(const line_t *lines, size_t linecount,
 				ptr++;
 				if (*ptr == 0) {
 					fromarray = strclone(p);
-					char b[64];
-					snprintf(b, sizeof b, "%s.length", p);
 					fromval   = "0";
-					toval     = strclone(b);
+					toval     = strprintf("%s.length", p);
 					static size_t iteratorcount = 0;
-					snprintf(b, sizeof b, "_for_iterator_%lu", iteratorcount);
+					iterator = strprintf("_for_iterator_%lu", iteratorcount);;
 					iteratorcount++;
-					iterator = strclone(b);
 					goto isfromarray;
 				}
 			}
@@ -317,16 +313,14 @@ void lines2func(const line_t *lines, size_t linecount,
 			line_assign(f, iterator, fromval);
 
 			// Create the labels
-			char lbl[16], lbll[16], lble[16];
-		       	snprintf(lbl , sizeof lbl , ".for_%d"     , loopcounter);
-		       	snprintf(lbll, sizeof lbll, ".for_%d_else", loopcounter);
-		       	snprintf(lble, sizeof lble, ".for_%d_end" , loopcounter);
+		       	const char *lbl  = strprintf(".for_%d"     , loopcounter),
+		       	           *lbll = strprintf(".for_%d_else", loopcounter),
+		       	           *lble = strprintf(".for_%d_end" , loopcounter);
 
 			// Indicate the start of the loop
-			line_label(f, strclone(lbl));
+			line_label(f, lbl);
 
 			// Test ending condition (fromval == toval)
-			fl.i = calloc(sizeof *fl.i, 1);
 			char expr[64];
 			snprintf(expr, sizeof expr, "%s == %s", iterator, toval);
 			const char *e = parse_expr(f, expr, &istemp, "long", &vartypes);
@@ -356,13 +350,13 @@ void lines2func(const line_t *lines, size_t linecount,
 			loop[loopcount].incrementer = "1";
 
 			// Set loop repeat goto
-			loop[loopcount].jmps = strclone(lbl);
+			loop[loopcount].jmps = lbl;
 
 			// Set label for if the loop ended without interruption (break)
-			loop[loopcount]._else = strclone(lbll);
+			loop[loopcount]._else = lbll;
 
 			// Set label for if the loop was interrupted
-			loop[loopcount].ends = strclone(lble);
+			loop[loopcount].ends = lble;
 
 			// Set the loop type
 			loop[loopcount].type = END_FOR;
@@ -372,45 +366,38 @@ void lines2func(const line_t *lines, size_t linecount,
 			loopcount++;
 			loopcounter++;
 		} else if (streq(word, "while")) {
-			char lbl[16], lbll[16], lble[16];
-		       	snprintf(lbl , sizeof lbl , ".while_%d"     , loopcounter);
-		       	snprintf(lbll, sizeof lbll, ".while_%d_else", loopcounter);
-		       	snprintf(lble, sizeof lble, ".while_%d_end" , loopcounter);
-			char *lblc  = strclone(lbl );
-			char *lbllc = strclone(lbll);
-			char *lblec = strclone(lble);
+			const char *lbl  = strprintf(".while_%d"     , loopcounter),
+			           *lbll = strprintf(".while_%d_else", loopcounter),
+			           *lble = strprintf(".while_%d_end" , loopcounter);
 			
-			line_label(f, lblc);
+			line_label(f, lbl);
 
-			char istemp; // TODO
+			char istemp;
 			const char *e = parse_expr(f, ptr, &istemp, "bool", &vartypes);
-			line_if(f, e, lbllc, 1);
+			line_if(f, e, lbll, 1);
 			if (istemp)
 				line_destroy(f, e);
 
-			loop[loopcount].jmps = lblc;
-			loop[loopcount]._else = lbllc;
-			loop[loopcount].ends = lblec;
-			loop[loopcount].type = END_WHILE;
+			loop[loopcount].jmps  = lbl;
+			loop[loopcount]._else = lbll;
+			loop[loopcount].ends  = lble;
+			loop[loopcount].type  = END_WHILE;
 
 			loopcount++;
 			loopcounter++;
 		} else if (streq(word, "if")) {
-			char lbll[16], lble[16];
-		       	snprintf(lbll, sizeof lbll, ".if_%d_else", loopcounter);
-		       	snprintf(lble, sizeof lble, ".if_%d_end" , loopcounter);
-			const char *lbllc = strclone(lbll);
-			const char *lblec = strclone(lble);
+			const char *lbll = strprintf(".if_%d_else", loopcounter),
+			           *lble = strprintf(".if_%d_end" , loopcounter);
 
 			char istemp;
 			const char *e = parse_expr(f, ptr, &istemp, "bool", &vartypes);
-			line_if(f, e, lbllc, 1);
+			line_if(f, e, lbll, 1);
 			if (istemp)
 				line_destroy(f, e);
 
-			loop[loopcount]._else = lbllc;
-			loop[loopcount].ends = lblec;
-			loop[loopcount].type = END_IF;
+			loop[loopcount]._else = lbll;
+			loop[loopcount].ends  = lble;
+			loop[loopcount].type  = END_IF;
 
 			loopcount++;
 			loopcounter++;
@@ -550,34 +537,31 @@ void lines2func(const line_t *lines, size_t linecount,
 		} else if (h_get(functbl, word) != -1) {
 			_parsefunc(f, oldptr, NULL, functbl, &vartypes);
 		} else {
-			char name[32];
-			strcpy(name, word);
+			const char *name = strclone(word);
 			NEXTWORD;
 
 			if (streq(word, "=")) {
 				const char *p = ptr;
 				NEXTWORD;
 				if (h_get(functbl, word) != -1) {
-					_parsefunc(f, p, strclone(name), functbl, &vartypes); 
+					_parsefunc(f, p, name, functbl, &vartypes); 
 				} else {
 					char etemp;
 					const char *type;
 					const char *arr, *index;
-					const char *v, *e;
+					const char *e;
 					if (is_array_dereference(name, &arr, &index)) {
 						if (h_get2(&vartypes, arr, (size_t *)&type) < 0)
 							EXIT(1, "Variable '%s' not declared", arr);
 						const char *de    = strchr(type, '[');
 						const char *dtype = strnclone(type, de - type);
-						v = arr;
 						e = parse_expr(f, p, &etemp, dtype, &vartypes);
 						line_store(f, arr, index, e);
 					} else {
 						if (h_get2(&vartypes, name, (size_t *)&type) < 0)
 							EXIT(1, "Variable '%s' not declared", name);
-						v = strclone(name);
 						e = parse_expr(f, p, &etemp, type, &vartypes);
-						line_assign(f, v, e);
+						line_assign(f, name, e);
 					}
 					// Destroy expression variable if newly allocated
 					if (etemp)

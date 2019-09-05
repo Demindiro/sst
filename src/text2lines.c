@@ -327,13 +327,11 @@ int text2lines(const char *text,
 				_substitute_char_with_num((const char **)&e, &e);
 			} while (*e++ != 0);
 			// TODO: braces
-			char buf[2048];
-			snprintf(buf, sizeof buf, "%s = %s %c %s", buf0, buf0, op, buf1);
+			pos2_t p = _getpos(pos, poscount, *c);
+			lns[lc].text = strprintf("%s = %s %c %s", buf0, buf0, op, buf1);
+			lns[lc].pos  = p.p;
 			free(buf0);
 			free(buf1);
-			pos2_t p = _getpos(pos, poscount, *c);
-			lns[lc].text = strclone(buf);
-			lns[lc].pos  = p.p;
 			lc++;
 			c++;
 			continue;

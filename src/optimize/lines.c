@@ -231,9 +231,7 @@ static int _fast_div(struct func *f, size_t *i)
 			}
 			if (n == 1) {
 				fl.m->op = MATH_RSHIFT;
-				char b[16];
-				snprintf(b, sizeof b, "%lu", l);
-				fl.m->z  = strclone(b);
+				fl.m->z  = strprintf("%lu", l);
 				return 1;
 			}
 		} else if (fl.m->op == MATH_MOD) {
@@ -246,9 +244,7 @@ static int _fast_div(struct func *f, size_t *i)
 			}
 			if (n == 1) {
 				fl.m->op = MATH_AND;
-				char b[16];
-				snprintf(b, sizeof b, "0x%lx", oz - 1);
-				fl.m->z  = strclone(b);
+				fl.m->z  = strprintf("0x%lx", oz - 1);
 				return 1;
 			}
 		}
@@ -312,9 +308,7 @@ static int _substitute_var(struct func *f, size_t *i)
 		if (streq(fl0.d->var, fl1.a->var) &&
 		    streq(fl1.a->value, fl2.d->var)) {
 			const char *v = fl0.d->var, *w = fl2.d->var;
-			char b[256];
-			snprintf(b, sizeof b, "%s_s", w);
-			const char *u = strclone(b);
+			const char *u = strprintf("%s_s", w);
 			f->lines[*i] = f->lines[*i + 1];
 			REMOVERANGE(*i, *i + 3);
 			for (size_t j = *i; j < f->linecount; j++) {
@@ -516,12 +510,10 @@ static int _precompute_math(func f, size_t *i)
 		case MATH_MOD: x = y - (y / z) * z; break;
 		default: return 0; // Nevermind I guess
 		}
-		char buf[21];
-		snprintf(buf, sizeof buf, "%lu", x);
 		struct func_line_assign *a = malloc(sizeof *a);
 		a->type = ASSIGN;
 		a->var       = m->x;
-		a->value     = strclone(buf);
+		a->value     = strprintf("%lu", x);
 		f->lines[*i] = (struct func_line *)a;
 	}
 	return 0;

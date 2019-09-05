@@ -28,9 +28,7 @@ static const char *deref_arr(const char *w, struct func *f,
 			EXIT(1, "Variable '%s' of type '%s' cannot be dereferenced", array, type);
 		type = strnclone(type, tq - type);
 		// Create temporary variable
-		char var[16];
-		snprintf(var, sizeof var, "__elem%d", counter++);
-		char *v = strclone(var);
+		char *v = strprintf("__elem%d", counter++);;
 		// Add lines
 		line_declare(f, v, type);
 		line_math(f, MATH_LOADAT, v, array, index);

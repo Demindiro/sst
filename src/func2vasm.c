@@ -35,12 +35,12 @@ static void _reserve_stack_space(union vasm_all **v, size_t *vc, char reg, const
 	if (c != NULL) {
 		c++;
 		const char *d = strchr(c, ']');
-		char b[64];
 		if (c == d) {
 			// Dynamic array
 			return;
 		} else {
 			// Fixed array
+			char b[21];
 			memcpy(b, c, d - c);
 			b[d - c] = 0;
 			size_t l = atol(b);
@@ -48,13 +48,12 @@ static void _reserve_stack_space(union vasm_all **v, size_t *vc, char reg, const
 			b[(c - 1) - type] = 0;
 			l *= _get_type_size(b);
 			DEBUG("%lu bytes allocated on stack", l);
-			snprintf(b, sizeof b, "%lu", l);
 
 			union vasm_all a;
 
 			a.rs.op = OP_SET;
 			a.rs.r  = 29;
-			a.rs.s= strclone(b);
+			a.rs.s  = strprintf("%lu", l);
 			(*v)[(*vc)++] = a;
 
 			a.r2.op = OP_MOV;
@@ -155,7 +154,6 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 		a.op     = OP_SET;
 		a.rs.r   = i;
 		const char *key, *val;
-		char b[64];
 		static size_t bc = 0;
 		char use_y;
 		switch (l.line->type) {
@@ -164,9 +162,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			val = l.a->value;
 			break;
 		case MATH:
-			snprintf(b, sizeof b, "_const_%lu", bc);
+			key = strprintf("__const_%lu", bc);
 			bc++;
-			key = strclone(b);
 			if (isnum(*l.m->y)) {
 				use_y = 1;
 				val = l.m->y;

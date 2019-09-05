@@ -257,9 +257,7 @@ done:
 
 	// Create a temporary variable
 	static size_t tempvarcounter = 0;
-	char tempvarb[32];
-	snprintf(tempvarb, sizeof tempvarb, "__e%lu", tempvarcounter++);
-	const char *x = strclone(tempvarb);
+	const char *x = strprintf("__e%lu", tempvarcounter++);
 
 	// Declare it
 	line_declare(f, x, type);

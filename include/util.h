@@ -2,6 +2,7 @@
 #define UTIL_H
 
 #include <errno.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -53,6 +54,15 @@ static char *num2str(ssize_t n)
 {
 	char buf[22];
 	snprintf(buf, sizeof buf, "%ld", n);
+	return strclone(buf);
+}
+static char *strprintf(const char *fmt, ...)
+{
+	char buf[4096];
+	va_list args;
+	va_start(args, fmt);
+	vsnprintf(buf, sizeof buf, fmt, args);
+	va_end(args);
 	return strclone(buf);
 }
 #pragma GCC diagnostic pop
