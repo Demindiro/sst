@@ -27,12 +27,15 @@ linker:		build/linker
 
 dumper:		build/dump
 
-cisc2risc-interpreter: src/interpreter/cisc2risc.c src/vasm.c include/vasm.h
+c2r: src/interpreter/cisc2risc.c src/vasm.c include/vasm.h
 	$(CC) $(INCLUDE) $(CFLAGS) -T src/interpreter/cisc2risc.lds $+ -o $(OUTPUT)/interpreter
 
-cisc2risc64-interpreter: src/interpreter/cisc2risc64.c src/vasm.c include/vasm.h
+c2r64: src/interpreter/cisc2risc64.c src/vasm.c include/vasm.h
 	#$(CC) $(INCLUDE) $(CFLAGS) $+ -o $(OUTPUT)/interpreter
 	$(CC) $(INCLUDE) $(CFLAGS) -T src/interpreter/cisc2risc64.lds $+ -o $(OUTPUT)/interpreter
+
+be2h: src/interpreter/be2h.c include/vasm.h
+	$(CC) $(INCLUDE) $(CFLAGS) $+ -o $(OUTPUT)/interpreter
 
 include std.mk
 include test.mk

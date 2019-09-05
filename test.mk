@@ -1,6 +1,6 @@
 SH = sh
 
-TEST_LIB = -L $(STD_DIR)/_start.sso -L $(STD_DIR)/core/io.sso
+TEST_LIB = -L $(STD_DIR)/_start.sso
 
 _ssc := $(SSC) $(TEST_LIB)
 

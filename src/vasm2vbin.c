@@ -237,6 +237,7 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		case OP_JPZ:
 			vbin[vbinlen] = a.rs.r;
 			vbinlen++;
+#if 1
 			val = _getlblpos(a.rs.s, map);
 			if (val != -1) {
 				ssize_t d = (ssize_t)val - (ssize_t)vbinlen;
@@ -280,6 +281,7 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 					}
 				}
 			}
+#endif
 			val = -1;
 			if (isnum(*a.rs.s))
 				val = strtol(a.rs.s, NULL, 0);
