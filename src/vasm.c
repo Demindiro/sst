@@ -146,7 +146,6 @@ int vasm2str(union vasm_all a, char *buf, size_t bufsize) {
 	default:
 		snprintf(buf, bufsize, "???");
 		return -1;
-		EXIT(3, "Unknown OP (%d)", a.op);
 	}
 
 	switch (get_vasm_args_type(a.op)) {
