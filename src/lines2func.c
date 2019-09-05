@@ -160,16 +160,22 @@ void lines2func(const line_t *lines, size_t linecount,
 
 	size_t li = 0;
 	line_t line = lines[li];
-	struct func_line_goto  *loopjmps[16];
-	struct func_line_math  *formath[16];
-	const char *loopvars[16];
-	struct func_line_label *loopelse[16];
-	struct func_line_label *loopends[16];
-	char looptype[16];
-	int  loopcounter = 0;
-	int  loopcount   = 0;
 	struct hashtbl vartypes;
 	h_create(&vartypes, 16);
+
+	// ---
+	struct {
+		const char *iterator;
+		const char *incrementer;
+		const char *jmps;
+		const char *vars;
+		const char *_else;
+		const char *ends;
+		int type;
+	} loop[16];
+	int loopcounter = 0;
+	int loopcount   = 0;
+	// ---
 
 	// Add function parameters to vartypes
 	for (size_t i = 0; i < f->argcount; i++)
@@ -177,77 +183,83 @@ void lines2func(const line_t *lines, size_t linecount,
 
 	for ( ; ; ) {
 
-		#define NEXTWORD do {				\
-			oldptr = ptr;				\
-			const char *_ptr = ptr;			\
-			while (*ptr != ' ' && *ptr != 0)	\
-				ptr++;				\
-			memcpy(word, _ptr, ptr - _ptr);		\
-			word[ptr - _ptr] = 0;			\
-			if (*ptr != 0)				\
-				ptr++;				\
-		} while (0)
+#define END_FOR   1
+#define END_WHILE 2
+#define END_IF    3
+
+#define NEXTWORD do {				\
+	oldptr = ptr;				\
+	const char *_ptr = ptr;			\
+	while (*ptr != ' ' && *ptr != 0)	\
+		ptr++;				\
+	memcpy(word, _ptr, ptr - _ptr);		\
+	word[ptr - _ptr] = 0;			\
+	if (*ptr != 0)				\
+		ptr++;				\
+} while (0)
 
 		// Parse first word
 		char word[32];
 		const char *ptr = line.text, *oldptr;
 		NEXTWORD;
 		
-		union func_line_all_p flp;
-		union func_line_all_p fl; // <-- Use this
+		union func_line_all_p fl;
 		// Determine line type
 		if (streq(word, "break")) {
 			size_t l = loopcount - 1;
-			while (l >= 0 && looptype[l] == 3)
+			while (l >= 0 && loop[l].type == END_IF)
 				l--;
 			if (l >= 0)
-				line_goto(f, loopends[l]->label);
+				line_goto(f, loop[l].ends);
 			else
 				EXIT(1, "'break' outside loop");
 		} else if (streq(word, "end")) {
 			if (loopcount > 0) {
 				loopcount--;
-				if (loopelse[loopcount] != NULL) {
-					switch (looptype[loopcount]) {
-					case 1:
-						insert_line(f, (struct func_line *)formath[loopcount]);
-					case 2:
-						insert_line(f, (struct func_line *)loopjmps[loopcount]);
-					case 3:
-						if (looptype[loopcount] == 1 &&
-						    !isnum(*loopvars[loopcount]))
-							line_destroy(f, loopvars[loopcount]);
-						insert_line(f, (struct func_line *)loopelse[loopcount]);
+				if (loop[loopcount]._else != NULL) {
+					switch (loop[loopcount].type) {
+					case END_FOR:
+						; const char *i = loop[loopcount].iterator   ,
+						             *c = loop[loopcount].incrementer;
+						line_math(f, MATH_ADD, i, i, c);
+					case END_WHILE:
+						line_goto(f, loop[loopcount].jmps);
+					case END_IF:
+						if (loop[loopcount].type == END_FOR &&
+						    !isnum(*loop[loopcount].vars))
+							line_destroy(f, loop[loopcount].vars);
+						line_label(f, loop[loopcount]._else);
 						break;
 					default:
-						EXIT(1, "Invalid loop type (%d)", looptype[loopcount]);
+						EXIT(3, "Invalid loop type (%d)", loop[loopcount].type);
 					}
 				}
-				insert_line(f, (struct func_line *)loopends[loopcount]);
+				line_label(f, loop[loopcount].ends);
 			} else {
 				break;
 			}
 		} else if (streq(word, "else")) {
 			if (loopcount > 0) {
 				loopcount--;
-				switch (looptype[loopcount]) {
-				case 1:
-					insert_line(f, (struct func_line *)formath[loopcount]);
-				case 2:
-					insert_line(f, (struct func_line *)loopjmps[loopcount]);
+				switch (loop[loopcount].type) {
+				case END_FOR:
+					; const char *i = loop[loopcount].iterator   ,
+					             *c = loop[loopcount].incrementer;
+					line_math(f, MATH_ADD, i, i, c);
+				case END_WHILE:
+					line_goto(f, loop[loopcount].jmps);
 					goto noend;
-				case 3:
-					DEBUG("GOTO      '%s'", loopends[loopcount]->label);
-					line_goto(f, loopends[loopcount]->label);
+				case END_IF:
+					line_goto(f, loop[loopcount].ends);
 				noend:
-					if (looptype[loopcount] == 1 &&
-					    !isnum(*loopvars[loopcount]))
-						line_destroy(f, loopvars[loopcount]);
-					insert_line(f, (struct func_line *)loopelse[loopcount]);
-					loopelse[loopcount] = NULL;
+					if (loop[loopcount].type == 1 &&
+					    !isnum(*loop[loopcount].vars))
+						line_destroy(f, loop[loopcount].vars);
+					line_label(f, loop[loopcount]._else);
+					loop[loopcount]._else = NULL;
 					break;
 				default:
-					EXIT(1, "Invalid loop type (%d)", looptype[loopcount]);
+					EXIT(3, "Invalid loop type (%d)", loop[loopcount].type);
 				}
 				loopcount++;
 			} else {
@@ -340,31 +352,21 @@ void lines2func(const line_t *lines, size_t linecount,
 			}
 
 			// Set loop incrementer
-			formath[loopcount] = calloc(sizeof *formath[loopcount], 1);
-			formath[loopcount]->type = MATH;
-			formath[loopcount]->op        = MATH_ADD;
-			formath[loopcount]->x         = iterator;
-			formath[loopcount]->y         = iterator;
-			formath[loopcount]->z         = "1";
+			loop[loopcount].iterator    = iterator;
+			loop[loopcount].incrementer = "1";
 
 			// Set loop repeat goto
-			loopjmps[loopcount] = calloc(sizeof *loopjmps[loopcount], 1);
-			loopjmps[loopcount]->type = GOTO;
-			loopjmps[loopcount]->label     = strclone(lbl);
+			loop[loopcount].jmps = strclone(lbl);
 
 			// Set label for if the loop ended without interruption (break)
-			loopelse[loopcount] = calloc(sizeof *loopelse[loopcount], 1);
-			loopelse[loopcount]->type = LABEL;
-			loopelse[loopcount]->label     = strclone(lbll);
+			loop[loopcount]._else = strclone(lbll);
 
 			// Set label for if the loop was interrupted
-			loopends[loopcount] = calloc(sizeof *loopends[loopcount], 1);
-			loopends[loopcount]->type = LABEL;
-			loopends[loopcount]->label     = strclone(lble);
+			loop[loopcount].ends = strclone(lble);
 
 			// Set the loop type
-			looptype[loopcount] = 1;
-			loopvars[loopcount] = toval;
+			loop[loopcount].type = END_FOR;
+			loop[loopcount].vars = toval;
 
 			// Increment counters
 			loopcount++;
@@ -386,20 +388,10 @@ void lines2func(const line_t *lines, size_t linecount,
 			if (istemp)
 				line_destroy(f, e);
 
-			flp.g = calloc(sizeof *flp.g, 1);
-			flp.g->type    = GOTO;
-			flp.g->label        = lblc;
-			loopjmps[loopcount] = flp.g;
-
-			loopelse[loopcount] = calloc(sizeof *loopelse[loopcount], 1);
-			loopelse[loopcount]->type = LABEL;
-			loopelse[loopcount]->label     = lbllc;
-
-			loopends[loopcount] = calloc(sizeof *loopends[loopcount], 1);
-			loopends[loopcount]->type = LABEL;
-			loopends[loopcount]->label     = lblec;
-
-			looptype[loopcount] = 2;
+			loop[loopcount].jmps = lblc;
+			loop[loopcount]._else = lbllc;
+			loop[loopcount].ends = lblec;
+			loop[loopcount].type = END_WHILE;
 
 			loopcount++;
 			loopcounter++;
@@ -416,15 +408,9 @@ void lines2func(const line_t *lines, size_t linecount,
 			if (istemp)
 				line_destroy(f, e);
 
-			loopelse[loopcount] = calloc(sizeof *loopelse[loopcount], 1);
-			loopelse[loopcount]->type = LABEL;
-			loopelse[loopcount]->label     = lbllc;
-
-			loopends[loopcount] = calloc(sizeof *loopends[loopcount], 1);
-			loopends[loopcount]->type = LABEL;
-			loopends[loopcount]->label     = lblec;
-
-			looptype[loopcount] = 3;
+			loop[loopcount]._else = lbllc;
+			loop[loopcount].ends = lblec;
+			loop[loopcount].type = END_IF;
 
 			loopcount++;
 			loopcounter++;
