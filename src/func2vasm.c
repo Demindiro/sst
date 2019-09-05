@@ -8,6 +8,7 @@
 #include "hashtbl.h"
 #include "util.h"
 #include "text2vasm.h"
+#include "types.h"
 
 
 
@@ -16,14 +17,20 @@
 
 static size_t _get_type_size(const char *type)
 {
-	if (streq(type, "long" ) || streq(type, "ulong" ))
+	struct type t;
+	if (get_type(&t, type) < 0)
+		EXIT(3, "Unknown type '%s'", type);
+	switch (t.type) {
+	case TYPE_NUMBER:
+		; struct type_meta_number *mn = (void *)&t.meta;
+		return mn->size;
+	case TYPE_POINTER:
+	case TYPE_ARRAY:
+	case TYPE_CLASS:
 		return 8;
-	if (streq(type, "int"  ) || streq(type, "uint"  ))
-		return 4;
-	if (streq(type, "short") || streq(type, "ushort"))
-		return 2;
-	if (streq(type, "byte" ) || streq(type, "ubyte" ))
-		return 1;
+	case TYPE_STRUCT:
+		EXIT(4, "");
+	}
 	EXIT(1, "Unknown size for type '%s'", type);
 }
 

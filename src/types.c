@@ -20,7 +20,7 @@ static int _add_type(const char *name, struct type_meta *m, size_t ms,
 		if (types == NULL)
 			h_create(&typestable, 4);
 		size_t n = typescapacity * 3 / 2 + 1;
-		void  *a = realloc(types, n);
+		void  *a = realloc(types, n * sizeof *types);
 		if (a == NULL)
 			return -1;
 		typescapacity = n;
@@ -68,25 +68,52 @@ int add_type_struct(const char *name, const char *names,
 }
 
 
+int is_type(const char *name)
+{
+	struct type dummy;
+	return get_type(&dummy, name) + 1;
+}
+
 
 int get_type(struct type *dest, const char *name)
 {
 	size_t l = strlen(name);
+	char ddname[1024];
 
 	if (l == 0)
 		return -1;
 
 	if (name[l - 1] == '*') {
+
+		const char *p = strchr(name, '*');
+		memcpy(ddname, name, p - name);
+		ddname[p - name] = 0;
+		size_t dummy;
+		if (typescount == 0 || h_get2(&typestable, ddname, &dummy) < 0)
+			return -1;
+
 		dest->name = name;
 		dest->type = TYPE_POINTER;
 	} else if (name[l - 1] == ']') {
-		if (l == 1 || name[l - 2] != '[')
+		size_t i = 1;
+		while (name[i] != '[') {
+			if (i == l)
+				return -1;
+			i++;
+		}
+
+		const char *p = strchr(name, '[');
+		memcpy(ddname, name, p - name);
+		ddname[p - name] = 0;
+		size_t dummy;
+		if (typescount == 0 || h_get2(&typestable, ddname, &dummy) < 0)
 			return -1;
+
 		dest->name = name;
 		dest->type = TYPE_ARRAY;
 	} else {
 		size_t i = 0;
-		if (h_get2(&typestable, name, &i) < 0)
+		if (typescount == 0 || h_get2(&typestable, name, &i) < 0)
 			return -1;
 		*dest = types[i];
 	}
@@ -148,7 +175,7 @@ int get_deref_type(struct type *dest, const char *name)
 
 	// Get non-pointer/array type
 	size_t i;
-	if (h_get2(&typestable, dname, &i) < 0)
+	if (typescount == 0 || h_get2(&typestable, dname, &i) < 0)
 		return -1;
 
 	*dest = types[i];
@@ -159,7 +186,7 @@ int get_deref_type(struct type *dest, const char *name)
 int get_type_size(const char *name, size_t *size)
 {
 	size_t i;
-	if (h_get2(&typestable, name, &i) < 0)
+	if (typescount == 0 || h_get2(&typestable, name, &i) < 0)
 		return -1;
 	struct type *t = &types[i];
 	if (t->type == TYPE_NUMBER) {

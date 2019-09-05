@@ -84,6 +84,12 @@ int add_type_struct(const char *name, const char *membernames,
 
 
 /**
+ * Checks if a name maps to a type
+ */
+int is_type(const char *name);
+
+
+/**
  * Gets a type.
  */
 int get_type(struct type *dest, const char *name);

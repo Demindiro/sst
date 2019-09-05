@@ -142,6 +142,7 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 			} else {
 				EXIT(3, "Unexpected OP (%d)", a.op);
 			}
+			break;
 		case ARGS_TYPE_REGBYTE:
 		case ARGS_TYPE_REGSHORT:
 		case ARGS_TYPE_REGINT:

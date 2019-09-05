@@ -18,6 +18,7 @@
 #include "optimize/lines.h"
 #include "optimize/vasm.h"
 #include "optimize/branch.h"
+#include "types.h"
 
 
 
@@ -290,6 +291,19 @@ static void _parse_args(int argc, char **argv)
 }
 
 
+static void _init()
+{
+	if (add_type_number( "long" , 8, 1) < 0 ||
+	    add_type_number("ulong" , 8, 0) < 0 ||
+	    add_type_number( "int"  , 4, 1) < 0 ||
+	    add_type_number("uint"  , 4, 0) < 0 ||
+	    add_type_number( "short", 2, 1) < 0 ||
+	    add_type_number("ushort", 2, 0) < 0 ||
+	    add_type_number( "byte" , 1, 1) < 0 ||
+	    add_type_number("ubyte" , 1, 0) < 0 ||
+	    add_type_number( "bool" , 1, 0) < 0)
+		EXIT(3, "Failed to initialize builtin types");
+}
 
 
 int main(int argc, char **argv)
@@ -305,6 +319,8 @@ int main(int argc, char **argv)
 	struct func *funcs;
 	size_t funccount;
 	struct hashtbl functbl;
+
+	_init();
 
 	// Read source
 	char buf[0x10000];

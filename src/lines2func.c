@@ -5,6 +5,7 @@
 #include "expr.h"
 #include "func.h"
 #include "hashtbl.h"
+#include "types.h"
 #include "util.h"
 
 
@@ -525,10 +526,7 @@ void lines2func(const line_t *lines, size_t linecount,
 			while (!streq(lines[li].text, "end"))
 				vasms[vasmcount++] = lines[li++].text;
 			line_asm(f, vasms, vasmcount, invars, inregs, incount, outvars, outregs, outcount);
-		} else if (
-			streq(word, "bool") || streq(word, "byte") || streq(word, "byte[21]") ||
-			streq(word, "byte[4096]") ||
-			streq(word, "long") || /* TODO */ streq(word, "byte[]")) {
+		} else if (is_type(word)) {
 			char *type = strclone(word);
 			NEXTWORD;
 			char *name = strclone(word);
