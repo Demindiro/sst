@@ -69,7 +69,7 @@ build/assembler:	src/assembler.c		src/vasm2vbin.c		\
 	@echo Building assembler
 	@$(cc)
 
-build/interpreter:	src/interpreter.c				\
+build/interpreter:	src/interpreter/base.c				\
 			include/vasm.h
 	@echo Building interpreter
 	@$(cc)
