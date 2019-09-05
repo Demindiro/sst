@@ -1,5 +1,6 @@
 #include "optimize/branch.h"
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 #include "func.h"
 #include "hashtbl.h"

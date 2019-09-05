@@ -20,6 +20,6 @@ extern enum optimize_lines_options {
 	IMMEDIATE_GOTO         = 1L << 13,
 } optimize_lines_options;
 
-int optimize_func_linear(struct func *f);
+int optimize_func_linear(func f);
 
 #endif

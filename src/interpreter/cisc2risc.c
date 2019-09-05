@@ -11,16 +11,15 @@
  */
 
 
-#include <assert.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <endian.h>
 #include <x86intrin.h>
 #include "vasm.h"
+#include "util.h"
 
 
 static char    mem[0x100000];

@@ -3,10 +3,12 @@
  */
 
 
+#include <endian.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include "util.h"
 #include "vasm.h"
 
 

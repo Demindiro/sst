@@ -1,11 +1,6 @@
 #include "optimize/vasm.h"
-#include <unistd.h>
-#include <fcntl.h>
 #include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include "vasm.h"
-#include "hashtbl.h"
 #include "util.h"
 
 

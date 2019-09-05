@@ -1,12 +1,9 @@
-#include <unistd.h>
-#include <fcntl.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <endian.h>
 #include "text2vasm.h"
 #include "vasm.h"
+#include "util.h"
 
 
 #define FUNC_LINE_NONE   0

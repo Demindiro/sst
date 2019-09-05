@@ -84,28 +84,13 @@ static int64_t regs[32];
 
 #define JUMPIF(m,c) do {				\
 	REG1;						\
-	val = *(uint64_t *)(mem + ip);			\
-	val = be64toh(val);				\
-	*(uint64_t *)(mem + ip) = val;			\
 	if (c) {					\
-		ip = val;				\
+		ip = *(size_t *)(mem + ip);		\
+		ip = be64toh(ip);			\
 		DEBUG(m "\t0x%lx,r%d\t(%lu, true)",	\
 		      ip, regi, REGI);			\
 	} else {					\
 		DEBUG(m "\t0x%lx,r%d\t(%lu, false)",	\
-		      ip, regi, REGI);			\
-		ip += sizeof ip;			\
-	}						\
-} while (0)
-
-#define H_JUMPIF(m,c) do {				\
-	REG1;						\
-	if (c) {					\
-		ip = *(size_t *)(mem + ip);		\
-		DEBUG("H_" m "\t0x%lx,r%d\t(%lu, true)",\
-		      ip, regi, REGI);			\
-	} else {					\
-		DEBUG("H_" m "\t0x%lx,r%d\t(%lu, false)",\
 		      ip, regi, REGI);			\
 		ip += sizeof ip;			\
 	}						\
@@ -200,18 +185,6 @@ static void vasm_syscall() {
 #define LROT8(x,y)  LROT(uint8_t,x,y)
 
 
-enum host_op {
-	HOST_SETL = OP_OP_LIMIT,
-	HOST_SETI,
-	HOST_SETS,
-	HOST_JMP,
-	HOST_JZ,
-	HOST_JNZ,
-	HOST_JP,
-	HOST_JPZ,
-	HOST_CALL,
-};
-
 
 static void run() {
 
@@ -280,16 +253,6 @@ static void run() {
 		[OP_LESSE] = &&op_lesse,
 
 		[OP_SYSCALL] = &&op_syscall,
-
-		[HOST_SETL] = &&host_setl,
-		[HOST_SETI] = &&host_seti,
-		[HOST_SETS] = &&host_sets,
-		[HOST_JMP]  = &&host_jmp,
-		[HOST_JZ]   = &&host_jz,
-		[HOST_JNZ]  = &&host_jnz,
-		[HOST_JP]   = &&host_jp,
-		[HOST_JPZ]  = &&host_jpz,
-		[HOST_CALL] = &&host_call,
 	};
 
 	uint64_t ip = 0;
@@ -316,23 +279,12 @@ static void run() {
 		continue;
 
 	op_call:
-		mem[ip-1] = HOST_CALL;
 		addr = htobe64(ip + sizeof ip);
-		*(uint64_t *)(mem + sp) = addr;
+		*(size_t *)(mem + sp) = addr;
 		sp += sizeof ip;
-		val = *(uint64_t *)(mem + ip);
-		val = be64toh(val);
-		*(uint64_t *)(mem + ip) = val;
-		ip = val;
+		ip = *(size_t *)(mem + ip);
+		ip = be64toh(ip);
 		DEBUG("call\t0x%lx", ip);
-		continue;
-
-	host_call:
-		addr = htobe64(ip + sizeof ip);
-		*(uint64_t *)(mem + sp) = addr;
-		sp += sizeof ip;
-		ip = *(uint64_t *)(mem + ip);
-		DEBUG("H_call\t0x%lx", ip);
 		continue;
 
 	op_ret:
@@ -343,53 +295,25 @@ static void run() {
 		continue;
 
 	op_jmp:
-		mem[ip-1] = HOST_JMP;
-		val = *(uint64_t *)(mem + ip);
-		val = be64toh(val);
-		*(uint64_t *)(mem + ip) = val;
-		ip = val;
+		ip = *(size_t *)(mem + ip);
+		ip = be64toh(ip);
 		DEBUG("jmp\t0x%lx", ip);
 		continue;
 
-	host_jmp:
-		ip = *(uint64_t *)(mem + ip);
-		DEBUG("H_jmp\t0x%lx", ip);
-		continue;
-
 	op_jz:
-		mem[ip-1] = HOST_JZ;
 		JUMPIF("jz", !REGI);
 		continue;
 
-	host_jz:
-		H_JUMPIF("jz", !REGI);
-		continue;
-
 	op_jnz:
-		mem[ip-1] = HOST_JNZ;
 		JUMPIF("jnz", REGI);
 		continue;
 
-	host_jnz:
-		H_JUMPIF("jnz", REGI);
-		continue;
-
 	op_jp:
-		mem[ip-1] = HOST_JP;
 		JUMPIF("jp", REGI > 0);
 		continue;
 
-	host_jp:
-		H_JUMPIF("jp", REGI > 0);
-		continue;
-
 	op_jpz:
-		mem[ip-1] = HOST_JPZ;
 		JUMPIF("jpz", REGI >= 0);
-		continue;
-
-	host_jpz:
-		H_JUMPIF("jpz", REGI >= 0);
 		continue;
 
 	op_jmprb:
@@ -556,60 +480,30 @@ static void run() {
 		continue;
 
 	op_setl:
-		mem[ip-1] = HOST_SETL;
 		REG1;
 		val = *(uint64_t *)(mem + ip);
 		val = be64toh(val);
-		*(uint64_t *)(mem + ip) = val;
 		ip += 8;
 		REGI = val;
 		DEBUG("setl\tr%d,%lu\t(%lu)", regi, val, REGI);
 		continue;
 
-	host_setl:
-		REG1;
-		val = *(uint64_t *)(mem + ip);
-		ip += 8;
-		REGI = val;
-		DEBUG("H_setl\tr%d,%lu\t(%lu)", regi, val, REGI);
-		continue;
-
 	op_seti:
-		mem[ip-1] = HOST_SETI;
 		REG1;
 		val = *(uint32_t *)(mem + ip);
 		val = be32toh(val);
-		*(uint32_t *)(mem + ip) = val;
 		ip += 4;
 		REGI = val;
 		DEBUG("seti\tr%d,%lu\t(%lu)", regi, val, REGI);
 		continue;
 
-	host_seti:
-		REG1;
-		val = *(uint32_t *)(mem + ip);
-		ip += 4;
-		REGI = val;
-		DEBUG("H_seti\tr%d,%lu\t(%lu)", regi, val, REGI);
-		continue;
-
 	op_sets:
-		mem[ip-1] = HOST_SETS;
 		REG1;
 		val = *(uint16_t *)(mem + ip);
 		val = be16toh(val);
-		*(uint16_t *)(mem + ip) = val;
 		ip += 2;
 		REGI = val;
 		DEBUG("sets\tr%d,%lu\t(%lu)", regi, val, REGI);
-		continue;
-
-	host_sets:
-		REG1;
-		val = *(uint16_t *)(mem + ip);
-		ip += 2;
-		REGI = val;
-		DEBUG("H_sets\tr%d,%lu\t(%lu)", regi, val, REGI);
 		continue;
 
 	op_setb:

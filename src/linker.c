@@ -6,6 +6,8 @@
 #include <endian.h>
 #include <stdint.h>
 #include "hashtbl.h"
+#include "vasm.h"
+#include "util.h"
 
 
 int main(int argc, char **argv) {

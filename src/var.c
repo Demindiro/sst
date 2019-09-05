@@ -1,14 +1,8 @@
-#include <assert.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <string.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include "expr.h"
 #include "func.h"
 #include "hashtbl.h"
 #include "util.h"
-#include "vasm.h"
 
 
 static const char *deref_arr(const char *w, struct func *f,

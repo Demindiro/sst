@@ -1,7 +1,4 @@
 #include "lines2func.h"
-#include <assert.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,8 +6,6 @@
 #include "func.h"
 #include "hashtbl.h"
 #include "util.h"
-#include "var.h"
-#include "vasm.h"
 
 
 

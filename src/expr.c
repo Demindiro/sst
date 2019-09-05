@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <string.h>
 #include "expr.h"
 #include "func.h"
 #include "hashtbl.h"

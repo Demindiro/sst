@@ -1,12 +1,11 @@
 #include "optimize/lines.h"
 #include <assert.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "func.h"
 #include "hashtbl.h"
-#include "lines.h"
 #include "util.h"
 
 

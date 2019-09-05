@@ -1,4 +1,9 @@
 #include "types.h"
+#include <stdlib.h>
+#include <stddef.h>
+#include <string.h>
+#include "hashtbl.h"
+#include "util.h"
 
 
 static struct type *types;
@@ -7,7 +12,7 @@ static size_t typescount, typescapacity;
 
 
 static int _add_type(const char *name, struct type_meta *m, size_t ms,
-                     enum type type)
+                     enum type_type type)
 {
 	struct type t = { .name = name, .type = type };
 	memcpy(&t.meta, m, ms);
@@ -29,7 +34,7 @@ static int _add_type(const char *name, struct type_meta *m, size_t ms,
 int add_type_number(const char *name, size_t size, int _signed)
 {
 	struct type_meta_number m = { .size = size, ._signed = _signed };
-	return _add_type(nae, &m, sizeof m, TYPE_NUMBER);
+	return _add_type(name, (struct type_meta *)&m, sizeof m, TYPE_NUMBER);
 }
 
 
@@ -44,7 +49,7 @@ int add_type_class(const char *name, const char *names,
 		free(m.types);
 		return -1;
 	}
-	return _add_type(&m, sizeof m, TYPE_CLASS);
+	return _add_type(name, (struct type_meta *)&m, sizeof m, TYPE_CLASS);
 }
 
 
@@ -59,7 +64,7 @@ int add_type_struct(const char *name, const char *names,
 		free(m.types);
 		return -1;
 	}
-	return _add_type(&m, sizeof m, TYPE_STRUCT);
+	return _add_type(name, (struct type_meta *)&m, sizeof m, TYPE_STRUCT);
 }
 
 
@@ -120,7 +125,7 @@ int get_deref_type(struct type *dest, const char *name)
 	// Check if dereferenced type is pointer or array
 	if (dname[l - 1] == ']') {
 		if (l < 3)
-			return -&;
+			return -1;
 		dest->name = strclone(dname);
 		dest->type = TYPE_ARRAY;
 		struct type_meta_array *m = (void *)&dest->meta;
@@ -154,7 +159,7 @@ int get_deref_type(struct type *dest, const char *name)
 int get_type_size(const char *name, size_t *size)
 {
 	size_t i;
-	if (h_get2(&typestable, dname, &i) < 0)
+	if (h_get2(&typestable, name, &i) < 0)
 		return -1;
 	struct type *t = &types[i];
 	if (t->type == TYPE_NUMBER) {
@@ -164,13 +169,17 @@ int get_type_size(const char *name, size_t *size)
 	           t->type == TYPE_CLASS) {
 		return 8;
 	} else if (t->type == TYPE_STRUCT) {
-		struct type_meta_number *m = (void *)&t->meta;
-		for (size_t i = 0; i < m->count; i++)
+		struct type_meta_struct *m = (void *)&t->meta;
+		size_t s = 0;
+		for (size_t i = 0; i < m->count; i++) {
+			size_t x;
+			if (get_type_size(m->types[i], &x) < 0)
+				return -1;
+			s += x;
+		}
+		*size = s;
 	} else {
 		return -1;
 	}
 	return 0;
 }
-
-
-#endif

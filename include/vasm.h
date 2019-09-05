@@ -1,7 +1,8 @@
 #ifndef VASM_H
 #define VASM_H
 
-#include "util.h"
+
+#include <stddef.h>
 
 
 enum vasm_op {

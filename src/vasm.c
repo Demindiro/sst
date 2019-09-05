@@ -1,5 +1,5 @@
 #include "vasm.h"
-#include <string.h>
+#include <stdio.h>
 #include "util.h"
 
 

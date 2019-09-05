@@ -1,12 +1,7 @@
-#include <unistd.h>
-#include <fcntl.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <endian.h>
-#include <stdint.h>
 #include "hashtbl.h"
-#include "util.h"
 
 
 static size_t h_hash_str(const char *str)

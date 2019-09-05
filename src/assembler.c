@@ -1,10 +1,6 @@
 #include <unistd.h>
 #include <fcntl.h>
-#include <string.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <endian.h>
 #include "util.h"
 #include "vasm.h"
 #include "text2vasm.h"

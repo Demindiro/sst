@@ -2,7 +2,10 @@
 #define TYPES_H
 
 
-enum type {
+#include <stddef.h>
+
+
+enum type_type {
 	TYPE_NUMBER,
 	TYPE_ARRAY,
 	TYPE_POINTER,
@@ -49,7 +52,7 @@ struct type_meta_struct {
 
 struct type {
 	const char      *name;
-	enum type        type;
+	enum type_type   type;
 	struct type_meta meta;
 };
 

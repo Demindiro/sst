@@ -1,12 +1,9 @@
 #include "text2lines.h"
 #include <assert.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "vasm.h"
-#include "hashtbl.h"
+#include "lines.h"
 #include "util.h"
 
 
