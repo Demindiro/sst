@@ -11,8 +11,9 @@ struct branch {
 	struct func_line **lines;
 	size_t linecount, linecap;
 	struct branch *branch0, // Explicit jump
-			    *branch1; // Implicit "jump"
+	              *branch1; // Implicit "jump"
 	size_t refcount;
+	struct branch *refs[16];
 	union {
 		struct func_line        *l;
 		struct func_line_if     *i;
@@ -352,6 +353,61 @@ static int _unroll(struct branch **ba, size_t *bac, size_t *i)
 }
 
 
+
+
+
+/**
+ * Attempt to optimize out the variables without dependencies
+ */
+int _dependency(struct branch *start, hashtbl nodepends) 
+{
+	if (start->refcount == 1) { // One reference is always the entry point
+		start = start->branch1;
+	}
+
+	// Find loop
+	struct branch *b = start;
+	struct branch *b0 = b->branch0, *b1 = start->branch1;
+	while (b != b1->branch0) {
+		if (b1->branch0 == NULL)
+			return 0;
+		b0 = b1->branch0;
+		b1 = b1->branch1;
+	}
+
+	DEBUG("AYYYYYYYYYYYYY");
+	// Check if 'infinite' loop
+	if (b1->branchline.g->type != GOTO)
+		return 0;
+
+	// Check exit conditions
+	struct {
+		const char *var;
+		int must_zero : 1;
+		struct branch *br:
+	} exitconds[64];
+	size_t exitcondcount = 0;
+	b0 = b;
+	while (b0->branch0 != b) {
+		if (b0->branchline != NULL &&
+		    b0->branchline.i->type == IF) {
+			exitconds[exitcondcount].var       = b0->branchline.i->var;
+			exitconds[exitcondcount].must_zero = b0->branchline.i->inv;
+			exitconds[exitcondcount].br        = b0;
+			exitcondcount++;
+		}
+	}
+	DEBUG("AYYYYYYYYYYYYY");
+
+	// Check when the conditions are true
+	if (br->refcount > 1)
+		break;
+	DEBUG("AYYYYYYYYYYYYY");
+	return 0;
+}
+
+
+
 /*****
  * Main function
  ***/
@@ -431,8 +487,8 @@ int optimize_func_branches(func f)
 				assert(i + 1 < bc);
 				b[i].branch0 = &b[bi];
 				b[i].branch1 = &b[i + 1];
-				b[bi   ].refcount++;
-				b[i + 1].refcount++;
+				b[bi   ].refs[b[bi   ].refcount++] = b;
+				b[i + 1].refs[b[i + 1].refcount++] = b;
 				break;
 			case GOTO:
 				if (h_get2(&labels, l.g->label, &bi) < 0) {
@@ -441,7 +497,7 @@ int optimize_func_branches(func f)
 				}
 				b[i].branch0 = &b[bi];
 				b[i].branch1 = NULL;
-				b[bi].refcount++;
+				b[bi].refs[b[bi].refcount++] = b;
 				break;
 			case RETURN:
 				b[i].branch0 = NULL;
@@ -457,7 +513,7 @@ int optimize_func_branches(func f)
 			assert(i + 1 < bc);
 			b[i].branch0 = NULL;
 			b[i].branch1 = &b[i + 1];
-			b[i + 1].refcount++;
+			b[i + 1].refs[b[i + 1].refcount++] = b;
 		}
 	}
 
@@ -478,6 +534,11 @@ int optimize_func_branches(func f)
 		}
 		haschanged |= changed;
 	} while (changed);
+
+	FDEBUG("Performing dependency analyzis");
+	struct hashtbl no_depend_vars;
+	if (optimize_dependency(f, &no_depend_vars) > 0)
+		haschanged |= _dependency(bn[0], &no_depend_vars);
 
 	// Construct function from new blocks
 	FDEBUG("Reconstructing");

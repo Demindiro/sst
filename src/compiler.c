@@ -18,6 +18,7 @@
 #include "optimize/lines.h"
 #include "optimize/vasm.h"
 #include "optimize/branch.h"
+#include "optimize/dependency.h"
 #include "types.h"
 
 
@@ -200,6 +201,7 @@ static void _lines2funcs(const line_t *lines, size_t linecount,
 #if 1
 			changed |= optimize_func_linear(l.func);
 			changed |= optimize_func_branches(l.func);
+			//changed |= optimize_dependency(l.func);
 #endif
 		} while (changed);
 		CLEARCURRENTFUNC;
