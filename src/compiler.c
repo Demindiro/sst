@@ -21,7 +21,6 @@
 #include "types.h"
 
 
-
 enum output {
 	PROCESSED,
 	IMMEDIATE,
@@ -31,39 +30,48 @@ enum output {
 	EXECUTABLE,
 } output_type = EXECUTABLE;
 
+
 const char *output_file;
 const char *input_file;
 const char *libraries[256];
 size_t      librarycount;
 
 
-struct linerange {
+struct {
 	struct func  *func;
 	const line_t *lines;
 	size_t        count;
 	const char   *text;
-};
+} *lineranges;
+size_t linerangescount, linerangescapacity;
 
 
 
-static int _text2lines(const char *buf,
-                       line_t **lines , size_t *linecount,
-		       char ***strings, size_t *stringcount)
+static void _add_func_range(func f, const line_t *lines, size_t count,
+                            const char *text)
 {
-	DEBUG("Converting text to lines");
-	text2lines(buf, lines, linecount, strings, stringcount);
-	line_t *l = *lines;
-	for (size_t i = 0; i < *stringcount; i++)
-		DEBUG(".str_%lu = \"%s\"", i, (*strings)[i]);
-	for (size_t i = 0; i < *linecount; i++)
-		DEBUG("%4u:%-2u (%6lu) | '%s'", l[i].pos.y, l[i].pos.x, l[i].pos.c, l[i].text);
-	return 0;
+	if (linerangescount >= linerangescapacity) {
+		size_t n = linerangescapacity * 3 / 2 + 1;
+		void  *a = realloc(lineranges, n * sizeof *lineranges);
+		if (a == NULL)
+			EXITERRNO(3, "Failed to realloc lineranges");
+		lineranges = a;
+		linerangescapacity = n;
+	}
+	size_t i = linerangescount, j = i + 1;
+	while (!__sync_bool_compare_and_swap(&linerangescount, i, j)) {
+		i = linerangescount;
+		j = i + 1;
+	}
+	lineranges[i].func  = f;
+	lineranges[i].lines = lines;
+	lineranges[i].count = count;
+	lineranges[i].text  = text;
 }
 
 
 static size_t _find_func_length(const line_t *lines, size_t linecount, const char *text)
 {
-	DEBUG("Searching for function boundaries");
 	size_t nestlvl = 1, nestlines[256];
 	size_t i = 0;
 	for ( ; i < linecount; i++) {
@@ -93,20 +101,73 @@ static size_t _find_func_length(const line_t *lines, size_t linecount, const cha
 }
 
 
+static void _parse_struct_or_class(const line_t *lines, size_t linecount, size_t *i, const char *text, hashtbl functbl)
+{
+	line_t line = lines[*i];
+	int isclass = strstart(line.text, "class");
+	// Get class/struct name
+	const char *name = strclone(line.text + strlen(isclass ? "class " : "struct "));
+	DEBUG("Parsing %s '%s'", isclass ? "class" : "struct", name);
+	// Find class end while adding members and functions
+	const char *mnames[1024], *mtypes[1024];
+	size_t mcount = 0;
+	(*i)++;
+	line = lines[(*i)++];
+	while (!streq(line.text, "end")) {
+		size_t l = strlen(line.text);
+		if (line.text[l - 1] == ')') {
+			// Add function
+			// Check if function is constructor
+			char b[256];
+			const char *q = strchr(line.text, '(');
+			memcpy(b, line.text, q - line.text);
+			b[q - line.text] = 0;
+			if (streq(b, name)) {
+				line.text = strprintf("%s %s(%s this,%s",
+						name, name, name, q + 1);
+			} else {
+				line.text = strprintf("%s(%s this, %s",
+						b, name, line.text);
+			}
+			struct func *g = calloc(sizeof *g, 1);
+			parsefunc_header(g, line, text);
+			g->name = strprintf("%s.%s", name, g->name);
+			DEBUG("Adding function '%s'", g->name);
+			h_add(functbl, g->name, (size_t)g);
+			size_t l = _find_func_length(lines + *i, linecount - *i, text);
+			_add_func_range(g, lines + *i, l, text);
+			*i += l;
+		} else {
+			// Add member
+			char *p = strchr(line.text, ' ');
+			if (p == NULL)
+				EXIT(1, "Expected member name");
+			mtypes[mcount] = strnclone(line.text, p - line.text);
+			p++;
+			mnames[mcount] = strclone(p);
+			DEBUG("Adding member '%s' of type '%s'", mnames[mcount], mtypes[mcount]);
+			mcount++;
+		}
+		line = lines[(*i)++];
+	}
+	(*i)--;
+	if (isclass)
+		add_type_class(name, mnames, mtypes, mcount);
+	else
+		add_type_struct(name, mnames, mtypes, mcount);
+}
+
+
 static void _include(const char *f, struct hashtbl *functbl,
-                     struct linerange **funclns, size_t *funclncount,
 		     struct hashtbl *incltbl);
 
 
 static void _findboundaries(const line_t *lines, size_t linecount,
 			    struct hashtbl *functbl,
-                            struct linerange **funclns, size_t *funclncount,
 			    struct hashtbl *incltbl,
                             const char *text)
 {
 	h_create(functbl, 4);
-	DEBUG("Parsing lines to functions");
-	DEBUG("Searching for function boundaries");
 	for (size_t i = 0; i < linecount; i++) {
 		line_t line = lines[i];
 		if (strstart(line.text, "extern ")) {
@@ -117,63 +178,9 @@ static void _findboundaries(const line_t *lines, size_t linecount,
 		} else if (strstart(line.text, "include ")) {
 			char f[256];
 			strncpy(f, line.text + strlen("include "), sizeof f); 
-			_include(f, functbl, funclns, funclncount, incltbl);
+			_include(f, functbl, incltbl);
 		} else if (strstart(line.text, "class ") || strstart(line.text, "struct ")) {
-			int isclass = strstart(line.text, "class");
-			// Get class/struct name
-			const char *name = strclone(line.text + strlen(isclass ? "class " : "struct "));
-			DEBUG("Parsing %s '%s'", isclass ? "class" : "struct", name);
-			// Find class end while adding members and functions
-			const char *mnames[1024], *mtypes[1024];
-			size_t mcount = 0;
-			i++;
-			line = lines[i++];
-			while (!streq(line.text, "end")) {
-				size_t l = strlen(line.text);
-				if (line.text[l - 1] == ')') {
-					// Add function
-					// Check if function is constructor
-					char b[256];
-					const char *q = strchr(line.text, '(');
-					memcpy(b, line.text, q - line.text);
-					b[q - line.text] = 0;
-					if (streq(b, name)) {
-						line.text = strprintf("%s %s(%s this,%s",
-								name, name, name, q + 1);
-					} else {
-						line.text = strprintf("%s(%s this, %s",
-								b, name, line.text);
-					}
-					struct func *g = calloc(sizeof *g, 1);
-					parsefunc_header(g, line, text);
-					g->name = strprintf("%s.%s", name, g->name);
-					DEBUG("Adding function '%s'", g->name);
-					h_add(functbl, g->name, (size_t)g);
-					size_t l = _find_func_length(lines + i, linecount - i, text);
-					(*funclns)[*funclncount].func  = g;
-					(*funclns)[*funclncount].lines = lines + i;
-					(*funclns)[*funclncount].count = l;
-					(*funclns)[*funclncount].text  = text;
-					(*funclncount)++;
-					i += l;
-				} else {
-					// Add member
-					char *p = strchr(line.text, ' ');
-					if (p == NULL)
-						EXIT(1, "Expected member name");
-					mtypes[mcount] = strnclone(line.text, p - line.text);
-					p++;
-					mnames[mcount] = strclone(p);
-					DEBUG("Adding member '%s' of type '%s'", mnames[mcount], mtypes[mcount]);
-					mcount++;
-				}
-				line = lines[i++];
-			}
-			i--;
-			if (isclass)
-				add_type_class(name, mnames, mtypes, mcount);
-			else
-				add_type_struct(name, mnames, mtypes, mcount);
+			_parse_struct_or_class(lines, linecount, &i, text, functbl);
 		} else {
 			struct func *g = calloc(sizeof *g, 1);
 			parsefunc_header(g, line, text);
@@ -181,11 +188,7 @@ static void _findboundaries(const line_t *lines, size_t linecount,
 			h_add(functbl, g->name, (size_t)g);
 			i++;
 			size_t l = _find_func_length(lines + i, linecount - i, text);
-			(*funclns)[*funclncount].func  = g;
-			(*funclns)[*funclncount].lines = lines + i;
-			(*funclns)[*funclncount].count = l;
-			(*funclns)[*funclncount].text  = text;
-			(*funclncount)++;
+			_add_func_range(g, lines + i, l, text);
 			i += l - 1;
 		}
 	}
@@ -193,18 +196,13 @@ static void _findboundaries(const line_t *lines, size_t linecount,
 
 
 static void _include(const char *f, struct hashtbl *functbl,
-                     struct linerange **funclns, size_t *funclncount,
 		     struct hashtbl *incltbl)
 {
 	DEBUG("Including %s", f);
 	char buf[0x10000];
 	char *b = buf;
-	for (const char *c = f; *c != 0; b++, c++) {
-		if (*c == '.')
-			*b = '/';
-		else
-			*b = *c;
-	}
+	for (const char *c = f; *c != 0; b++, c++)
+		*b = *c == '.' ? '/' : *c;
 	strcpy(b, ".sst");
 	char cwd[4096];
 	getcwd(cwd, sizeof cwd);
@@ -215,17 +213,17 @@ static void _include(const char *f, struct hashtbl *functbl,
 	size_t n = read(fd, buf, sizeof buf - 1);
 	buf[n] = 0;
 	close(fd);
-	chdir(cwd);
 
 	char  **strings;
 	line_t *lines;
 	size_t stringcount, linecount;
 
-	if (_text2lines(buf, &lines, &linecount, &strings, &stringcount) < 0)
+	if (text2lines(buf, &lines, &linecount, &strings, &stringcount) < 0)
 		EXIT(1, "Failed text to lines stage");
 
-	_findboundaries(lines, linecount, functbl,
-			funclns, funclncount, incltbl, buf);
+	_findboundaries(lines, linecount, functbl, incltbl, buf);
+
+	chdir(cwd);
 }
 
 
@@ -234,36 +232,29 @@ static void _lines2funcs(const line_t *lines, size_t linecount,
                          struct hashtbl *functbl, const char *text)
 {
 	h_create(functbl, 4);
-	struct linerange funclns[1024];
-	size_t funclnc = 0;
-	DEBUG("Parsing lines to functions");
 	struct hashtbl incltbl;
 	h_create(&incltbl, 4);
-	struct linerange *_f = funclns;
 	_findboundaries(lines, linecount, functbl,
-	                &_f, &funclnc,
 			&incltbl, text);
-	DEBUG("%lu functions to be parsed", funclnc);
-	DEBUG("Parsing lines between function boundaries");
-	for (size_t i = 0; i < funclnc; i++) {
-		struct linerange l = funclns[i];
+	DEBUG("%lu functions to be parsed", linerangescount);
+	for (size_t i = 0; i < linerangescount; i++) {
+#define l lineranges[i]
 		l.func->linecount = 0;
 		SETCURRENTFUNC(l.func);
 		lines2func(l.lines, l.count, l.func, functbl, l.text);
 		int changed;
 		do {
 			changed = 0;
-#if 1
 			changed |= optimize_func_linear(l.func);
 			changed |= optimize_func_branches(l.func);
-#endif
 		} while (changed);
 		CLEARCURRENTFUNC;
+#undef l
 	}
-	*funccount = funclnc;
-	*funcs     = malloc(funclnc * sizeof **funcs);
-	for (size_t i = 0; i < funclnc; i++)
-		(*funcs)[i] = *funclns[i].func;
+	*funccount = linerangescount;
+	*funcs     = malloc(linerangescount * sizeof **funcs);
+	for (size_t i = 0; i < linerangescount; i++)
+		(*funcs)[i] = *lineranges[i].func;
 }
 
 
@@ -326,21 +317,20 @@ static void _parse_args(int argc, char **argv)
 		EXIT(1, "No input file specified");
 	if (output_file == NULL) {
 		const char *b = strrchr(input_file, '/') + 1,
-		           *e = strrchr(input_file, '.');
-		char bi[1 << 12], bo[sizeof bi];
+		           *e = strrchr(input_file, '.'),
+			   *fmt;
+		char bi[1 << 12];
 		memcpy(bi, b, e - b);
 		bi[e - b] = 0;
-		const char *fmt;
 		switch (output_type) {
-		case EXECUTABLE   : fmt = "%s"    ; break;
-		case RAW      : fmt = "%s.bin"; break;
-		case OBJECT   : fmt = "%s.sso"; break;
-		case ASSEMBLY : fmt = "%s.ssa"; break;
-		case IMMEDIATE: fmt = "%s.ssi"; break;
-		case PROCESSED: fmt = "%s.sst"; break;
+		case EXECUTABLE: fmt = "%s"    ; break;
+		case RAW       : fmt = "%s.bin"; break;
+		case OBJECT    : fmt = "%s.sso"; break;
+		case ASSEMBLY  : fmt = "%s.ssa"; break;
+		case IMMEDIATE : fmt = "%s.ssi"; break;
+		case PROCESSED : fmt = "%s.sst"; break;
 		}
-		snprintf(bo, sizeof bo, fmt, bi);
-		output_file = strclone(bo);
+		output_file = strprintf(fmt, bi);
 	}
 	if (streq(input_file, output_file))
 		EXIT(1, "Input file cannot be the same as the output file");
@@ -382,16 +372,16 @@ int main(int argc, char **argv)
 	char buf[0x10000];
 	int fd = streq(input_file, "-") ? STDIN_FILENO : open(input_file, O_RDONLY);
 	if (fd < 0)
-		EXITERRNO("Failed to open input file", 1);
+		EXITERRNO(1, "Failed to open input file");
 	size_t n = read(fd, buf, sizeof buf - 1);
 	if (n == -1)
-		EXITERRNO("Failed to read input file", 3);
+		EXITERRNO(3, "Failed to read input file");
 	buf[n] = 0;
 	close(fd);
 
 	// Preprocess source to a more consistent format
 	DEBUG("Preprocessing source");
-	if (_text2lines(buf, &lines, &linecount, &strings, &stringcount) < 0)
+	if (text2lines(buf, &lines, &linecount, &strings, &stringcount) < 0)
 		EXIT(1, "Failed text to lines stage");
 	if (output_type == PROCESSED)
 		goto end;
@@ -469,11 +459,11 @@ int main(int argc, char **argv)
 		size_t k = i + funccount + 1;
 		int fd = open(libraries[i], O_RDONLY);
 		if (fd < 0)
-			EXITERRNO("Failed to open object", 1);
+			EXITERRNO(1, "Failed to open object");
 		char buf[1 << 16];
 		size_t l = read(fd, buf, sizeof buf);
 		if (l == -1)
-			EXITERRNO("Failed to read object", 3);
+			EXITERRNO(3, "Failed to read object");
 		close(fd);
 		vbins[k] = malloc(l);
 		obj_parse(buf, l, vbins[k], &vbinlens[k], &maps[k]);
@@ -492,7 +482,7 @@ end:
 	// Write the output
 	; FILE *_f = streq(output_file, "-") ? stdout : fopen(output_file, "w");
 	if (_f == NULL)
-		EXITERRNO("Failed to open output file", 1);
+		EXITERRNO(1, "Failed to open output file");
 
 	if (output_type == EXECUTABLE) {
 		DEBUG("Writing executable to '%s'", output_file);

@@ -263,7 +263,7 @@ done:
 			if (n >= 2 && i == n - 1) {
 				n -= 2;
 				memmove(vl, vl + 1, n);
-				vl[n] = 0, i = 0;
+				vl[n] = 0, i = -1;
 			} else {
 				break;
 			}
@@ -280,7 +280,7 @@ done:
 			if (n >= 2 && i == n - 1) {
 				n -= 2;
 				memmove(vr, vr + 1, n);
-				vr[n] = 0, i = 0;
+				vr[n] = 0, i = -1;
 			} else {
 				break;
 			}

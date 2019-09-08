@@ -21,7 +21,7 @@ void insert_line(func f, struct func_line *l)
 		size_t s = f->linecap * 3 / 2;
 		struct func_line **t = realloc(f->lines, s * sizeof *t);
 		if (t == NULL)
-			EXITERRNO("Failed to reallocate lines array", 3);
+			EXITERRNO(3, "Failed to reallocate lines array");
 		f->lines   = t;
 		f->linecap = s;
 	}

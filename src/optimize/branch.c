@@ -32,7 +32,7 @@ static void _init_block(struct branch *b)
 	b->linecap      = 4;
 	b->lines        = malloc(b->linecap * sizeof *b->lines);
 	if (b->lines == NULL)
-		EXITERRNO("Failed to allocate memory", 3);
+		EXITERRNO(3, "Failed to allocate memory");
 	b->branch0      = b->branch1 = NULL;
 	b->branchline.i = NULL;
 	b->refcount     = 0;
@@ -44,7 +44,7 @@ static void _add_line(struct branch *b, struct func_line *l)
 		size_t s = b->linecap * 3 / 2;
 		struct func_line **t = realloc(b->lines, s * sizeof *b->lines);
 		if (t == NULL)
-			EXITERRNO("Failed to reallocate memory", 3);
+			EXITERRNO(3, "Failed to reallocate memory");
 		b->lines   = t;
 		b->linecap = s;
 	}
@@ -482,7 +482,7 @@ int optimize_func_branches(func f)
 		lc += bn[i]->linecount;
 	struct func_line **fl = realloc(f->lines, lc * sizeof *fl);
 	if (fl == NULL)
-		EXITERRNO("Failed to reallocate lines array", 3);
+		EXITERRNO(3, "Failed to reallocate lines array");
 	f->lines     = fl;
 	f->linecap   = lc;
 	f->linecount = lc;

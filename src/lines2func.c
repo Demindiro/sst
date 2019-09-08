@@ -91,7 +91,7 @@ int parsefunc_header(struct func *f, const line_t line, const char *text)
 	f->linecap   = 32;
 	f->lines     = malloc(f->linecap * sizeof *f->lines);
 	if (f->lines == NULL)
-		EXITERRNO("Failed to allocate lines array", 3);
+		EXITERRNO(3, "Failed to allocate lines array");
 
 	// Skip "extern"
 	if (strstart(t, "extern "))
@@ -570,8 +570,6 @@ void lines2func(const line_t *lines, size_t linecount,
 						const char *dtype = strnclone(type, de - type);
 						e = parse_expr(f, p, &etemp, dtype, &vartypes, functbl);
 						line_store(f, arr, index, e);
-						if (etemp)
-							line_destroy(f, e);
 					} else if (is_member_dereference(name, &parent, &member)) {
 						if (h_get2(&vartypes, parent, (size_t *)&type) < 0)
 							EXIT(1, "Variable '%s' not declared", parent);

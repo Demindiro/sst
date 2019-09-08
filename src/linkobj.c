@@ -32,7 +32,7 @@ void linkobj(const char **vbins, size_t *vbinlens, size_t vbincount,
 			size_t pos    = maps[i].lbl2pos[j].pos;
 			DEBUG("    %s = %lu (%lu + %lu)", s, pos + outputlen, outputlen, pos);
 			if (h_add(&lbl2pos, s, pos + outputlen))
-				EXITERRNO("h_add", 3);
+				EXITERRNO(3, "h_add");
 		}
 
 		DEBUG("  pos2lbl:");
@@ -73,7 +73,7 @@ void obj_parse(const char *bin, size_t len, char *output, size_t *outputlen,
 		ptr += sizeof strl;
 		char *s = malloc(strl + 1);
 		if (s == NULL)
-			EXITERRNO("malloc", 3);
+			EXITERRNO(3, "malloc");
 		memcpy(s, ptr, strl);
 		s[strl] = 0;
 		ptr += strl;
@@ -93,7 +93,7 @@ void obj_parse(const char *bin, size_t len, char *output, size_t *outputlen,
 		ptr += sizeof strl;
 		char *s = malloc(strl + 1);
 		if (s == NULL)
-			EXITERRNO("malloc", 3);
+			EXITERRNO(3, "malloc");
 		memcpy(s, ptr, strl);
 		s[strl] = 0;
 		ptr += strl;

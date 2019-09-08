@@ -107,7 +107,7 @@ static int strend(const char *x, const char *y)
 
 #define STRERRNO strerror(errno)
 
-#define EXITERRNO(m, c) do {							\
+#define EXITERRNO(c, m) do {							\
 	if (c == 3)								\
 		ERROR("[" STR(__LINE__) "@" __FILE__ "] " m ": %s", STRERRNO);	\
 	else									\
