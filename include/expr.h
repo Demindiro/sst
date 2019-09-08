@@ -5,7 +5,7 @@
 #include "hashtbl.h"
 
 const char *parse_expr(func f, const char *str, char *istemp, const char *type,
-                       hashtbl vartypes, hashtbl functbl);
+                       hashtbl variables);
 
 
 #endif

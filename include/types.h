@@ -3,6 +3,7 @@
 
 
 #include <stddef.h>
+#include "hashtbl.h"
 
 
 enum type_type {
@@ -72,15 +73,15 @@ int add_type_number(const char *name, size_t size, int _signed);
 /**
  * Adds a new class type
  */
-int add_type_class(const char *name, const char **membernames,
-                   const char **membertypes, size_t membercount);
+int add_type_class(const char *name, const char **names,
+                   const char **types, size_t count);
 
 
 /**
  * Adds a new struct type
  */
-int add_type_struct(const char *name, const char **membernames,
-                    const char **membertypes, size_t membercount);
+int add_type_struct(const char *name, const char **names,
+                    const char **types, size_t count);
 
 
 /**
@@ -111,6 +112,24 @@ int get_type_size(const char *name, size_t *i);
  * Get the offset of a member in a class
  */
 int get_member_offset(const char *class, const char *member, size_t *offset);
+
+
+/**
+ * Get the type of the root parent
+ *
+ * e.g. 'a.b.c' --> 'a' is the root parent
+ */
+int get_root_type(struct type *dest, const char *str);
+
+
+/**
+ * Get the full name of a class/struct function when given a string of the
+ * form 'var.func'
+ *
+ * e.g. 'this.read "file.txt"' --> 'File.read this,"file.txt"'
+ *      (arguments not included)
+ */
+const char *get_function_name(const char *str, hashtbl variables);
 
 
 #endif

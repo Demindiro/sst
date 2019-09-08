@@ -96,7 +96,7 @@ static int _str2op(const char *op)
 
 
 const char *parse_expr(func f, const char *str, char *istemp, const char *type,
-                       hashtbl vartypes, hashtbl functbl)
+                       hashtbl vartypes)
 {
 	static size_t tempvarcounter = 0;
 
@@ -120,11 +120,11 @@ const char *parse_expr(func f, const char *str, char *istemp, const char *type,
 		char b[256];
 		memcpy(b, str, c - str);
 		b[c - str] = 0;
-		func g;
-		if (h_get2(functbl, b, (size_t *)&g) != -1) {
+		func g = get_function(b, vartypes);
+		if (g != NULL) {
 			const char *x = strprintf("__e%lu", tempvarcounter++);
 			line_declare(f, g->type, x);
-			line_function_parse(f, x, str, functbl, vartypes);
+			line_function_parse(f, x, str, vartypes);
 			*istemp = 1;
 			return x;
 		}
@@ -289,8 +289,8 @@ done:
 
 	// Parse the 'variables' as expressions
 	char ity, itz;
-	const char *y = parse_expr(f, vl, &ity, type, vartypes, functbl);
-	const char *z = parse_expr(f, vr, &itz, type, vartypes, functbl);
+	const char *y = parse_expr(f, vl, &ity, type, vartypes);
+	const char *z = parse_expr(f, vr, &itz, type, vartypes);
 
 	// Create a temporary variable
 	const char *x = strprintf("__e%lu", tempvarcounter++);

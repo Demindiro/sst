@@ -188,7 +188,7 @@ void line_function(func f, const char *var, const char *func,
                           size_t argcount, const char **args);
 
 void line_function_parse(func f, const char *var, const char *str,
-                         hashtbl functbl, hashtbl vartypes);
+                         hashtbl vartypes);
 
 void line_goto(func f, const char *label);
 
@@ -207,5 +207,17 @@ const char *new_temp_var(func f, const char *type, const char *name);
 struct func_line *copy_line(const struct func_line *l);
 
 void line2str(struct func_line *l, char *buf, size_t bufsize);
+
+
+/**
+ * Adds a function
+ */
+int add_function(func f);
+
+
+/**
+ * Gets a function.
+ */
+func get_function(const char *str, hashtbl variables);
 
 #endif

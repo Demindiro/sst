@@ -41,14 +41,14 @@ static int is_member_dereference(const char *str, const char **parent, const cha
 
 
 static void _parsefunc(func f, const char *ptr, const char *var,
-                       hashtbl functbl, hashtbl vartypes)
+                       hashtbl vartypes)
 {
 	const char *c = ptr;
 	while (*c != ' ' && *c != 0)
 		c++;
 	const char *name = strnclone(ptr, c - ptr);
-	func g;
-	if (h_get2(functbl, name, (size_t *)&g) == -1)
+	func g = get_function(name, vartypes);
+	if (g == NULL)
 		EXIT(1, "Function '%s' not declared", name);
 	size_t      argcount = 0;
 	const char *args [32];
@@ -63,7 +63,7 @@ static void _parsefunc(func f, const char *ptr, const char *var,
 			memcpy(b, ptr, c - ptr);
 			b[c - ptr] = 0;
 			const char *type = g->args[argcount].type;
-			args[argcount] = parse_expr(f, b, &etemp[argcount], type, vartypes, functbl);
+			args[argcount] = parse_expr(f, b, &etemp[argcount], type, vartypes);
 			if (!etemp[argcount])
 				args[argcount] = strclone(args[argcount]);
 			argcount++;
@@ -167,8 +167,7 @@ noargs:
 
 
 void lines2func(const line_t *lines, size_t linecount,
-                struct func *f, struct hashtbl *functbl,
-		const char *text)
+                func f, const char *text)
 {
 	FDEBUG("Converting to immediate");
 
@@ -177,7 +176,6 @@ void lines2func(const line_t *lines, size_t linecount,
 	struct hashtbl vartypes;
 	h_create(&vartypes, 16);
 
-	// ---
 	struct {
 		const char *iterator;
 		const char *incrementer;
@@ -189,7 +187,6 @@ void lines2func(const line_t *lines, size_t linecount,
 	} loop[16];
 	int loopcounter = 0;
 	int loopcount   = 0;
-	// ---
 
 	// Add function parameters to vartypes
 	for (size_t i = 0; i < f->argcount; i++)
@@ -310,14 +307,14 @@ void lines2func(const line_t *lines, size_t linecount,
 			word[ptr - p] = 0;
 
 			char istemp;
-			fromval = parse_expr(f, word, &istemp, "long", &vartypes, functbl);
+			fromval = parse_expr(f, word, &istemp, "long", &vartypes);
 			//if (istemp)
 			//	line_destroy(f, fromval);
 
 			NEXTWORD;
 			NEXTWORD;
 
-			toval = parse_expr(f, ptr, &istemp, "long", &vartypes, functbl);
+			toval = parse_expr(f, ptr, &istemp, "long", &vartypes);
 
 		isfromarray:
 			// Set iterator
@@ -337,7 +334,7 @@ void lines2func(const line_t *lines, size_t linecount,
 			// Test ending condition (fromval == toval)
 			char expr[64];
 			snprintf(expr, sizeof expr, "%s == %s", iterator, toval);
-			const char *e = parse_expr(f, expr, &istemp, "long", &vartypes, functbl);
+			const char *e = parse_expr(f, expr, &istemp, "long", &vartypes);
 			line_if(f, e, strclone(lbll), 0);
 			if (istemp)
 				line_destroy(f, e);
@@ -387,7 +384,7 @@ void lines2func(const line_t *lines, size_t linecount,
 			line_label(f, lbl);
 
 			char istemp;
-			const char *e = parse_expr(f, ptr, &istemp, "bool", &vartypes, functbl);
+			const char *e = parse_expr(f, ptr, &istemp, "bool", &vartypes);
 			line_if(f, e, lbll, 1);
 			if (istemp)
 				line_destroy(f, e);
@@ -404,7 +401,7 @@ void lines2func(const line_t *lines, size_t linecount,
 			           *lble = strprintf(".if_%d_end" , loopcounter);
 
 			char istemp;
-			const char *e = parse_expr(f, ptr, &istemp, "bool", &vartypes, functbl);
+			const char *e = parse_expr(f, ptr, &istemp, "bool", &vartypes);
 			line_if(f, e, lbll, 1);
 			if (istemp)
 				line_destroy(f, e);
@@ -546,8 +543,8 @@ void lines2func(const line_t *lines, size_t linecount,
 			char *name = strclone(word);
 			line_declare(f, name, type);
 			h_add(&vartypes, name, (size_t)type);
-		} else if (h_get(functbl, word) != -1) {
-			_parsefunc(f, oldptr, NULL, functbl, &vartypes);
+		} else if (get_function(word, &vartypes) != NULL) {
+			_parsefunc(f, oldptr, NULL, &vartypes);
 		} else {
 			const char *name = strclone(word);
 			NEXTWORD;
@@ -555,8 +552,8 @@ void lines2func(const line_t *lines, size_t linecount,
 			if (streq(word, "=")) {
 				const char *p = ptr;
 				NEXTWORD;
-				if (h_get(functbl, word) != -1) {
-					_parsefunc(f, p, name, functbl, &vartypes); 
+				if (get_function(word, &vartypes) != NULL) {
+					_parsefunc(f, p, name, &vartypes); 
 				} else {
 					char etemp;
 					const char *type;
@@ -568,7 +565,7 @@ void lines2func(const line_t *lines, size_t linecount,
 							EXIT(1, "Variable '%s' not declared", arr);
 						const char *de    = strchr(type, '[');
 						const char *dtype = strnclone(type, de - type);
-						e = parse_expr(f, p, &etemp, dtype, &vartypes, functbl);
+						e = parse_expr(f, p, &etemp, dtype, &vartypes);
 						line_store(f, arr, index, e);
 					} else if (is_member_dereference(name, &parent, &member)) {
 						if (h_get2(&vartypes, parent, (size_t *)&type) < 0)
@@ -587,7 +584,7 @@ void lines2func(const line_t *lines, size_t linecount,
 							}
 							EXIT(1, "Struct '%s' doesn't have member '%s'", parent, member);
 						found_s:
-							e = parse_expr(f, p, &etemp, dtype, &vartypes, functbl);
+							e = parse_expr(f, p, &etemp, dtype, &vartypes);
 							// Structs ought to be stored in the registers or on
 							// the stack, so let func2vasm deal with "dereferencing"
 							line_assign(f, name, e);
@@ -602,7 +599,7 @@ void lines2func(const line_t *lines, size_t linecount,
 							}
 							EXIT(1, "Class '%s' doesn't have member '%s'", parent, member);
 						found_c:
-							e = parse_expr(f, p, &etemp, dtype, &vartypes, functbl);
+							e = parse_expr(f, p, &etemp, dtype, &vartypes);
 							size_t o;
 							if (get_member_offset(t.name, member, &o) < 0)
 								EXIT(1, "Type '%s' is not declared", t.name);
@@ -615,7 +612,7 @@ void lines2func(const line_t *lines, size_t linecount,
 							PRINTLINEX(line, 0, text);
 							EXIT(1, "Variable '%s' not declared", name);
 						}
-						e = parse_expr(f, p, &etemp, type, &vartypes, functbl);
+						e = parse_expr(f, p, &etemp, type, &vartypes);
 						line_assign(f, name, e);
 					}
 					// Destroy expression variable if newly allocated
@@ -632,8 +629,8 @@ void lines2func(const line_t *lines, size_t linecount,
 				e[q - p] = 0;
 				char tempi, tempv;
 				p = q + 4;
-				const char *i = parse_expr(f, e, &tempi, "long", &vartypes, functbl);
-				const char *v = parse_expr(f, p, &tempv, "TODO", &vartypes, functbl);
+				const char *i = parse_expr(f, e, &tempi, "long", &vartypes);
+				const char *v = parse_expr(f, p, &tempv, "TODO", &vartypes);
 				line_store(f, name, i, v);
 				if (tempi)
 					line_destroy(f, i);

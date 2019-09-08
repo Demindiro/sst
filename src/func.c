@@ -5,11 +5,13 @@
 #include "expr.h"
 #include "func.h"
 #include "hashtbl.h"
+#include "types.h"
 #include "util.h"
 
 #ifndef NDEBUG
 thread_local func _current_func;
 #endif
+struct hashtbl functions;
 
 /*****
  * Shorthand functions for common lines
@@ -99,14 +101,14 @@ void line_function(func f, const char *var, const char *func,
 
 
 void line_function_parse(func f, const char *var, const char *str,
-                         hashtbl functbl, hashtbl vartypes)
+                         hashtbl vartypes)
 {
 	const char *c = str;
 	while (*c != ' ' && *c != 0)
 		c++;
 	const char *name = strnclone(str, c - str);
-	func g;
-	if (h_get2(functbl, name, (size_t *)&g) == -1)
+	func g = get_function(name, vartypes);
+	if (g == NULL)
 		EXIT(1, "Function '%s' not declared", name);
 	size_t      argcount = 0;
 	const char *args [32];
@@ -121,7 +123,7 @@ void line_function_parse(func f, const char *var, const char *str,
 			memcpy(b, str, c - str);
 			b[c - str] = 0;
 			const char *type = g->args[argcount].type;
-			args[argcount] = parse_expr(f, b, &etemp[argcount], type, vartypes, functbl);
+			args[argcount] = parse_expr(f, b, &etemp[argcount], type, vartypes);
 			if (!etemp[argcount])
 				args[argcount] = strclone(args[argcount]);
 			argcount++;
@@ -342,4 +344,26 @@ void line2str(struct func_line *l, char *buf, size_t bufsize)
 		EXIT(1, "Unknown line type (%d)", l->type);
 	}
 #undef LDEBUG
+}
+
+
+
+int add_function(func f)
+{
+	if (functions.len == 0)
+		h_create(&functions, 32);
+	return h_add(&functions, f->name, (size_t)f);
+}
+
+
+
+func get_function(const char *str, hashtbl variables)
+{
+	const char *name = get_function_name(str, variables);
+	if (name == NULL)
+		name = str;
+	func f;
+	if (h_get2(&functions, name, (size_t *)&f) < 0)
+		return NULL;
+	return f;
 }

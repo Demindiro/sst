@@ -101,7 +101,7 @@ static size_t _find_func_length(const line_t *lines, size_t linecount, const cha
 }
 
 
-static void _parse_struct_or_class(const line_t *lines, size_t linecount, size_t *i, const char *text, hashtbl functbl)
+static void _parse_struct_or_class(const line_t *lines, size_t linecount, size_t *i, const char *text)
 {
 	line_t line = lines[*i];
 	int isclass = strstart(line.text, "class");
@@ -133,7 +133,7 @@ static void _parse_struct_or_class(const line_t *lines, size_t linecount, size_t
 			parsefunc_header(g, line, text);
 			g->name = strprintf("%s.%s", name, g->name);
 			DEBUG("Adding function '%s'", g->name);
-			h_add(functbl, g->name, (size_t)g);
+			add_function(g);
 			size_t l = _find_func_length(lines + *i, linecount - *i, text);
 			_add_func_range(g, lines + *i, l, text);
 			*i += l;
@@ -158,34 +158,30 @@ static void _parse_struct_or_class(const line_t *lines, size_t linecount, size_t
 }
 
 
-static void _include(const char *f, struct hashtbl *functbl,
-		     struct hashtbl *incltbl);
+static void _include(const char *f, hashtbl incltbl);
 
 
 static void _findboundaries(const line_t *lines, size_t linecount,
-			    struct hashtbl *functbl,
-			    struct hashtbl *incltbl,
-                            const char *text)
+			    hashtbl incltbl, const char *text)
 {
-	h_create(functbl, 4);
 	for (size_t i = 0; i < linecount; i++) {
 		line_t line = lines[i];
 		if (strstart(line.text, "extern ")) {
 			struct func *g = calloc(sizeof *g, 1);
 			parsefunc_header(g, line, text);
 			DEBUG("Adding external function '%s'", g->name);
-			h_add(functbl, g->name, (size_t)g);
+			add_function(g);
 		} else if (strstart(line.text, "include ")) {
 			char f[256];
 			strncpy(f, line.text + strlen("include "), sizeof f); 
-			_include(f, functbl, incltbl);
+			_include(f, incltbl);
 		} else if (strstart(line.text, "class ") || strstart(line.text, "struct ")) {
-			_parse_struct_or_class(lines, linecount, &i, text, functbl);
+			_parse_struct_or_class(lines, linecount, &i, text);
 		} else {
 			struct func *g = calloc(sizeof *g, 1);
 			parsefunc_header(g, line, text);
 			DEBUG("Adding function '%s'", g->name);
-			h_add(functbl, g->name, (size_t)g);
+			add_function(g);
 			i++;
 			size_t l = _find_func_length(lines + i, linecount - i, text);
 			_add_func_range(g, lines + i, l, text);
@@ -195,8 +191,7 @@ static void _findboundaries(const line_t *lines, size_t linecount,
 }
 
 
-static void _include(const char *f, struct hashtbl *functbl,
-		     struct hashtbl *incltbl)
+static void _include(const char *f, hashtbl incltbl)
 {
 	DEBUG("Including %s", f);
 	char buf[0x10000];
@@ -221,7 +216,7 @@ static void _include(const char *f, struct hashtbl *functbl,
 	if (text2lines(buf, &lines, &linecount, &strings, &stringcount) < 0)
 		EXIT(1, "Failed text to lines stage");
 
-	_findboundaries(lines, linecount, functbl, incltbl, buf);
+	_findboundaries(lines, linecount, incltbl, buf);
 
 	chdir(cwd);
 }
@@ -229,19 +224,17 @@ static void _include(const char *f, struct hashtbl *functbl,
 
 static void _lines2funcs(const line_t *lines, size_t linecount,
                          struct func **funcs, size_t *funccount,
-                         struct hashtbl *functbl, const char *text)
+                         const char *text)
 {
-	h_create(functbl, 4);
 	struct hashtbl incltbl;
 	h_create(&incltbl, 4);
-	_findboundaries(lines, linecount, functbl,
-			&incltbl, text);
+	_findboundaries(lines, linecount, &incltbl, text);
 	DEBUG("%lu functions to be parsed", linerangescount);
 	for (size_t i = 0; i < linerangescount; i++) {
 #define l lineranges[i]
 		l.func->linecount = 0;
 		SETCURRENTFUNC(l.func);
-		lines2func(l.lines, l.count, l.func, functbl, l.text);
+		lines2func(l.lines, l.count, l.func, l.text);
 		int changed;
 		do {
 			changed = 0;
@@ -364,7 +357,6 @@ int main(int argc, char **argv)
 	size_t stringcount, linecount;
 	struct func *funcs;
 	size_t funccount;
-	struct hashtbl functbl;
 
 	_init();
 
@@ -388,7 +380,7 @@ int main(int argc, char **argv)
 
 	// Convert source lines to immediate
 	DEBUG("Converting source to immediate");
-	_lines2funcs(lines, linecount, &funcs, &funccount, &functbl, buf);
+	_lines2funcs(lines, linecount, &funcs, &funccount, buf);
 	if (output_type == IMMEDIATE)
 		goto end;
 
