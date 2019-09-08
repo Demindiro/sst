@@ -326,7 +326,6 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 					const char *lbl = jmprelmap[j].lbl;
 					if (streq(a.s.s, lbl)) {
 						size_t pos = jmprelmap[j].pos;
-						DEBUG("Filling in '%s'\t@ 0x%02lx (0x%02lx)", lbl, pos, vbinlen - pos);
 						if (vbinlen - pos > 0x7F) {
 							EXIT(1, "Underestimated distance between label and relative"
 								" jump (%lu)", vbinlen - pos);
@@ -364,7 +363,7 @@ int dumplbl(int fd, struct lblmap *map)
 		char b[260];
 		size_t l = strlen(map->lbl2pos[i].lbl);
 		if (l > 255) {
-			printf("Label is too long");
+			ERROR("Label is too long");
 			return -1;
 		}
 		b[0] = l;
@@ -380,7 +379,7 @@ int dumplbl(int fd, struct lblmap *map)
 		char b[260];
 		size_t l = strlen(map->pos2lbl[i].lbl);
 		if (l > 255) {
-			printf("Label is too long");
+			ERROR("Label is too long");
 			return -1;
 		}
 		b[0] = l;
