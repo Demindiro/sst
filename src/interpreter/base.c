@@ -162,6 +162,11 @@ static void vasm_syscall() {
 		DEBUG("read(%lu, 0x%lx, %lu) = %ld",
 		        regs[1], regs[2], regs[3], regs[0]);
 		break;
+	case 9:
+		if (regs[1] == 9)
+			abort();
+		regs[0] = 0;
+		break;
 	case 3: // connect(ip6, port)
 	case 4: // listen(ip6, port)
 	case 5: // accept(fd)

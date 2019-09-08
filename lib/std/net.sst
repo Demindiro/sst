@@ -23,11 +23,11 @@ end
 
 
 struct Address
-	package byte[16] rawIp
-	public ushort port
+	byte[16] rawIp
+	ushort port
 
-	public Address(byte[] ip, ushort port)
-		ushort raw[8]
+	Address(byte[] ip, ushort port)
+		ushort[8] raw
 		long k = 0
 		long i = 0
 		while true

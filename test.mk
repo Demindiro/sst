@@ -42,3 +42,7 @@ test-readln: all
 test-guess-the-number:
 	$(_ssc) test/game/guess-the-number.sst -o /tmp/guess-the-number.ss
 	$(SH) -c './build/interpreter /tmp/guess-the-number.ss'
+
+test-http:
+	$(_ssc) test/http/http.sst -o /tmp/http.ss
+	$(SH) -c './build/interpreter /tmp/http.ss'

@@ -65,6 +65,11 @@ static char *strprintf(const char *fmt, ...)
 	va_end(args);
 	return strclone(buf);
 }
+static int strend(const char *x, const char *y)
+{
+	size_t a = strlen(x), b = strlen(y);
+	return strncmp(x + a - b, y, b) == 0;
+}
 #pragma GCC diagnostic pop
 
 #define streq(x,y) (strcmp(x,y) == 0)
@@ -83,8 +88,8 @@ static char *strprintf(const char *fmt, ...)
 
 
 #ifndef NDEBUG
-# define ERROR(m, ...) fprintf(stderr, "ERROR: [%s:%u] " m "\n", __func__, __LINE__, ##__VA_ARGS__)
-# define DEBUG(m, ...) fprintf(stderr, "DEBUG: " m "\n", ##__VA_ARGS__)
+# define ERROR(m, ...) fprintf(stderr, "ERROR: [%24s:%-4u] " m "\n", __func__, __LINE__, ##__VA_ARGS__)
+# define DEBUG(m, ...) fprintf(stderr, "DEBUG: [%24s:%-4u] " m "\n", __func__, __LINE__, ##__VA_ARGS__)
 # define WARN(m, ...) fprintf(stderr, "WARN: " m "\n", ##__VA_ARGS__);
 #else
 # define ERROR(m, ...) fprintf(stderr, m "\n", ##__VA_ARGS__)
@@ -95,6 +100,7 @@ static char *strprintf(const char *fmt, ...)
 
 #define EXIT(c, m, ...) do {		\
 	ERROR(m, ##__VA_ARGS__);	\
+	ERROR("File: " __FILE__);	\
 	exit(c);			\
 } while (0)
 

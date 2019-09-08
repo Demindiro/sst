@@ -36,10 +36,11 @@ static int _op_precedence(char c0, char c1)
 		return 5;
 	case '=':
 	case '!':
-	case '<':
-	case '>':
 		if (c1 == '=') // Comparison
 			return 3;
+	case '<':
+	case '>':
+		return 3;
 	default:
 	_default:
 		DEBUG("%d", c0);
@@ -75,9 +76,9 @@ static int _str2op(const char *op)
 	else if (streq(op, "^"))
 		return MATH_XOR;
 	else if (streq(op, "||"))
-		/*return */MATH_L_OR;
+		return MATH_L_OR;
 	else if (streq(op, "&&"))
-		/*return */MATH_L_AND;
+		return MATH_L_AND;
 	else if (streq(op, "<"))
 		return MATH_LESS;
 	else if (streq(op, ">"))
@@ -86,13 +87,18 @@ static int _str2op(const char *op)
 		return MATH_LESSE;
 	else if (streq(op, ">="))
 		return -MATH_LESSE;
+	else if (streq(op, "<<"))
+		return MATH_LSHIFT;
+	else if (streq(op, ">>"))
+		return MATH_RSHIFT;
 	EXIT(1, "Unknown OP '%s'", op);
 }
 
 
 const char *parse_expr(func f, const char *str, char *istemp, const char *type,
-                       hashtbl vartypes)
+                       hashtbl vartypes, hashtbl functbl)
 {
+	static size_t tempvarcounter = 0;
 
 	// The legacy cruft lives on
 	// TODO
@@ -106,6 +112,23 @@ const char *parse_expr(func f, const char *str, char *istemp, const char *type,
 		return v;
 	}
 
+	// Check if it is a function call
+	{
+		const char *c = str;
+		while (*c != ' ' && *c != 0)
+			c++;
+		char b[256];
+		memcpy(b, str, c - str);
+		b[c - str] = 0;
+		func g;
+		if (h_get2(functbl, b, (size_t *)&g) != -1) {
+			const char *x = strprintf("__e%lu", tempvarcounter++);
+			line_declare(f, g->type, x);
+			line_function_parse(f, x, str, functbl, vartypes);
+			*istemp = 1;
+			return x;
+		}
+	}
 
 	// If there are no spaces, it's a single variable
 	for (const char *c = str; *c != 0; c++) {
@@ -230,33 +253,46 @@ done:
 	*v = 0;
 	// Remove redundant braces
 	n = strlen(vl);
-	while (1) {
-		if (vl[0] == '(' && vl[n - 1] == ')') {
-			n -= 2;
-			memmove(vl, vl + 1, n);
-			vl[n] = 0;
-		} else {
-			break;
+	lvl = 0;
+	for (size_t i = 0; i < n; i++) {
+		if (vl[i] == '(')
+			lvl++;
+		if (vl[i] == ')')
+			lvl--;
+		if (lvl == 0) {
+			if (n >= 2 && i == n - 1) {
+				n -= 2;
+				memmove(vl, vl + 1, n);
+				vl[n] = 0, i = 0;
+			} else {
+				break;
+			}
 		}
 	}
 	n = strlen(vr);
-	while (1) {
-		if (vr[0] == '(' && vr[n - 1] == ')') {
-			n -= 2;
-			memmove(vr, vr + 1, n);
-			vr[n] = 0;
-		} else {
-			break;
+	lvl = 0;
+	for (size_t i = 0; i < n; i++) {
+		if (vr[i] == '(')
+			lvl++;
+		if (vr[i] == ')')
+			lvl--;
+		if (lvl == 0) {
+			if (n >= 2 && i == n - 1) {
+				n -= 2;
+				memmove(vr, vr + 1, n);
+				vr[n] = 0, i = 0;
+			} else {
+				break;
+			}
 		}
 	}
 
 	// Parse the 'variables' as expressions
 	char ity, itz;
-	const char *y = parse_expr(f, vl, &ity, type, vartypes);
-	const char *z = parse_expr(f, vr, &itz, type, vartypes);
+	const char *y = parse_expr(f, vl, &ity, type, vartypes, functbl);
+	const char *z = parse_expr(f, vr, &itz, type, vartypes, functbl);
 
 	// Create a temporary variable
-	static size_t tempvarcounter = 0;
 	const char *x = strprintf("__e%lu", tempvarcounter++);
 
 	// Declare it

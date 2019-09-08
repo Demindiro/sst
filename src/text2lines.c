@@ -178,17 +178,6 @@ static pos2_t _getpos(pos2_t *p, size_t pc, size_t c)
 }
 
 
-static int can_extend_inc_or_dec(const char *c)
-{
-	while (*c != '-') {
-		c++;
-		if (*c == '"' || *c == '\n')
-			return 0;
-	}
-	return (*c == '-' || *c == '+') && (*c == *(c + 1));
-}
-
-
 static int can_extend_shortmath(const char *c)
 {
 	while (*c != ' ') {
@@ -246,11 +235,10 @@ int text2lines(const char *text,
 	pos2_t *pos;
 	size_t poscount;
 	text = _trim(text, &pos, &poscount);
-	DEBUG("Trimmed text:\n%s", text);
 
-	size_t ls     = 64, lc = 0;
+	size_t ls     = 1024, lc = 0;
 	line_t *lns    = malloc(ls * sizeof *lns);
-	size_t ss     = 4, sc = 0;
+	size_t ss     = 64, sc = 0;
 	char **strs   = malloc(ss * sizeof *strs);
 	const char *c = text;
 
@@ -289,6 +277,7 @@ int text2lines(const char *text,
 			lc++;
 		}
 
+#if 0
 		// Extend var++ and var-- if applicable
 		if (can_extend_inc_or_dec(c)) {
 			const char *d = c;
@@ -305,6 +294,7 @@ int text2lines(const char *text,
 			c += 3;
 			continue;
 		}
+#endif
 
 		// Extend +=, -= ... if applicable
 		if (can_extend_shortmath(c)) {
@@ -328,7 +318,7 @@ int text2lines(const char *text,
 			} while (*e++ != 0);
 			// TODO: braces
 			pos2_t p = _getpos(pos, poscount, *c);
-			lns[lc].text = strprintf("%s = %s %c %s", buf0, buf0, op, buf1);
+			lns[lc].text = strprintf("%s = %s %c (%s)", buf0, buf0, op, buf1);
 			lns[lc].pos  = p.p;
 			free(buf0);
 			free(buf1);
@@ -357,7 +347,7 @@ int text2lines(const char *text,
 				ptr += 1;
 				c   += 5;
 			} else if (strchr("+-*/%<>", *(c-1))) {
-				if (strchr(" =+-*/%<>", *c))
+				if (strchr(" =+-*/%<>\n", *c))
 					continue;
 				*ptr++ = ' ';
 			} else if (*c == '"') {
@@ -373,8 +363,8 @@ int text2lines(const char *text,
 					c++;
 				}
 				c++;
-				char *p = malloc(ptr2 - buf2);
-				memcpy(p, buf2, ptr2 - buf2 + 1);
+				char *p = malloc(ptr2 - buf2 + 1);
+				memcpy(p, buf2, ptr2 - buf2);
 				p[ptr2 - buf2] = 0;
 				strs[sc] = p;
 				sc++;
@@ -421,6 +411,34 @@ int text2lines(const char *text,
 		// Don't increment so that the next iteration detects the comment
 		if (*c != '#')
 			c++;
+	}
+
+	// Post processing
+	for (size_t i = 0; i < lc; i++) {
+		const char *t = lns[i].text;
+		// Split 'elif' into 'else' and 'if' and append 'end'
+		if (strstart(t, "elif ")) {
+			const char *s = t;
+			memmove(lns + i + 1, lns + i, (lc - i) * sizeof *lns);
+			lc++;
+			lns[i++].text = "else";
+			lns[i++].text = strclone(s + strlen("el"));
+			size_t j = i;
+			while (!streq(lns[j].text, "end"))
+				j++;
+			if (streq(lns[j].text, "else"))
+				continue;
+			memmove(lns + j + 1, lns + j, (lc - j) * sizeof *lns);
+			lc++;
+			lns[j++].text = "end";
+		}
+		// Convert 'x++' to 'x = x + 1'
+		else if (strend(t, "++") || strend(t, "--")) {
+			size_t l = strlen(t) - 2;
+			if (l == 0)
+				EXIT(1, "%s must be preceded by a variable name", t);
+			lns[i].text = strprintf("%.*s = %.*s %c 1", l, t, l, t, t[l]);
+		}
 	}
 
 	*linecount   = lc;

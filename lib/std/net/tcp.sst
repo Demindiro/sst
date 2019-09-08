@@ -1,6 +1,6 @@
 include std.core.io
 include std.core.net
-include std.core.error
+include std.core.exception
 
 
 
@@ -14,49 +14,49 @@ class Client
 
 	int fd
 
-	module Client(int fd)
+	Client(int fd)
 		this.fd = fd
 	end
 
-	public Client(Address address)
-		fd = connect address.rawIp.ptr, address.port
-		if fd == -1
+	Client(Address address)
+		this.fd = connect address.rawIp.ptr, address.port
+		if this.fd == -1
 			throw NetworkException "Couldn't connect to " ~ address
 		end
 	end
 
-	public ulong read(byte[] data, ulong offset, ulong length)
+	ulong read(byte[] data, ulong offset, ulong length)
 		if data == null
 			throw NullException "data"
 		end
 		if offset + length > data.length
 			throw ArrayOutOfBoundsException data, offset + length
 		end
-		read fd, data.ptr + offset, length
+		read this.fd, data.ptr + offset, length
 	end
 
-	public ulong read(byte[] data)
+	ulong read(byte[] data)
 		if data == null
 			throw NullException "data"
 		end
-		return read data, 0, data.length
+		return this.read data, 0, data.length
 	end
 
-	public ulong write(byte[] data, ulong offset, ulong length)
+	ulong write(byte[] data, ulong offset, ulong length)
 		if data == null
 			throw NullException "data"
 		end
 		if offset + length > data.length
 			throw ArrayOutOfBoundsException data, offset + length
 		end
-		write fd, data.ptr + offset, length
+		write this.fd, data.ptr + offset, length
 	end
 
-	public ulong write(byte[] data)
+	ulong write(byte[] data)
 		if data == null
 			throw NullException "data"
 		end
-		return write data, 0, data.length
+		return this.write data, 0, data.length
 	end
 
 end
@@ -67,19 +67,19 @@ class Server
 
 	int fd
 
-	public Server(Address address)
-		fd = listen address.rawIp.ptr, address.port
-		if fd == -1
+	Server(Address address)
+		this.fd = listen address.rawIp.ptr, address.port
+		if this.fd == -1
 			throw NetworkException "Couldn't listen on " ~ address
 		end
 	end
 
 	Client accept()
-		int cfd = accept(fd)
+		int cfd = accept(cfd)
 		if cfd == -1
 			throw NetworkException "Couldn't accept client"
 		end
-		return Client(fd)
+		return Client(cfd)
 	end
 
 end

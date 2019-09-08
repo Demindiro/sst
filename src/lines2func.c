@@ -26,6 +26,19 @@ static int is_array_dereference(const char *str, const char **arr, const char **
 }
 
 
+static int is_member_dereference(const char *str, const char **parent, const char **member)
+{
+	const char *p = strchr(str, '.');
+	if (p != NULL) {
+		*parent = strnclone(str, p - str);
+		*member = strclone(p + 1);
+		return 1;
+	}
+	return 0;
+}
+
+
+
 
 static void _parsefunc(func f, const char *ptr, const char *var,
                        hashtbl functbl, hashtbl vartypes)
@@ -50,7 +63,7 @@ static void _parsefunc(func f, const char *ptr, const char *var,
 			memcpy(b, ptr, c - ptr);
 			b[c - ptr] = 0;
 			const char *type = g->args[argcount].type;
-			args[argcount] = parse_expr(f, b, &etemp[argcount], type, vartypes);
+			args[argcount] = parse_expr(f, b, &etemp[argcount], type, vartypes, functbl);
 			if (!etemp[argcount])
 				args[argcount] = strclone(args[argcount]);
 			argcount++;
@@ -297,14 +310,14 @@ void lines2func(const line_t *lines, size_t linecount,
 			word[ptr - p] = 0;
 
 			char istemp;
-			fromval = parse_expr(f, word, &istemp, "long", &vartypes);
+			fromval = parse_expr(f, word, &istemp, "long", &vartypes, functbl);
 			//if (istemp)
 			//	line_destroy(f, fromval);
 
 			NEXTWORD;
 			NEXTWORD;
 
-			toval = parse_expr(f, ptr, &istemp, "long", &vartypes);
+			toval = parse_expr(f, ptr, &istemp, "long", &vartypes, functbl);
 
 		isfromarray:
 			// Set iterator
@@ -324,7 +337,7 @@ void lines2func(const line_t *lines, size_t linecount,
 			// Test ending condition (fromval == toval)
 			char expr[64];
 			snprintf(expr, sizeof expr, "%s == %s", iterator, toval);
-			const char *e = parse_expr(f, expr, &istemp, "long", &vartypes);
+			const char *e = parse_expr(f, expr, &istemp, "long", &vartypes, functbl);
 			line_if(f, e, strclone(lbll), 0);
 			if (istemp)
 				line_destroy(f, e);
@@ -374,7 +387,7 @@ void lines2func(const line_t *lines, size_t linecount,
 			line_label(f, lbl);
 
 			char istemp;
-			const char *e = parse_expr(f, ptr, &istemp, "bool", &vartypes);
+			const char *e = parse_expr(f, ptr, &istemp, "bool", &vartypes, functbl);
 			line_if(f, e, lbll, 1);
 			if (istemp)
 				line_destroy(f, e);
@@ -391,7 +404,7 @@ void lines2func(const line_t *lines, size_t linecount,
 			           *lble = strprintf(".if_%d_end" , loopcounter);
 
 			char istemp;
-			const char *e = parse_expr(f, ptr, &istemp, "bool", &vartypes);
+			const char *e = parse_expr(f, ptr, &istemp, "bool", &vartypes, functbl);
 			line_if(f, e, lbll, 1);
 			if (istemp)
 				line_destroy(f, e);
@@ -404,6 +417,8 @@ void lines2func(const line_t *lines, size_t linecount,
 			loopcounter++;
 		} else if (streq(word, "return")) {
 			line_return(f, strclone(ptr));
+		} else if (streq(word, "throw")) {
+			line_throw(f, ptr);
 		} else if (streq(word, "__asm")) {
 			const char *invars[32] , *outvars[32] ;
 			char        inregs[32] ,  outregs[32] ;
@@ -501,7 +516,6 @@ void lines2func(const line_t *lines, size_t linecount,
 				q++;
 				p = q;
 				while (*q != 0) {
-					DEBUG("'%c' %d", *q, *q);
 					if (!isnum(*q)) {
 						PRINTLINEX(lines[li], lp - t, text);
 						EXIT(1, "Expected number");
@@ -547,24 +561,86 @@ void lines2func(const line_t *lines, size_t linecount,
 					char etemp;
 					const char *type;
 					const char *arr, *index;
+					const char *parent, *member;
 					const char *e;
 					if (is_array_dereference(name, &arr, &index)) {
 						if (h_get2(&vartypes, arr, (size_t *)&type) < 0)
 							EXIT(1, "Variable '%s' not declared", arr);
 						const char *de    = strchr(type, '[');
 						const char *dtype = strnclone(type, de - type);
-						e = parse_expr(f, p, &etemp, dtype, &vartypes);
+						e = parse_expr(f, p, &etemp, dtype, &vartypes, functbl);
 						line_store(f, arr, index, e);
+						if (etemp)
+							line_destroy(f, e);
+					} else if (is_member_dereference(name, &parent, &member)) {
+						if (h_get2(&vartypes, parent, (size_t *)&type) < 0)
+							EXIT(1, "Variable '%s' not declared", parent);
+						struct type t;
+						if (get_type(&t, type) < 0)
+							EXIT(3, "Type '%s' doesn't exist", type);
+						if (t.type == TYPE_STRUCT) {
+							struct type_meta_struct *m = (void *)&t.meta;
+							const char *dtype;
+							for (size_t i = 0; i < m->count; i++) {
+								if (streq(m->names[i], member)) {
+									dtype = m->types[i];
+									goto found_s;
+								}
+							}
+							EXIT(1, "Struct '%s' doesn't have member '%s'", parent, member);
+						found_s:
+							e = parse_expr(f, p, &etemp, dtype, &vartypes, functbl);
+							// Structs ought to be stored in the registers or on
+							// the stack, so let func2vasm deal with "dereferencing"
+							line_assign(f, name, e);
+						} else if (t.type == TYPE_CLASS) {
+							struct type_meta_class *m = (void *)&t.meta;
+							const char *dtype;
+							for (size_t i = 0; i < m->count; i++) {
+								if (streq(m->names[i], member)) {
+									dtype = m->types[i];
+									goto found_c;
+								}
+							}
+							EXIT(1, "Class '%s' doesn't have member '%s'", parent, member);
+						found_c:
+							e = parse_expr(f, p, &etemp, dtype, &vartypes, functbl);
+							size_t o;
+							if (get_member_offset(t.name, member, &o) < 0)
+								EXIT(1, "Type '%s' is not declared", t.name);
+							line_store(f, parent, strprintf("%lu", o), e);
+						} else {
+							EXIT(1, "Type '%s' is not a struct or class", type);
+						}
 					} else {
-						if (h_get2(&vartypes, name, (size_t *)&type) < 0)
+						if (h_get2(&vartypes, name, (size_t *)&type) < 0) {
+							PRINTLINEX(line, 0, text);
 							EXIT(1, "Variable '%s' not declared", name);
-						e = parse_expr(f, p, &etemp, type, &vartypes);
+						}
+						e = parse_expr(f, p, &etemp, type, &vartypes, functbl);
 						line_assign(f, name, e);
 					}
 					// Destroy expression variable if newly allocated
 					if (etemp)
 						line_destroy(f, e);
 				}
+			} else if (strchr(name, '[') != NULL) {
+				const char *p = strchr(line.text, '[');
+				name = strnclone(line.text, p - line.text);
+				p++;
+				const char *q = strchr(p, ']');
+				char e[1024];
+				memcpy(e, p, q - p);
+				e[q - p] = 0;
+				char tempi, tempv;
+				p = q + 4;
+				const char *i = parse_expr(f, e, &tempi, "long", &vartypes, functbl);
+				const char *v = parse_expr(f, p, &tempv, "TODO", &vartypes, functbl);
+				line_store(f, name, i, v);
+				if (tempi)
+					line_destroy(f, i);
+				if (tempv)
+					line_destroy(f, v);
 			} else {
 				PRINTLINEX(line, ptr - oldptr, text);
 				EXIT(1, "Undefined keyword '%s'", name);

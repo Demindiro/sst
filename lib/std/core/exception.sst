@@ -1,0 +1,10 @@
+class Exception
+
+
+end
+
+
+class ErrnoException
+
+
+end

@@ -547,6 +547,18 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				ENOTDECLARED(fl.s->var);
 			v[vc++] = a;
 			break;
+		case THROW:
+			a.rs.op = OP_SET;
+			a.rs.r  = 1;
+			a.rs.s  = "9"; // abort
+			v[vc++] = a;
+			a.rs.op = OP_SET;
+			a.rs.r  = 0;
+			a.rs.s  = "9"; // signal
+			v[vc++] = a;
+			a.op    = OP_SYSCALL;
+			v[vc++] = a;
+			break;
 		default:
 			EXIT(1, "Unknown line type (%d)", f->lines[i]->type);
 		}

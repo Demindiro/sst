@@ -72,15 +72,15 @@ int add_type_number(const char *name, size_t size, int _signed);
 /**
  * Adds a new class type
  */
-int add_type_class(const char *name, const char *membernames,
-                   const char *membertypes, size_t membercount);
+int add_type_class(const char *name, const char **membernames,
+                   const char **membertypes, size_t membercount);
 
 
 /**
  * Adds a new struct type
  */
-int add_type_struct(const char *name, const char *membernames,
-                    const char *membertypes, size_t membercount);
+int add_type_struct(const char *name, const char **membernames,
+                    const char **membertypes, size_t membercount);
 
 
 /**
@@ -105,6 +105,12 @@ int get_deref_type(struct type *dest, const char *name);
  * Get a types size.
  */
 int get_type_size(const char *name, size_t *i);
+
+
+/**
+ * Get the offset of a member in a class
+ */
+int get_member_offset(const char *class, const char *member, size_t *offset);
 
 
 #endif

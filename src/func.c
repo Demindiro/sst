@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include "expr.h"
 #include "func.h"
+#include "hashtbl.h"
 #include "util.h"
 
 #ifndef NDEBUG
@@ -96,6 +98,47 @@ void line_function(func f, const char *var, const char *func,
 }
 
 
+void line_function_parse(func f, const char *var, const char *str,
+                         hashtbl functbl, hashtbl vartypes)
+{
+	const char *c = str;
+	while (*c != ' ' && *c != 0)
+		c++;
+	const char *name = strnclone(str, c - str);
+	func g;
+	if (h_get2(functbl, name, (size_t *)&g) == -1)
+		EXIT(1, "Function '%s' not declared", name);
+	size_t      argcount = 0;
+	const char *args [32];
+	char        etemp[32];
+	if (*c != 0) {
+		c++;
+		while (1) {
+			str = c;
+			while (*c != ',' && *c != 0)
+				c++;
+			char b[2048];
+			memcpy(b, str, c - str);
+			b[c - str] = 0;
+			const char *type = g->args[argcount].type;
+			args[argcount] = parse_expr(f, b, &etemp[argcount], type, vartypes, functbl);
+			if (!etemp[argcount])
+				args[argcount] = strclone(args[argcount]);
+			argcount++;
+			if (*c == 0)
+				break;
+			c++;
+		}
+	}
+	const char **a = args;
+	line_function(f, var, name, argcount, a);
+	for (size_t i = argcount - 1; i != -1; i--) {
+		if (etemp[i])
+			line_destroy(f, args[i]);
+	}
+}
+
+
 void line_goto(func f, const char *label)
 {
 	struct func_line_goto *g = malloc(sizeof *g);
@@ -156,6 +199,13 @@ void line_store(func f, const char *arr, const char *index, const char *val)
 	insert_line(f, (struct func_line *)s);
 }
 
+void line_throw(func f, const char *expr)
+{
+	struct func_line *l = malloc(sizeof *l);
+	l->type = THROW;
+	insert_line(f, l);
+}
+
 
 const char *new_temp_var(func f, const char *type, const char *name)
 {
@@ -211,7 +261,9 @@ static const char *mathop2str(int op)
 	case MATH_XOR:    return "^";
 	case MATH_LESS:   return "<";
 	case MATH_LESSE:  return "<=";
-	default: fprintf(stderr, "Invalid op (%d)\n", op); abort();
+	case MATH_L_AND:  return "&&";
+	case MATH_L_OR:   return "||";
+	default: EXIT(1, "Invalid op (%d)\n", op);
 	}
 }
 
@@ -276,7 +328,7 @@ void line2str(struct func_line *l, char *buf, size_t bufsize)
 		else if (fl.m->op == MATH_NOT)
 			snprintf(buf, bufsize, "MATH       %s = ~%s", fl.m->x, fl.m->y);
 		else if (fl.m->op == MATH_LOADAT)
-			snprintf(buf, bufsize, "MATH       %s = %s[%s]", fl.m->x, fl.m->y, fl.m->z);
+			snprintf(buf, bufsize, "MATH       %s = *(%s + %s)", fl.m->x, fl.m->y, fl.m->z);
 		else
 			snprintf(buf, bufsize, "MATH       %s = %s %s %s", fl.m->x, fl.m->y, mathop2str(fl.m->op), fl.m->z);
 		break;
@@ -284,7 +336,7 @@ void line2str(struct func_line *l, char *buf, size_t bufsize)
 		snprintf(buf, bufsize, "RETURN     %s", fl.r->val);
 		break;
 	case STORE:
-		snprintf(buf, bufsize, "STORE      %s[%s] = %s", fl.s->var, fl.s->index, fl.s->val);
+		snprintf(buf, bufsize, "STORE      *(%s + %s) = %s", fl.s->var, fl.s->index, fl.s->val);
 		break;
 	default:
 		EXIT(1, "Unknown line type (%d)", l->type);

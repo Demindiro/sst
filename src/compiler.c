@@ -56,7 +56,7 @@ static int _text2lines(const char *buf,
 	for (size_t i = 0; i < *stringcount; i++)
 		DEBUG(".str_%lu = \"%s\"", i, (*strings)[i]);
 	for (size_t i = 0; i < *linecount; i++)
-		DEBUG("%4u:%-2u (%6lu) | %s", l[i].pos.y, l[i].pos.x, l[i].pos.c, l[i].text);
+		DEBUG("%4u:%-2u (%6lu) | '%s'", l[i].pos.y, l[i].pos.x, l[i].pos.c, l[i].text);
 	return 0;
 }
 
@@ -118,6 +118,62 @@ static void _findboundaries(const line_t *lines, size_t linecount,
 			char f[256];
 			strncpy(f, line.text + strlen("include "), sizeof f); 
 			_include(f, functbl, funclns, funclncount, incltbl);
+		} else if (strstart(line.text, "class ") || strstart(line.text, "struct ")) {
+			int isclass = strstart(line.text, "class");
+			// Get class/struct name
+			const char *name = strclone(line.text + strlen(isclass ? "class " : "struct "));
+			DEBUG("Parsing %s '%s'", isclass ? "class" : "struct", name);
+			// Find class end while adding members and functions
+			const char *mnames[1024], *mtypes[1024];
+			size_t mcount = 0;
+			i++;
+			line = lines[i++];
+			while (!streq(line.text, "end")) {
+				size_t l = strlen(line.text);
+				if (line.text[l - 1] == ')') {
+					// Add function
+					// Check if function is constructor
+					char b[256];
+					const char *q = strchr(line.text, '(');
+					memcpy(b, line.text, q - line.text);
+					b[q - line.text] = 0;
+					if (streq(b, name)) {
+						line.text = strprintf("%s %s(%s this,%s",
+								name, name, name, q + 1);
+					} else {
+						line.text = strprintf("%s(%s this, %s",
+								b, name, line.text);
+					}
+					struct func *g = calloc(sizeof *g, 1);
+					parsefunc_header(g, line, text);
+					g->name = strprintf("%s.%s", name, g->name);
+					DEBUG("Adding function '%s'", g->name);
+					h_add(functbl, g->name, (size_t)g);
+					size_t l = _find_func_length(lines + i, linecount - i, text);
+					(*funclns)[*funclncount].func  = g;
+					(*funclns)[*funclncount].lines = lines + i;
+					(*funclns)[*funclncount].count = l;
+					(*funclns)[*funclncount].text  = text;
+					(*funclncount)++;
+					i += l;
+				} else {
+					// Add member
+					char *p = strchr(line.text, ' ');
+					if (p == NULL)
+						EXIT(1, "Expected member name");
+					mtypes[mcount] = strnclone(line.text, p - line.text);
+					p++;
+					mnames[mcount] = strclone(p);
+					DEBUG("Adding member '%s' of type '%s'", mnames[mcount], mtypes[mcount]);
+					mcount++;
+				}
+				line = lines[i++];
+			}
+			i--;
+			if (isclass)
+				add_type_class(name, mnames, mtypes, mcount);
+			else
+				add_type_struct(name, mnames, mtypes, mcount);
 		} else {
 			struct func *g = calloc(sizeof *g, 1);
 			parsefunc_header(g, line, text);

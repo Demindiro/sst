@@ -1,6 +1,7 @@
 #ifndef FUNC_H
 #define FUNC_H
 
+#include "hashtbl.h"
 #include "util.h"
 #include "vasm.h"
 
@@ -19,6 +20,7 @@ enum func_type {
 	MATH,
 	RETURN,
 	STORE,
+	THROW,
 };
 
 #define MATH_ADD    OP_ADD
@@ -34,8 +36,8 @@ enum func_type {
 #define MATH_AND    OP_AND
 #define MATH_OR     OP_OR
 #define MATH_XOR    OP_XOR
-#define MATH_L_AND  EXIT(4, "Not implemented")
-#define MATH_L_OR   EXIT(4, "Not implemented")
+#define MATH_L_AND  OP_AND
+#define MATH_L_OR   OP_OR
 #define MATH_LOADAT (-43) // IDK man
 #define MATH_LESS   OP_LESS
 #define MATH_LESSE  OP_LESSE
@@ -185,6 +187,9 @@ void line_destroy(func f, const char *var);
 void line_function(func f, const char *var, const char *func,
                           size_t argcount, const char **args);
 
+void line_function_parse(func f, const char *var, const char *str,
+                         hashtbl functbl, hashtbl vartypes);
+
 void line_goto(func f, const char *label);
 
 void line_if(func f, const char *condition, const char *label, int inv);
@@ -194,6 +199,8 @@ void line_label(func f, const char *label);
 void line_return(func f, const char *val);
 
 void line_store(func f, const char *arr, const char *index, const char *val);
+
+void line_throw(func f, const char *expr);
 
 const char *new_temp_var(func f, const char *type, const char *name);
 

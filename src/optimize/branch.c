@@ -365,7 +365,6 @@ int optimize_func_branches(func f)
 	h_create(&labels, 4);
 
 	// Split into blocks
-	FDEBUG("Splitting into blocks");
 	_init_block(&b[0]);
 	for (size_t i = 0; i < f->linecount; i++) {
 		union func_line_all_p l = { .line = f->lines[i] };
@@ -415,7 +414,6 @@ int optimize_func_branches(func f)
 	b[0].refcount++;
 
 	// Link blocks to each other
-	FDEBUG("Linking blocks");
 	for (size_t i = 0; i < bc; i++) {
 		size_t lc = b[i].linecount;
 		assert(lc > 0);
@@ -462,7 +460,6 @@ int optimize_func_branches(func f)
 	}
 
 	// Optimization time!
-	FDEBUG("Optimizing");
 	struct branch *bn[2048];
 	size_t bnc = 0;
 	for (size_t i = 0; i < bc; i++)
@@ -480,7 +477,6 @@ int optimize_func_branches(func f)
 	} while (changed);
 
 	// Construct function from new blocks
-	FDEBUG("Reconstructing");
 	size_t lc = 0;
 	for (size_t i = 0; i < bnc; i++)
 		lc += bn[i]->linecount;

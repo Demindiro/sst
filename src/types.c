@@ -38,8 +38,8 @@ int add_type_number(const char *name, size_t size, int _signed)
 }
 
 
-int add_type_class(const char *name, const char *names,
-                   const char *types, size_t count)
+int add_type_class(const char *name, const char **names,
+                   const char **types, size_t count)
 {
 	struct type_meta_class m = { .count = count };
 	m.names = malloc(count * sizeof *m.names);
@@ -49,12 +49,16 @@ int add_type_class(const char *name, const char *names,
 		free(m.types);
 		return -1;
 	}
+	for (size_t i = 0; i < count; i++) {
+		m.names[i] = names[i];
+		m.types[i] = types[i];
+	}
 	return _add_type(name, (struct type_meta *)&m, sizeof m, TYPE_CLASS);
 }
 
 
-int add_type_struct(const char *name, const char *names,
-                    const char *types, size_t count)
+int add_type_struct(const char *name, const char **names,
+                    const char **types, size_t count)
 {
 	struct type_meta_struct m = { .count = count };
 	m.names = malloc(count * sizeof *m.names);
@@ -63,6 +67,10 @@ int add_type_struct(const char *name, const char *names,
 		free(m.names);
 		free(m.types);
 		return -1;
+	}
+	for (size_t i = 0; i < count; i++) {
+		m.names[i] = names[i];
+		m.types[i] = types[i];
 	}
 	return _add_type(name, (struct type_meta *)&m, sizeof m, TYPE_STRUCT);
 }
@@ -209,4 +217,37 @@ int get_type_size(const char *name, size_t *size)
 		return -1;
 	}
 	return 0;
+}
+
+
+int get_member_offset(const char *parent, const char *member, size_t *offset)
+{
+	size_t i;
+	if (h_get2(&typestable, parent, &i) < 0)
+		return -1;
+	struct type *t = &types[i];
+	if (t->type != TYPE_CLASS)
+		return -1;
+	struct type_meta_class *m = (void *)&t->meta;
+	size_t o = 0;
+	for (size_t j = 0; j < m->count; j++) {
+		if (streq(member, m->names[j])) {
+			*offset = o;
+			return 0;
+		}
+		size_t s;
+		if (get_type_size(m->types[j], &s) < 0)
+			return -1;
+		// Why not align, you ask?
+		//  - x86 allows unaligned accesses
+		//  - If the value is not on a cache boundary, there
+		//    is no penalty (on modern processors)
+		//  - If the value is on a cache boundary, there is
+		//    a penalty
+		//  - The odds of a 8 byte value *not* being on the boundary
+		//    of a 64 byte cache line is (64 - 8 + 1) / 64 = 0.89
+		//  - Those odds are good enough
+		o += s;
+	}
+	return -1;
 }
