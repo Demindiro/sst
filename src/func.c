@@ -65,7 +65,7 @@ void line_asm(func f, const char **vasms, size_t vasmcount,
 }
 
 
-void line_declare(func f, const char *name, const char *type)
+void line_declare(func f, const char *name, const char *type, hashtbl variables)
 {
 	assert(type != NULL);
 	struct func_line_declare *d = malloc(sizeof *d);
@@ -73,15 +73,17 @@ void line_declare(func f, const char *name, const char *type)
 	d->var   = name;
 	d->type  = type;
 	insert_line(f, (struct func_line *)d);
+	h_add(variables, name, (size_t)type);
 }
 
 
-void line_destroy(func f, const char *var)
+void line_destroy(func f, const char *var, hashtbl variables)
 {
 	struct func_line_destroy *d = malloc(sizeof *d);
 	d->_type = DESTROY;
 	d->var   = var;
 	insert_line(f, (struct func_line *)d);
+	h_rem(variables, var);
 }
 
 
@@ -101,13 +103,13 @@ void line_function(func f, const char *var, const char *func,
 
 
 void line_function_parse(func f, const char *var, const char *str,
-                         hashtbl vartypes)
+                         hashtbl variables)
 {
 	const char *c = str;
 	while (*c != ' ' && *c != 0)
 		c++;
 	const char *name = strnclone(str, c - str);
-	func g = get_function(name, vartypes);
+	func g = get_function(name, variables);
 	if (g == NULL)
 		EXIT(1, "Function '%s' not declared", name);
 	size_t      argcount = 0;
@@ -123,7 +125,7 @@ void line_function_parse(func f, const char *var, const char *str,
 			memcpy(b, str, c - str);
 			b[c - str] = 0;
 			const char *type = g->args[argcount].type;
-			args[argcount] = parse_expr(f, b, &etemp[argcount], type, vartypes);
+			args[argcount] = parse_expr(f, b, &etemp[argcount], type, variables);
 			if (!etemp[argcount])
 				args[argcount] = strclone(args[argcount]);
 			argcount++;
@@ -133,10 +135,10 @@ void line_function_parse(func f, const char *var, const char *str,
 		}
 	}
 	const char **a = args;
-	line_function(f, var, name, argcount, a);
+	line_function(f, var, g->name, argcount, a);
 	for (size_t i = argcount - 1; i != -1; i--) {
 		if (etemp[i])
-			line_destroy(f, args[i]);
+			line_destroy(f, args[i], variables);
 	}
 }
 
@@ -167,6 +169,12 @@ void line_label(func f, const char *label)
 	l->type  = LABEL;
 	l->label = label;
 	insert_line(f, (struct func_line *)l);
+}
+
+
+void line_load(func f, const char *var, const char *pointer, const char *index)
+{
+	line_math(f, MATH_LOADAT, var, pointer, index);
 }
 
 
@@ -209,15 +217,15 @@ void line_throw(func f, const char *expr)
 }
 
 
-const char *new_temp_var(func f, const char *type, const char *name)
+const char *new_temp_var(func f, const char *type, const char *name, hashtbl variables)
 {
 	static int i = 0;
 	const char *v;
 	if (name != NULL)
-		v = strprintf("_%s_%u", name, i++);
+		v = strprintf("__%s%u", name, i++);
 	else
-		v = strprintf("_temp_%u", i++);
-	line_declare(f, v, type);
+		v = strprintf("__t%u", i++);
+	line_declare(f, v, type, variables);
 	return v;
 }
 
@@ -339,6 +347,9 @@ void line2str(struct func_line *l, char *buf, size_t bufsize)
 		break;
 	case STORE:
 		snprintf(buf, bufsize, "STORE      *(%s + %s) = %s", fl.s->var, fl.s->index, fl.s->val);
+		break;
+	case THROW:
+		snprintf(buf, bufsize, "THROW");
 		break;
 	default:
 		EXIT(1, "Unknown line type (%d)", l->type);

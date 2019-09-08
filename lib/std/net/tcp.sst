@@ -1,3 +1,4 @@
+include std.net
 include std.core.io
 include std.core.net
 include std.core.exception
@@ -79,7 +80,7 @@ class Server
 		if cfd == -1
 			throw NetworkException "Couldn't accept client"
 		end
-		return Client(cfd)
+		return Client cfd
 	end
 
 end

@@ -115,11 +115,17 @@ int get_member_offset(const char *class, const char *member, size_t *offset);
 
 
 /**
+ * Get the type of a member in a class
+ */
+const char *get_member_type(const char *class, const char *member);
+
+
+/**
  * Get the type of the root parent
  *
  * e.g. 'a.b.c' --> 'a' is the root parent
  */
-int get_root_type(struct type *dest, const char *str);
+int get_root_type(struct type *dest, const char *str, hashtbl variables, const char **parent);
 
 
 /**

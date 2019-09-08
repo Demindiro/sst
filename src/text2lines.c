@@ -371,6 +371,8 @@ int text2lines(const char *text,
 			} else if (*c == ',' && *(c + 1) == ' ') {
 				*ptr++ = ',';
 				c += 2;
+			} else if (*(c - 1) == ',' && *c == ' ') {
+				c++;
 			} else if (*c == '\'') {
 				c++;
 				int v = *c;

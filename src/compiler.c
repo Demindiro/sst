@@ -122,16 +122,19 @@ static void _parse_struct_or_class(const line_t *lines, size_t linecount, size_t
 			const char *q = strchr(line.text, '(');
 			memcpy(b, line.text, q - line.text);
 			b[q - line.text] = 0;
-			if (streq(b, name)) {
-				line.text = strprintf("%s %s(%s this,%s",
-						name, name, name, q + 1);
+			q++;
+			int constructor = streq(b, name);
+			if (constructor) {
+				line.text = strprintf("%s %s(%s this%s%s",
+					name, name, name, *q == ')' ? "" : ",", q);
 			} else {
-				line.text = strprintf("%s(%s this, %s",
-						b, name, line.text);
+				line.text = strprintf("%s(%s this%s%s",
+					b, name, *q == ')' ? "" : ",", q);
 			}
 			struct func *g = calloc(sizeof *g, 1);
 			parsefunc_header(g, line, text);
-			g->name = strprintf("%s.%s", name, g->name);
+			if (!constructor)
+				g->name = strprintf("%s.%s", name, g->name);
 			DEBUG("Adding function '%s'", g->name);
 			add_function(g);
 			size_t l = _find_func_length(lines + *i, linecount - *i, text);
@@ -213,8 +216,11 @@ static void _include(const char *f, hashtbl incltbl)
 	line_t *lines;
 	size_t stringcount, linecount;
 
+	chdir(cwd); // TODO
+
 	if (text2lines(buf, &lines, &linecount, &strings, &stringcount) < 0)
 		EXIT(1, "Failed text to lines stage");
+
 
 	_findboundaries(lines, linecount, incltbl, buf);
 

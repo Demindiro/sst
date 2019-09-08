@@ -178,17 +178,17 @@ void line_asm(func f, const char **vasms, size_t vasmcount,
               const char **invars , const char *inregs , size_t incount,
               const char **outvars, const char *outregs, size_t outcount);
 
-void line_declare(func f, const char *name, const char *type);
+void line_declare(func f, const char *name, const char *type, hashtbl variables);
+
+void line_destroy(func f, const char *var, hashtbl variables);
 
 void line_math(func f, int op, const char *x, const char *y, const char *z);
-
-void line_destroy(func f, const char *var);
 
 void line_function(func f, const char *var, const char *func,
                           size_t argcount, const char **args);
 
 void line_function_parse(func f, const char *var, const char *str,
-                         hashtbl vartypes);
+                         hashtbl variables);
 
 void line_goto(func f, const char *label);
 
@@ -196,13 +196,15 @@ void line_if(func f, const char *condition, const char *label, int inv);
 
 void line_label(func f, const char *label);
 
+void line_load(func f, const char *var, const char *pointer, const char *index);
+
 void line_return(func f, const char *val);
 
 void line_store(func f, const char *arr, const char *index, const char *val);
 
 void line_throw(func f, const char *expr);
 
-const char *new_temp_var(func f, const char *type, const char *name);
+const char *new_temp_var(func f, const char *type, const char *name, hashtbl variables);
 
 struct func_line *copy_line(const struct func_line *l);
 

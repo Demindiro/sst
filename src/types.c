@@ -103,12 +103,18 @@ int get_type(struct type *dest, const char *name)
 		dest->name = name;
 		dest->type = TYPE_POINTER;
 	} else if (name[l - 1] == ']') {
+		struct type_meta_array *m = (void *)&dest->meta;
+
 		size_t i = 1;
 		while (name[i] != '[') {
 			if (i == l)
 				return -1;
 			i++;
 		}
+
+		m->fixed = i != l - 2;
+		if (m->fixed)
+			m->size = atoi(name + i + 1);
 
 		const char *p = strchr(name, '[');
 		memcpy(ddname, name, p - name);
@@ -243,7 +249,7 @@ int get_member_offset(const char *parent, const char *member, size_t *offset)
 		//  - If the value is not on a cache boundary, there
 		//    is no penalty (on modern processors)
 		//  - If the value is on a cache boundary, there is
-		//    a penalty
+		//    a (nowadays small) penalty
 		//  - The odds of a 8 byte value *not* being on the boundary
 		//    of a 64 byte cache line is (64 - 8 + 1) / 64 = 0.89
 		//  - Those odds are good enough
@@ -253,14 +259,33 @@ int get_member_offset(const char *parent, const char *member, size_t *offset)
 }
 
 
-int get_root_type(struct type *dest, const char *str)
+const char *get_member_type(const char *parent, const char *member)
 {
-	char buf[256];
+	size_t i;
+	if (h_get2(&typestable, parent, &i) < 0)
+		return NULL;
+	struct type *t = &types[i];
+	if (t->type != TYPE_CLASS)
+		return NULL;
+	struct type_meta_class *m = (void *)&t->meta;
+	for (size_t j = 0; j < m->count; j++) {
+		if (streq(member, m->names[j]))
+			return m->types[j];
+	}
+	return NULL;
+}
+
+
+
+int get_root_type(struct type *dest, const char *str, hashtbl variables, const char **parent)
+{
 	const char *p = strchr(str, '.');
 	size_t l = p == NULL ? strlen(str) : p - str;
-	memcpy(buf, str, l);
-	buf[l] = 0;
-	return get_type(dest, str);
+	*parent = strnclone(str, l);
+	const char *type;
+	if (h_get2(variables, *parent, (size_t *)&type) < 0)
+		return -1;
+	return get_type(dest, type);
 }
 
 
@@ -275,13 +300,14 @@ const char *get_function_name(const char *str, hashtbl variables)
 		return NULL;
 	memcpy(var, str, p - str);
 	var[p - str] = 0;
-	strcpy(func, p);
+	strcpy(func, p + 1);
 
-	if (h_get2(variables, str, (size_t *)&name) < 0)
+
+	if (h_get2(variables, var, (size_t *)&name) < 0)
 		return NULL;
 	if (get_type(&t, name) < 0)
 		return NULL;
-	if (t.type == TYPE_CLASS && t.type == TYPE_STRUCT)
-		return strprintf("%s.%s", t.name, str);
+	if (t.type == TYPE_CLASS || t.type == TYPE_STRUCT)
+		return strprintf("%s.%s", t.name, func);
 	return NULL;
 }

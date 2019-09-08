@@ -96,7 +96,7 @@ static int _str2op(const char *op)
 
 
 const char *parse_expr(func f, const char *str, char *istemp, const char *type,
-                       hashtbl vartypes)
+                       hashtbl variables)
 {
 	static size_t tempvarcounter = 0;
 
@@ -104,7 +104,7 @@ const char *parse_expr(func f, const char *str, char *istemp, const char *type,
 	// TODO
 	if (strstart(str, "new ")) {
 		// Forgive me for I am lazy
-		const char *v = new_temp_var(f, strclone(str + 4), "new");
+		const char *v = new_temp_var(f, strclone(str + 4), "new", variables);
 		const char *l = strnclone(strchr(str, '[') + 1, 1); // *puke*
 		const char *a[1] = { l };
 		line_function(f, v, "alloc", 1, a);
@@ -120,11 +120,11 @@ const char *parse_expr(func f, const char *str, char *istemp, const char *type,
 		char b[256];
 		memcpy(b, str, c - str);
 		b[c - str] = 0;
-		func g = get_function(b, vartypes);
+		func g = get_function(b, variables);
 		if (g != NULL) {
 			const char *x = strprintf("__e%lu", tempvarcounter++);
-			line_declare(f, g->type, x);
-			line_function_parse(f, x, str, vartypes);
+			line_declare(f, g->type, x, variables);
+			line_function_parse(f, x, str, variables);
 			*istemp = 1;
 			return x;
 		}
@@ -136,7 +136,7 @@ const char *parse_expr(func f, const char *str, char *istemp, const char *type,
 			goto notavar;
 	}
 	*istemp = 0;
-	return strclone(deref_var(str, f, vartypes, istemp));
+	return strclone(deref_var(str, f, variables, istemp));
 
 notavar:;
 	// Put braces in accordance to order of precedence
@@ -289,14 +289,14 @@ done:
 
 	// Parse the 'variables' as expressions
 	char ity, itz;
-	const char *y = parse_expr(f, vl, &ity, type, vartypes);
-	const char *z = parse_expr(f, vr, &itz, type, vartypes);
+	const char *y = parse_expr(f, vl, &ity, type, variables);
+	const char *z = parse_expr(f, vr, &itz, type, variables);
 
 	// Create a temporary variable
 	const char *x = strprintf("__e%lu", tempvarcounter++);
 
 	// Declare it
-	line_declare(f, x, type);
+	line_declare(f, x, type, variables);
 
 	// Get the op and swap vars if necessary
 	int o = _str2op(op);
@@ -320,8 +320,8 @@ done:
 	line2str(f->lines[f->linecount - 1], _, sizeof _);
 
 	// Destroy the temporary variables
-	if (ity) line_destroy(f, y);
-	if (itz) line_destroy(f, z);
+	if (ity) line_destroy(f, y, variables);
+	if (itz) line_destroy(f, z, variables);
 
 	// Yay
 	*istemp = 1;
