@@ -7,6 +7,7 @@
 #include "hashtbl.h"
 #include "types.h"
 #include "util.h"
+#include "var.h"
 
 
 
@@ -579,7 +580,10 @@ void lines2func(const line_t *lines, size_t linecount,
 				const char *p = ptr;
 				NEXTWORD;
 				if (get_function(word, &variables) != NULL) {
-					line_function_parse(f, name, p, &variables); 
+					const char *tmp = new_temp_var(f, "long", "todo", &variables); // TODO
+					line_function_parse(f, tmp, p, &variables); 
+					assign_var(f, name, tmp, &variables);
+					line_destroy(f, tmp, &variables);
 				} else {
 					char etemp;
 					const char *type;
@@ -613,7 +617,8 @@ void lines2func(const line_t *lines, size_t linecount,
 							e = parse_expr(f, p, &etemp, dtype, &variables);
 							// Structs ought to be stored in the registers or on
 							// the stack, so let func2vasm deal with "dereferencing"
-							line_assign(f, name, e);
+							//line_assign(f, name, e);
+							assign_var(f, name, e, &variables);
 						} else if (t.type == TYPE_CLASS) {
 							struct type_meta_class *m = (void *)&t.meta;
 							const char *dtype;
@@ -656,7 +661,7 @@ void lines2func(const line_t *lines, size_t linecount,
 				char tempi, tempv;
 				p = q + 4;
 				const char *i = parse_expr(f, e, &tempi, "long", &variables);
-				const char *v = parse_expr(f, p, &tempv, "TODO", &variables);
+				const char *v = parse_expr(f, p, &tempv, "long", &variables);
 				line_store(f, name, i, v);
 				if (tempi)
 					line_destroy(f, i, &variables);

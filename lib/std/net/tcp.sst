@@ -75,6 +75,14 @@ class Server
 		end
 	end
 
+	Server(byte[] ip, ushort port)
+		Address address = Address ip, port
+		this.fd = listen address.rawIp.ptr, address.port
+		if this.fd == -1
+			throw NetworkException "Couldn't listen on " ~ address
+		end
+	end
+
 	Client accept()
 		int cfd = accept fd
 		if cfd == -1

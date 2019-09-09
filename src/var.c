@@ -4,6 +4,7 @@
 #include "hashtbl.h"
 #include "types.h"
 #include "util.h"
+#include "var.h"
 
 
 static const char *deref_arr(const char *w, struct func *f,
@@ -283,16 +284,21 @@ const char *deref_var(const char *m, func f,
 
 int assign_var(func f, const char *var, const char *val, hashtbl variables)
 {
+#if 0
 	// Dereference value
 	char tempdval;
 	const char *dval = deref_var(val, f, variables, &tempdval);
+#endif
+#define dval val
 
 	// If the variable is declared, just assign it
 	size_t dummy;
 	if (h_get2(variables, var, &dummy) != -1) {
 		line_assign(f, var, dval);
+#if 0
 		if (tempdval)
 			line_destroy(f, dval, variables);
+#endif
 		return 0;
 	}
 
@@ -317,7 +323,10 @@ int assign_var(func f, const char *var, const char *val, hashtbl variables)
 			line_load(f, dvar, unassigned ? strclone(a) : dvar, strprintf("%ld", offset));
 			unassigned = 0;
 		} else if (type.type == TYPE_STRUCT) {
-			EXIT(4, "TODO: structs");
+			const char *v = strprintf("%s@%s", a, b);
+			line_assign(f, v, val);
+			return 0; // TODO guaranteed broken.
+			//EXIT(4, "TODO: structs");
 		} else if (type.type == TYPE_ARRAY) {
 			EXIT(4, "TODO: arrays");
 		} else {
@@ -329,8 +338,10 @@ int assign_var(func f, const char *var, const char *val, hashtbl variables)
 	// Store value
 	line_store(f, dvar, "0", val);
 	line_destroy(f, dvar, variables);
+#if 0
 	if (tempdval)
 		line_destroy(f, dval, variables);
+#endif
 
 	return 0;
 }

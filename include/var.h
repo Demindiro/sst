@@ -7,13 +7,13 @@
 
 
 const char *deref_var(const char *m, func f,
-                      hashtbl vartypes, char *etemp);
+                      hashtbl variables, char *etemp);
 
 
 /**
  * Inserts statements to assign a value to a variable
  */
-int assign_var(func f, const char *var, const char *val);
+int assign_var(func f, const char *var, const char *val, hashtbl variables);
 
 
 #endif

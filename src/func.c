@@ -74,6 +74,17 @@ void line_declare(func f, const char *name, const char *type, hashtbl variables)
 	d->type  = type;
 	insert_line(f, (struct func_line *)d);
 	h_add(variables, name, (size_t)type);
+
+	struct type t;
+	if (get_type(&t, type) < 0)
+		EXIT(1, "Type '%s' not declared", type);
+	if (t.type == TYPE_STRUCT) {
+		struct type_meta_struct *m = (void *)&t.meta;
+		for (size_t i = 0; i < m->count; i++) {
+			const char *n = strprintf("%s@%s", name, m->names[i]);
+			h_add(variables, n, (size_t)m->types[i]);
+		}
+	}
 }
 
 
