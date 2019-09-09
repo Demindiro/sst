@@ -206,10 +206,16 @@ int get_type_size(const char *name, size_t *size)
 	if (t->type == TYPE_NUMBER) {
 		struct type_meta_number *m = (void *)&t->meta;
 		*size = m->size;
-	} else if (t->type == TYPE_ARRAY || t->type == TYPE_POINTER ||
-	           t->type == TYPE_CLASS) {
-		return 8;
-	} else if (t->type == TYPE_STRUCT) {
+	} else if (t->type == TYPE_POINTER) {
+		*size = 8;
+	} else if (t->type == TYPE_ARRAY) {
+		struct type_meta_array *m = (void *)&t->meta;
+		struct type dt;
+		size_t dtsize;
+		get_type_size(dt.name, &dtsize);
+		get_deref_type(&dt, t->name);
+		*size = dtsize * m->size;
+	} else if (t->type == TYPE_STRUCT || t->type == TYPE_CLASS) {
 		struct type_meta_struct *m = (void *)&t->meta;
 		size_t s = 0;
 		for (size_t i = 0; i < m->count; i++) {

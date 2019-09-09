@@ -205,6 +205,16 @@ void lines2func(const line_t *lines, size_t linecount,
 		}
 	}
 
+	// If the function is a constructor for a class, allocate some memory
+	if (f->functype == FUNC_CLASS) {
+		size_t size;
+		if (get_type_size(f->type, &size) < 0)
+			EXIT(3, "But how?");
+		const char *arg = strprintf("%lu", size);
+		line_declare(f, "this", f->name, &variables);
+		line_function(f, "this", "__alloc", 1, &arg);
+	}
+
 	for ( ; ; ) {
 
 #define END_FOR   1
@@ -569,7 +579,7 @@ void lines2func(const line_t *lines, size_t linecount,
 				const char *p = ptr;
 				NEXTWORD;
 				if (get_function(word, &variables) != NULL) {
-					_parsefunc(f, p, name, &variables); 
+					line_function_parse(f, name, p, &variables); 
 				} else {
 					char etemp;
 					const char *type;

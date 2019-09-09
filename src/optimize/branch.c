@@ -471,7 +471,7 @@ int optimize_func_branches(func f)
 			changed |= _immediate_goto(bn, &bnc, &i);
 			changed |= _one_ref(bn, &bnc, &i);
 			changed |= _no_ref(bn, &bnc, &i);
-			changed |= _unroll(bn, &bnc, &i);
+			changed |= 0 && _unroll(bn, &bnc, &i);
 		}
 		haschanged |= changed;
 	} while (changed);

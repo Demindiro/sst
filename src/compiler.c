@@ -125,16 +125,21 @@ static void _parse_struct_or_class(const line_t *lines, size_t linecount, size_t
 			q++;
 			int constructor = streq(b, name);
 			if (constructor) {
-				line.text = strprintf("%s %s(%s this%s%s",
-					name, name, name, *q == ')' ? "" : ",", q);
+				line.text = isclass ?
+					strprintf("%s %s", name, line.text) :
+					strprintf("%s %s(%s this%s%s", name, name, name, *q == ')' ? "" : ",", q);
 			} else {
 				line.text = strprintf("%s(%s this%s%s",
-					b, name, *q == ')' ? "" : ",", q);
+						b, name, *q == ')' ? "" : ",", q);
 			}
 			struct func *g = calloc(sizeof *g, 1);
 			parsefunc_header(g, line, text);
-			if (!constructor)
+			if (!constructor) {
 				g->name = strprintf("%s.%s", name, g->name);
+				g->functype = FUNC_REGULAR;
+			} else {
+				g->functype = isclass ? FUNC_CLASS : FUNC_STRUCT;
+			}
 			DEBUG("Adding function '%s'", g->name);
 			add_function(g);
 			size_t l = _find_func_length(lines + *i, linecount - *i, text);

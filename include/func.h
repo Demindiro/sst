@@ -6,7 +6,7 @@
 #include "vasm.h"
 
 
-enum func_type {
+enum func_line_type {
 	NONE,
 	ASSIGN,
 	ASM,
@@ -21,6 +21,12 @@ enum func_type {
 	RETURN,
 	STORE,
 	THROW,
+};
+
+enum func_type {
+	FUNC_REGULAR,
+	FUNC_CLASS,
+	FUNC_STRUCT,
 };
 
 #define MATH_ADD    OP_ADD
@@ -44,18 +50,18 @@ enum func_type {
 
 
 struct func_line {
-	enum func_type type;
+	enum func_line_type type;
 };
 
 struct func_line_assign {
-	enum func_type type;
+	enum func_line_type type;
 	const char *var;
 	const char *value;
 	char cons;
 };
 
 struct func_line_asm {
-	enum func_type type;
+	enum func_line_type type;
 	const char**vasms;
 	size_t      vasmcount;
 	const char *invars [32];
@@ -67,7 +73,7 @@ struct func_line_asm {
 };
 
 struct func_line_declare {
-	enum func_type _type;
+	enum func_line_type _type;
 	const char *type;
 	const char *var;
 };
@@ -75,7 +81,7 @@ struct func_line_declare {
 #define func_line_destroy func_line_declare
 
 struct func_line_func {
-	enum func_type type;
+	enum func_line_type type;
 	unsigned char argcount;
 	const char  *name;
 	const char **args;
@@ -83,40 +89,40 @@ struct func_line_func {
 };
 
 struct func_line_goto {
-	enum func_type type;
+	enum func_line_type type;
 	const char *label;
 };
 
 struct func_line_if {
-	enum func_type type;
+	enum func_line_type type;
 	const char *label;
 	const char *var;
 	char inv;
 };
 
 struct func_line_label {
-	enum func_type type;
+	enum func_line_type type;
 	const char *label;
 };
 
 struct func_line_math {
-	enum func_type type;
+	enum func_line_type type;
 	char op;
 	const char *x, *y, *z;
 };
 
 struct func_line_rename {
-	enum func_type type;
+	enum func_line_type type;
 	const char *old, *new;
 };
 
 struct func_line_return {
-	enum func_type type;
+	enum func_line_type type;
 	const char *val;
 };
 
 struct func_line_store {
-	enum func_type type;
+	enum func_line_type type;
 	const char *var;
 	const char *val;
 	const char *index;
@@ -151,6 +157,7 @@ typedef struct func {
 	size_t linecount, linecap;
 	struct func_arg    args[32];
 	struct func_line **lines;
+	enum func_type functype;
 } func_t, *func;
 
 

@@ -112,9 +112,13 @@ void line_function_parse(func f, const char *var, const char *str,
 	func g = get_function(name, variables);
 	if (g == NULL)
 		EXIT(1, "Function '%s' not declared", name);
+	DEBUG("F    %s", g->name);
 	size_t      argcount = 0;
 	const char *args [32];
 	char        etemp[32];
+	// If function call is part of a class, prepend the variable
+	if (!streq(g->name, name))
+		args[argcount++] = strnclone(name, strchr(name, '.') - name);
 	if (*c != 0) {
 		c++;
 		while (1) {

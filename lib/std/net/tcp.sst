@@ -76,7 +76,7 @@ class Server
 	end
 
 	Client accept()
-		int cfd = accept(cfd)
+		int cfd = accept fd
 		if cfd == -1
 			throw NetworkException "Couldn't accept client"
 		end
