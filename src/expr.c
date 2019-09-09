@@ -29,7 +29,7 @@ static int _op_precedence(char c0, char c1)
 	case '|':
 	case '&':
 		if (c0 == c1) // Boolean comparison
-			return 4;
+			return 3;
 	case '^':
 		if (c1 != 0)
 			goto _default;
@@ -37,10 +37,10 @@ static int _op_precedence(char c0, char c1)
 	case '=':
 	case '!':
 		if (c1 == '=') // Comparison
-			return 3;
+			return 4;
 	case '<':
 	case '>':
-		return 3;
+		return 4;
 	default:
 	_default:
 		DEBUG("%d", c0);
