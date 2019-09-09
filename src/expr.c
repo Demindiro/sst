@@ -123,7 +123,7 @@ const char *parse_expr(func f, const char *str, char *istemp, const char *type,
 		func g = get_function(b, variables);
 		if (g != NULL) {
 			const char *x = strprintf("__e%lu", tempvarcounter++);
-			line_declare(f, g->type, x, variables);
+			line_declare(f, x, g->type, variables);
 			line_function_parse(f, x, str, variables);
 			*istemp = 1;
 			return x;

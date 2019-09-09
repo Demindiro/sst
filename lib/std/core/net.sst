@@ -10,6 +10,7 @@ int connect(byte* ip, ushort port)
 end
 
 int listen(byte* ip, ushort port)
+	long fd
 	__asm
 		r1 = ip, r2 = port
 		fd = r0
