@@ -143,9 +143,8 @@ const char *deref_var(const char *m, func f,
 			if (streq(member, "length")) {
 				// Dynamic array
 				const char *pointer = new_temp_var(f, "long*", "ptr", variables);
-				line_math(f, MATH_SUB, pointer, parent, "8");
 				const char *length  = new_temp_var(f, "long", "len", variables);
-				line_math(f, MATH_LOADAT, length, pointer, "0");
+				line_math(f, MATH_LOADAT, length, pointer, "-8");
 				line_destroy(f, pointer, variables);
 				if (etemp) *etemp = 1;
 				return length;
