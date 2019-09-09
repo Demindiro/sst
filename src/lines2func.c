@@ -206,14 +206,17 @@ void lines2func(const line_t *lines, size_t linecount,
 		}
 	}
 
-	// If the function is a constructor for a class, allocate some memory
 	if (f->functype == FUNC_CLASS) {
+		// If the function is a constructor for a class, allocate some memory
 		size_t size;
 		if (get_type_size(f->type, &size) < 0)
 			EXIT(3, "But how?");
 		const char *arg = strprintf("%lu", size);
 		line_declare(f, "this", f->name, &variables);
 		line_function(f, "this", "__alloc", 1, &arg);
+	} else if (f->functype == FUNC_STRUCT) {
+		// If the function is a constructor, declare 'this"
+		line_declare(f, "this", f->name, &variables);
 	}
 
 	for ( ; ; ) {
@@ -676,5 +679,9 @@ void lines2func(const line_t *lines, size_t linecount,
 		// NEXT PLEASE!!!
 		li++;
 		line = lines[li];
+	}
+
+	if (f->functype == FUNC_CLASS || f->functype == FUNC_STRUCT) {
+		line_return(f, "this");
 	}
 }

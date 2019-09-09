@@ -125,9 +125,7 @@ static void _parse_struct_or_class(const line_t *lines, size_t linecount, size_t
 			q++;
 			int constructor = streq(b, name);
 			if (constructor) {
-				line.text = isclass ?
-					strprintf("%s %s", name, line.text) :
-					strprintf("%s %s(%s this%s%s", name, name, name, *q == ')' ? "" : ",", q);
+				line.text = strprintf("%s %s", name, line.text);
 			} else {
 				line.text = strprintf("%s(%s this%s%s",
 						b, name, *q == ')' ? "" : ",", q);
