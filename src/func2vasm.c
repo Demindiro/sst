@@ -532,7 +532,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			if (isnum(*fl.s->index)) {
 				a.rs.op  = OP_SET;
 				a.rs.r   = rb = 21;
-				a.rs.s = fl.s->val;
+				a.rs.s = fl.s->index;
 				v[vc++] = a;
 			} else {
 				rb = h_get(&tbl, fl.s->index);

@@ -8,8 +8,8 @@
 #include "expr.h"
 
 
-static const char *deref_arr(const char *w, struct func *f,
-                             hashtbl variables, char *etemp)
+static const char *_deref_arr(const char *w, struct func *f,
+                              hashtbl variables, char *etemp)
 {
 	static int counter = 0;
 	const char *p = strchr(w, '[');
@@ -114,7 +114,7 @@ const char *deref_var(const char *m, func f,
 	if (p == NULL) {
 		p = strchr(m, '[');
 		if (p != NULL)
-			return deref_arr(m, f, variables, etemp);
+			return _deref_arr(m, f, variables, etemp);
 		*etemp = 0;
 		return m;
 	}
@@ -266,7 +266,7 @@ const char *deref_var(const char *m, func f,
 		return strclone(m);
 	// Array access
 	case 0:
-		return deref_arr(m, f, variables, etemp);
+		return _deref_arr(m, f, variables, etemp);
 	// Member access
 	case 1: {
 		size_t l = strlen(type);
@@ -282,58 +282,117 @@ const char *deref_var(const char *m, func f,
 
 
 
+
 int assign_var(func f, const char *var, const char *val, hashtbl variables)
 {
-	// Parse value
+	// Parse to-be-assigned value
 	char tempdval;
 	const char *dval = parse_expr(f, val, &tempdval, "TODO", variables);
 
-	// If the variable is declared, just assign it
-	size_t dummy;
-	if (h_get2(variables, var, &dummy) != -1) {
-		line_assign(f, var, dval);
-		if (tempdval)
-			line_destroy(f, dval, variables);
-		return 0;
+	// Find the first 'dereference symbol'
+	const char *p = var;
+	while (*p != 0) {
+		if (*p == '[')
+			goto array_dereference;
+		else if (*p == '.')
+			goto member_dereference;
+		p++;
 	}
+	goto no_dereference;
 
-	// Dereference variable
-	const char *dvar = new_temp_var(f, "TODO", NULL, variables);
-	char a[256], b[256];
-	int unassigned = 1;
-	while (_split(var, a, sizeof a, b, sizeof b, '.')) {
-		const char *typename;
-		if (h_get2(variables, a, (size_t *)&typename) < 0)
-			EXIT(1, "Variable '%s' not declared", a);
-		struct type type;
-		if (get_type(&type, typename) < 0)
-			EXIT(1, "Type '%s' not declared", typename);
+array_dereference:;
+	// Get the array name
+	const char *array = strnclone(var, p - var);
+	p++;
+	// Get the index name
+	const char *q = p;
+	while (*p != ']') {
+		if (*p == 0)
+			EXIT(1, "Expected ']'");
+		p++;
+	}
+	const char *index = strnclone(q, p - q);
+	p++;
+	if (*p == 0) {
+		// If it is the last dereference, then store the value
+		line_store(f, array, index, dval);
+	} else {
+		// Else we may have to perform magic with structs, so crash for now
+		EXIT(4, "TODO: struct magic");
+	}
+	goto end;
 
-		if (type.type == TYPE_NUMBER || type.type == TYPE_POINTER) {
-			EXIT(1, "Numbers and pointers don't have any members");
-		} else if (type.type == TYPE_CLASS) {
-			size_t offset;
-			if (get_member_offset(type.name, b, &offset) == -1)
-				EXIT(1, "Class '%s' doesn't have member '%s'", a, b);
-			line_load(f, dvar, unassigned ? strclone(a) : dvar, strprintf("%ld", offset));
-			unassigned = 0;
-		} else if (type.type == TYPE_STRUCT) {
-			const char *v = strprintf("%s@%s", a, b);
-			line_assign(f, v, val);
-			return 0; // TODO guaranteed broken.
-			//EXIT(4, "TODO: structs");
-		} else if (type.type == TYPE_ARRAY) {
-			EXIT(4, "TODO: arrays");
+member_dereference:;
+	// Get the parent's name
+	const char *parent = strnclone(var, p - var);
+	p++;
+	// Get the members name
+	/*const char **/q = p;
+	while (1) {
+		if (*p == '.' || *p == '[' || *p == 0)
+			break;
+		p++;
+	}
+	const char *member = strnclone(q, p - q);
+	// Check if it is the final dereference
+	int isfinal = *q == 0;
+	// Check what type the parent is
+	const char *typename;
+	struct type type;
+	if (h_get2(variables, parent, (size_t *)&typename) < 0)
+		EXIT(1, "Variable '%s' is not declared", parent);
+	if (get_type(&type, typename) < 0)
+		EXIT(1, "Undeclared type: '%s'", typename);
+	if (type.type == TYPE_NUMBER) {
+		// There are no mutable number properties
+		EXIT(3, "Number properties are immutable");
+	} else if (type.type == TYPE_POINTER) {
+		// There are no mutable pointer properties
+		EXIT(3, "Pointer properties are immutable");
+	} else if (type.type == TYPE_ARRAY) {
+		// There are no mutable array properties
+		EXIT(3, "Array properties are immutable");
+	} else if (type.type == TYPE_CLASS) {
+		// Get the member's offset
+		size_t o;
+		if (get_member_offset(typename, member, &o) == -1)
+			EXIT(1, "Class '%s' doesn't have member '%s'", parent, member);
+		const char *so = strprintf("%ld", o);
+		if (isfinal) {
+			// Store the value
+			line_store(f, parent, so, dval);
 		} else {
-			EXIT(3, "Unknown type (%d)", type.type);
+			// Load the value, assign the value to it and store it again
+			// (Easiest way to deal with structs right now)
+			const char *tmp = new_temp_var(f, "TODO", NULL, variables);
+			line_load(f, tmp, parent, so);
+			const char *n = strprintf("%s%s", tmp, q);
+			assign_var(f, n, dval, variables);
+			line_store(f, parent, so, tmp);
+			line_destroy(f, tmp, variables);
 		}
-		var += strlen(a) + 1;
+	} else if (type.type == TYPE_STRUCT) {
+		if (isfinal) {
+			// 'Merge' parent and member into one variable and assign it
+			const char *n = strprintf("%s@%s", parent, member);
+			line_assign(f, n, dval);
+		} else {
+			// Call assign_var with merged variable
+			const char *n = strprintf("%s@%s", parent, q);
+			assign_var(f, n, dval, variables);
+		}
+	} else {
+		EXIT(3, "Unknown type (%d)", type.type);
 	}
+	goto end;
 
-	// Store value
-	line_store(f, dvar, "0", val);
+no_dereference:
+	// Simply assign the value
+	line_assign(f, var, dval);
+
+end:
+	// Destroy temporary values to free up registers
 	if (tempdval)
 		line_destroy(f, dval, variables);
-
 	return 0;
 }

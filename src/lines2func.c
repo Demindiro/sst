@@ -583,23 +583,23 @@ void lines2func(const line_t *lines, size_t linecount,
 				const char *p = ptr;
 				NEXTWORD;
 				if (get_function(word, &variables) != NULL) {
-					const char *tmp = new_temp_var(f, "long", "todo", &variables); // TODO
-					line_function_parse(f, tmp, p, &variables); 
-					assign_var(f, name, tmp, &variables);
-					line_destroy(f, tmp, &variables);
+					assign_var(f, name, p, &variables);
 				} else {
-					char etemp;
+					char etemp = 0;
 					const char *type;
 					const char *arr, *index;
 					const char *parent, *member;
 					const char *e;
 					if (is_array_dereference(name, &arr, &index)) {
+						assign_var(f, name, p, &variables);
+#if 0
 						if (h_get2(&variables, arr, (size_t *)&type) < 0)
 							EXIT(1, "Variable '%s' not declared", arr);
 						const char *de    = strchr(type, '[');
 						const char *dtype = strnclone(type, de - type);
 						e = parse_expr(f, p, &etemp, dtype, &variables);
 						line_store(f, arr, index, e);
+#endif
 					} else if (is_member_dereference(name, &parent, &member)) {
 						if (h_get2(&variables, parent, (size_t *)&type) < 0)
 							EXIT(1, "Variable '%s' not declared", parent);

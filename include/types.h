@@ -111,13 +111,13 @@ int get_type_size(const char *name, size_t *i);
 /**
  * Get the offset of a member in a class
  */
-int get_member_offset(const char *class, const char *member, size_t *offset);
+int get_member_offset(const char *parent, const char *member, size_t *offset);
 
 
 /**
  * Get the type of a member in a class
  */
-const char *get_member_type(const char *class, const char *member);
+const char *get_member_type(const char *parent, const char *member);
 
 
 /**
