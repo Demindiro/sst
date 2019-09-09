@@ -27,14 +27,14 @@ linker:		build/linker
 
 dumper:		build/dump
 
-c2r: src/interpreter/cisc2risc.c src/vasm.c include/vasm.h
+c2r: src/interpreter/cisc2risc.c src/vasm.c src/interpreter/syscall.c include/vasm.h
 	$(CC) $(INCLUDE) $(CFLAGS) -T src/interpreter/cisc2risc.lds $+ -o $(OUTPUT)/interpreter
 
-c2r64: src/interpreter/cisc2risc64.c src/vasm.c include/vasm.h
+c2r64: src/interpreter/cisc2risc64.c src/vasm.c src/interpreter/syscall.c include/vasm.h
 	#$(CC) $(INCLUDE) $(CFLAGS) $+ -o $(OUTPUT)/interpreter
 	$(CC) $(INCLUDE) $(CFLAGS) -T src/interpreter/cisc2risc64.lds $+ -o $(OUTPUT)/interpreter
 
-be2h: src/interpreter/be2h.c include/vasm.h
+be2h: src/interpreter/be2h.c src/interpreter/syscall.c include/vasm.h
 	$(CC) $(INCLUDE) $(CFLAGS) $+ -o $(OUTPUT)/interpreter
 
 include std.mk
@@ -69,7 +69,7 @@ build/assembler:	src/assembler.c		src/vasm2vbin.c		\
 	@echo Building assembler
 	@$(cc)
 
-build/interpreter:	src/interpreter/base.c				\
+build/interpreter:	src/interpreter/base.c	src/interpreter/syscall.c\
 			include/vasm.h
 	@echo Building interpreter
 	@$(cc)

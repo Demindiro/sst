@@ -224,9 +224,9 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			reg = h_get(&tbl, fl.a->var);
 			if (reg == -1)
 				ENOTDECLARED(fl.a->var);
-			if ('0' <= *fl.a->var && *fl.a->var <= '9')
+			if (isnum(*fl.a->var))
 				EXIT(1, "You can't assign to a number");
-			if ('0' <= *fl.a->value && *fl.a->value <= '9') {
+			if (isnum(*fl.a->value)) {
 				a.rs.op  = OP_SET;
 				a.rs.r   = reg;
 				a.rs.s = fl.a->value;

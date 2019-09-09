@@ -20,6 +20,7 @@
 #include <x86intrin.h>
 #include "vasm.h"
 #include "util.h"
+#include "interpreter/syscall.h"
 
 
 static char    mem[0x100000];
@@ -116,55 +117,6 @@ static size_t  programlen;
 static size_t icounter;
 static size_t rstart;
 #endif
-
-
-
-// Would you believe me if I said not forcing no inlining would cause the
-// interpreter to be 3 times slower for _every_ instruction? (~2 seconds
-// vs 0.68 seconds)
-//
-// My theory as to what is happening: GCC inlines this function, the big
-// switch statement in the main loop gets a case that is too big for inlining
-// and no jump table is created, which results in tons of branches and
-// lots of branch misses.
-//
-// Evidence for suspicion: 163 905 110 branch misses without noinline,
-// 53 776 with (x3000 difference).
-//
-// Maybe I should add this bit of knowledge to Stack Overflow. Surely there are others
-// unknowingly leaving performance on the table due to this :P
-// Or maybe a bug report would be more appropriate. Oh well.
-__attribute__((noinline))
-static void vasm_syscall() {
-	switch (regs[0]) {
-	case 0: // exit(code)
-#ifndef NOPROF
-		; size_t r = _rdtsc() - rstart;
-		printf("\n");
-		printf("Instructions executed: %lu\n", icounter);
-		printf("Host CPU cycles: %lu\n", r);
-		printf("Average host CPU cycles per instruction: %lf\n", (double)r / icounter);
-#endif
-		exit(regs[1]);
-		break;
-	case 1: // read(fd, buf, length)
-		regs[0] = write(regs[1], (char *)(mem + regs[2]), regs[3]);
-		DEBUG("write(%lu, 0x%lx, %lu) = %ld",
-		        regs[1], regs[2], regs[3], regs[0]);
-		break;
-	case 2: // write(fd, buf, length)
-		regs[0] = read(regs[1], (char *)(mem + regs[2]), regs[3]);
-		DEBUG("read(%lu, 0x%lx, %lu) = %ld",
-		        regs[1], regs[2], regs[3], regs[0]);
-		break;
-	case 3: // connect(ip6, port)
-	case 4: // listen(ip6, port)
-	case 5: // accept(fd)
-	default:
-		regs[0] = -1;
-		break;
-	}
-}
 
 
 
@@ -839,7 +791,7 @@ static void run()
 
 	op_syscall:
 		DEBUG("syscall");
-		vasm_syscall();
+		vasm_syscall(regs, mem);
 		continue;
 
 	crash:
