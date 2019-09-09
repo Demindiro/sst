@@ -603,6 +603,8 @@ static int _unused_declare(func f, size_t *i)
 		case MATH:
 			if (streq(v, l.m->x))
 				return 0;
+			if (l.m->op == MATH_LOADAT && streq(v, l.m->y))
+				return 0;
 			break;
 		case STORE:
 			if (streq(v, l.s->var))

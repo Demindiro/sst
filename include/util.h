@@ -74,7 +74,7 @@ static int strend(const char *x, const char *y)
 
 #define streq(x,y) (strcmp(x,y) == 0)
 #define strstart(x,y) (strncmp(x,y,strlen(y)) == 0)
-#define isnum(c) ('0' <= c && c <= '9')
+#define isnum(c) (('0' <= c && c <= '9') || c == '-')
 
 #define SWAP(type,x,y) do {	\
 	type SWAP = x;		\

@@ -351,6 +351,7 @@ static void _init()
 	    add_type_number("ubyte" , 1, 0) < 0 ||
 	    add_type_number( "bool" , 1, 0) < 0)
 		EXIT(3, "Failed to initialize builtin types");
+	add_type_number("TODO", 8, 1); // TODO temporary
 }
 
 

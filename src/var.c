@@ -5,6 +5,7 @@
 #include "types.h"
 #include "util.h"
 #include "var.h"
+#include "expr.h"
 
 
 static const char *deref_arr(const char *w, struct func *f,
@@ -283,26 +284,21 @@ const char *deref_var(const char *m, func f,
 
 int assign_var(func f, const char *var, const char *val, hashtbl variables)
 {
-#if 0
-	// Dereference value
+	// Parse value
 	char tempdval;
-	const char *dval = deref_var(val, f, variables, &tempdval);
-#endif
-#define dval val
+	const char *dval = parse_expr(f, val, &tempdval, "TODO", variables);
 
 	// If the variable is declared, just assign it
 	size_t dummy;
 	if (h_get2(variables, var, &dummy) != -1) {
 		line_assign(f, var, dval);
-#if 0
 		if (tempdval)
 			line_destroy(f, dval, variables);
-#endif
 		return 0;
 	}
 
 	// Dereference variable
-	const char *dvar = new_temp_var(f, "long", NULL, variables); // TODO: "long"
+	const char *dvar = new_temp_var(f, "TODO", NULL, variables);
 	char a[256], b[256];
 	int unassigned = 1;
 	while (_split(var, a, sizeof a, b, sizeof b, '.')) {
@@ -336,11 +332,8 @@ int assign_var(func f, const char *var, const char *val, hashtbl variables)
 
 	// Store value
 	line_store(f, dvar, "0", val);
-	line_destroy(f, dvar, variables);
-#if 0
 	if (tempdval)
 		line_destroy(f, dval, variables);
-#endif
 
 	return 0;
 }
