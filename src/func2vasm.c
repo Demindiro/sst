@@ -227,16 +227,19 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			if (isnum(*fl.a->var))
 				EXIT(1, "You can't assign to a number");
 			if (isnum(*fl.a->value)) {
-				a.rs.op  = OP_SET;
-				a.rs.r   = reg;
-				a.rs.s = fl.a->value;
+				a.rs.op = OP_SET;
+				a.rs.r  = reg;
+				a.rs.s  = fl.a->value;
 			} else {
-				a.r2.op   = OP_MOV;
+				a.r2.op = OP_MOV;
 				a.r2.r0 = reg;
-				reg = h_get(&tbl, fl.a->value);
-				if (reg == -1)
-					ENOTDECLARED(fl.a->value);
-				a.r2.r1 = reg;
+				a.r2.r1 = h_get(&tbl, fl.a->value);
+				if (a.r2.r1 == -1) {
+					//ENOTDECLARED(fl.a->value);
+					a.rs.op = OP_SET;
+					a.rs.r  = reg;
+					a.rs.s  = fl.a->value;
+				}
 			}
 			v[vc++] = a;
 			break;

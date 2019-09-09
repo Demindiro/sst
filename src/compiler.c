@@ -541,7 +541,7 @@ end:
 		DEBUG("Writing processed to '%s'", output_file);
 		for (size_t i = 0; i < linecount; i++) {
 			line_t l = lines[i];
-			DEBUG("%-40s # %lu,%u,%u", l.text, l.pos.c, l.pos.y, l.pos.x);
+			fprintf(_f, "%-40s # %lu,%u,%u\n", l.text, l.pos.c, l.pos.y, l.pos.x);
 		}
 	}
 

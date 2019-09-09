@@ -342,10 +342,14 @@ int text2lines(const char *text,
 				*ptr = '1';
 				ptr += 1;
 				c   += 4;
-			} else if (strncmp(c, "false ", 5) == 0 && (c[5] == 0 || strchr("\n ", c[5]))) {
+			} else if (strncmp(c, "false", 5) == 0 && (c[5] == 0 || strchr("\n ", c[5]))) {
 				*ptr = '0';
 				ptr += 1;
 				c   += 5;
+			} else if (strncmp(c, "null", 4) == 0 && (c[5] == 0 || strchr("\n ", c[4]))) {
+				*ptr = '0';
+				ptr += 1;
+				c   += 4;
 			} else if (strchr("+-*/%<>", *(c-1))) {
 				if (strchr(" =+-*/%<>\n", *c))
 					continue;
