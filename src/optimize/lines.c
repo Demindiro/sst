@@ -513,7 +513,7 @@ static int _precompute_math(func f, size_t *i)
 		struct func_line_assign *a = malloc(sizeof *a);
 		a->type = ASSIGN;
 		a->var       = m->x;
-		a->value     = strprintf("%lu", x);
+		a->value     = strprintf("%ld", x);
 		f->lines[*i] = (struct func_line *)a;
 	}
 	return 0;

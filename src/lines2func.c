@@ -211,7 +211,7 @@ void lines2func(const line_t *lines, size_t linecount,
 		size_t size;
 		if (get_type_size(f->type, &size) < 0)
 			EXIT(3, "But how?");
-		const char *arg = strprintf("%lu", size);
+		const char *arg = strprintf("%ld", size);
 		line_declare(f, "this", f->name, &variables);
 		line_function(f, "this", "__alloc", 1, &arg);
 	} else if (f->functype == FUNC_STRUCT) {
@@ -325,7 +325,7 @@ void lines2func(const line_t *lines, size_t linecount,
 					fromval   = "0";
 					toval     = strprintf("%s.length", p);
 					static size_t iteratorcount = 0;
-					iterator = strprintf("_for_iterator_%lu", iteratorcount);;
+					iterator = strprintf("_for_iterator_%ld", iteratorcount);;
 					iteratorcount++;
 					goto isfromarray;
 				}
@@ -637,7 +637,7 @@ void lines2func(const line_t *lines, size_t linecount,
 							size_t o;
 							if (get_member_offset(t.name, member, &o) < 0)
 								EXIT(1, "Type '%s' is not declared", t.name);
-							line_store(f, parent, strprintf("%lu", o), e);
+							line_store(f, parent, strprintf("%ld", o), e);
 						} else {
 							EXIT(1, "Type '%s' is not a struct or class", type);
 						}

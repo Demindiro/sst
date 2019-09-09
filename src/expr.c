@@ -122,7 +122,7 @@ const char *parse_expr(func f, const char *str, char *istemp, const char *type,
 		b[c - str] = 0;
 		func g = get_function(b, variables);
 		if (g != NULL) {
-			const char *x = strprintf("__e%lu", tempvarcounter++);
+			const char *x = strprintf("__e%ld", tempvarcounter++);
 			line_declare(f, x, g->type, variables);
 			line_function_parse(f, x, str, variables);
 			*istemp = 1;
@@ -293,7 +293,7 @@ done:
 	const char *z = parse_expr(f, vr, &itz, type, variables);
 
 	// Create a temporary variable
-	const char *x = strprintf("__e%lu", tempvarcounter++);
+	const char *x = strprintf("__e%ld", tempvarcounter++);
 
 	// Declare it
 	line_declare(f, x, type, variables);
