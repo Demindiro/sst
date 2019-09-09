@@ -287,6 +287,7 @@ int assign_var(func f, const char *var, const char *val, hashtbl variables)
 {
 	// Parse to-be-assigned value
 	char tempdval;
+	const char *dvaltype;
 	const char *dval = parse_expr(f, val, &tempdval, "TODO", variables);
 
 	// Find the first 'dereference symbol'
@@ -335,7 +336,7 @@ member_dereference:;
 	}
 	const char *member = strnclone(q, p - q);
 	// Check if it is the final dereference
-	int isfinal = *q == 0;
+	int isfinal = *p == 0;
 	// Check what type the parent is
 	const char *typename;
 	struct type type;
@@ -364,9 +365,10 @@ member_dereference:;
 		} else {
 			// Load the value, assign the value to it and store it again
 			// (Easiest way to deal with structs right now)
-			const char *tmp = new_temp_var(f, "TODO", NULL, variables);
+			const char *mtype = get_member_type(typename, member);
+			const char *tmp = new_temp_var(f, mtype, NULL, variables);
 			line_load(f, tmp, parent, so);
-			const char *n = strprintf("%s%s", tmp, q);
+			const char *n = strprintf("%s%s", tmp, p);
 			assign_var(f, n, dval, variables);
 			line_store(f, parent, so, tmp);
 			line_destroy(f, tmp, variables);
