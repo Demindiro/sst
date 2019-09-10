@@ -121,15 +121,44 @@ int vasm2vbin(const union vasm_all *vasms, size_t vasmcount, char *vbin, size_t 
 		case ARGS_TYPE_INT:
 		case ARGS_TYPE_LONG:
 			if (a.op == OP_JMP) {
-				val = _getlblpos(a.s.s, map);
+#ifndef FORCE_LONGJMP
+				val = _getlblpos(a.rs.s, map);
 				if (val != -1) {
 					ssize_t d = (ssize_t)val - (ssize_t)vbinlen;
 					if (-0x80 <= d && d <= 0x7F) {
 						vbin[vbinlen - 1] = OP_JMPRB;
 						vbin[vbinlen++  ] = (char)d;
-						break;
+						goto shortop_jmp;
+					}
+				} else {
+					// Estimate distance
+					size_t d = 3; // op (1) + reg (1) + offset (1)
+					for (size_t j = i + 1; j < vasmcount; j++) {
+						union vasm_all b = vasms[j];
+						d += _getoplen(b.a);
+						if (d > 0x7F)
+							break;
+						if (b.op == OP_LABEL &&
+						    streq(a.rs.s, b.s.s)) {
+							vbin[vbinlen - 1] = OP_JMPRB;
+							vbin[vbinlen++  ] = 0xFF;
+							jmprelmap[jmprelmapcount].lbl = a.rs.s;
+							jmprelmap[jmprelmapcount].pos = vbinlen - 1;
+							jmprelmapcount++;
+							goto shortop_jmp;
+						}
 					}
 				}
+#endif
+				val = -1;
+				if (isnum(*a.rs.s))
+					val = strtol(a.rs.s, NULL, 0);
+				else 
+					POS2LBL(a.rs.s);
+				*(size_t *)(vbin + vbinlen) = val;
+				vbinlen += sizeof val;
+			shortop_jmp:
+				break;
 			} else if (a.op == OP_CALL) {
 				val = -1;
 				if (isnum(*a.s.s))
