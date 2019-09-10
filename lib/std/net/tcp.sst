@@ -26,14 +26,14 @@ class Client
 		end
 	end
 
-	ulong read(byte[] data, ulong offset, ulong length)
+	ulong read(byte* data, ulong offset, ulong length)
 		if data == null
 			throw NullException "data"
 		end
-		if offset + length > data.length
-			throw ArrayOutOfBoundsException data, offset + length
-		end
-		read this.fd, data.ptr + offset, length
+		#if offset + length > data.length
+		#	throw ArrayOutOfBoundsException data, offset + length
+		#end
+		read this.fd, data + offset, length
 	end
 
 	ulong read(byte[] data)
@@ -50,7 +50,7 @@ class Client
 		if offset + length > data.length
 			throw ArrayOutOfBoundsException data, offset + length
 		end
-		write this.fd, data.ptr + offset, length
+		write this.fd, data + offset, length
 	end
 
 	ulong write(byte[] data)
