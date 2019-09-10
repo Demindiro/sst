@@ -30,7 +30,7 @@ void vasm_syscall(int64_t regs[32], uint8_t *mem) {
 			goto _default;
 		addr.sin6_family = AF_INET6;
 		addr.sin6_port   = htons(regs[2]);
-		memcpy(&addr.sin6_addr, (void *)regs[3], 16);
+		memcpy(&addr.sin6_addr, (void *)(mem + regs[3]), 16);
 		if (bind(fd, (struct sockaddr *)&addr, sizeof addr) < 0) {
 			close(fd);
 			goto _default;
