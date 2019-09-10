@@ -114,6 +114,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 	}
 
 	char allocated_regs[32];
+	const char *regs_types[32];
 	char is_const_reg_zero[32];
 	memset(allocated_regs, 0, sizeof allocated_regs);
 	memset(is_const_reg_zero, 0, sizeof is_const_reg_zero);
@@ -345,6 +346,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 					const char *n = strprintf("%s@%s", fl.d->var, m->names[i]);
 					if (h_add(&tbl, n, reg) < 0)
 						EXIT(3, "Failed to add variable to hashtable");
+					regs_types[reg] = fl.d->type;
 				}
 			} else {
 				for (reg = 0; reg < sizeof allocated_regs / sizeof *allocated_regs; reg++) {
@@ -355,6 +357,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				}
 				if (h_add(&tbl, fl.d->var, reg) < 0)
 					EXIT(3, "Failed to add variable to hashtable");
+				regs_types[reg] = fl.d->type;
 			}
 			_reserve_stack_space(&v, &vc, reg, fl.d->type);
 			break;
@@ -638,6 +641,8 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 							v[vc++] = a;
 						}
 					}
+				} else {
+					v[vc++] = a;
 				}
 			}
 			v[vc++].op = OP_RET;
@@ -665,7 +670,13 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				if (rb == -1)
 					ENOTDECLARED(fl.s->index);
 			}
-			a.r3.op = OP_STRBAT; // TODO determine required length
+			switch(_get_type_size(regs_types[ra])) {
+			case 1: a.r3.op = OP_STRBAT; break;
+			case 2: a.r3.op = OP_STRSAT; break;
+			case 4: a.r3.op = OP_STRIAT; break;
+			case 8: a.r3.op = OP_STRLAT; break;
+			default: EXIT(4, "TODO: all kinds of store stuff");
+			}
 			a.r3.r0 = ra;
 			a.r3.r1 = h_get(&tbl, fl.s->var);
 			a.r3.r2 = rb;

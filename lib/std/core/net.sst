@@ -24,7 +24,7 @@ int accept(int fd)
 	__asm
 		r1 = fd
 		fd = r0
-		set	r0,1
+		set	r0,5
 		syscall
 	end
 	return fd
