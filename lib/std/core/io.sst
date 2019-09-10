@@ -19,3 +19,17 @@ long write(int fd, byte* buf, long length)
 	end
 	return len
 end
+
+int open(byte[] file, uint mode)
+	throw AYAYA
+end
+
+int close(int fd)
+	int ret
+	__asm
+		r1 = fd
+		ret = r0
+		set	r0,7
+	end
+	return ret
+end

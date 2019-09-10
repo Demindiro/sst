@@ -60,6 +60,11 @@ class Client
 		return this.write data, 0, data.length
 	end
 
+	void close()
+		if (close this.fd) == -1
+			throw Exception "wtf"
+		end
+	end
 end
 
 
@@ -91,4 +96,9 @@ class Server
 		return Client cfd
 	end
 
+	void close()
+		if (close this.fd) == -1
+			throw Exception "wtf"
+		end
+	end
 end

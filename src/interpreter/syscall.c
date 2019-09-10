@@ -63,6 +63,13 @@ void vasm_syscall(int64_t regs[32], uint8_t *mem) {
 		regs[0] = accept(regs[1], NULL, NULL);
 		DEBUG("\33[2K\raccept(%ld) = %ld", regs[1], regs[0]);
 		break;
+	case 6: // open()
+		DEBUG("open() = -1");
+		goto _default;
+	case 7: // close(int fd)
+		regs[0] = close(regs[1]);
+		DEBUG("close(%d) = %d", regs[1], regs[0]);
+		break;
 	case 9: // signal
 		switch (regs[1]) {
 		case 9:
