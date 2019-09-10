@@ -199,24 +199,57 @@ int get_deref_type(struct type *dest, const char *name)
 
 int get_type_size(const char *name, size_t *size)
 {
-	size_t i;
-	if (typescount == 0 || h_get2(&typestable, name, &i) < 0)
+	struct type t;
+	if (get_type(&t, name) == -1)
 		return -1;
-	struct type *t = &types[i];
-	if (t->type == TYPE_NUMBER) {
-		struct type_meta_number *m = (void *)&t->meta;
+	if (t.type == TYPE_NUMBER) {
+		struct type_meta_number *m = (void *)&t.meta;
 		*size = m->size;
-	} else if (t->type == TYPE_POINTER) {
+	} else if (t.type == TYPE_POINTER) {
 		*size = 8;
-	} else if (t->type == TYPE_ARRAY) {
-		struct type_meta_array *m = (void *)&t->meta;
+	} else if (t.type == TYPE_ARRAY) {
+		struct type_meta_array *m = (void *)&t.meta;
 		struct type dt;
 		size_t dtsize;
 		get_type_size(dt.name, &dtsize);
-		get_deref_type(&dt, t->name);
+		get_deref_type(&dt, t.name);
 		*size = dtsize * m->size;
-	} else if (t->type == TYPE_STRUCT || t->type == TYPE_CLASS) {
-		struct type_meta_struct *m = (void *)&t->meta;
+	} else if (t.type == TYPE_STRUCT || t.type == TYPE_CLASS) {
+		struct type_meta_struct *m = (void *)&t.meta;
+		size_t s = 0;
+		for (size_t i = 0; i < m->count; i++) {
+			size_t x;
+			if (get_type_size(m->types[i], &x) < 0)
+				return -1;
+			s += x;
+		}
+		*size = s;
+	} else {
+		return -1;
+	}
+	return 0;
+}
+
+
+int get_deref_type_size(const char *name, size_t *size)
+{
+	struct type t;
+	if (get_deref_type(&t, name) == -1)
+		return -1;
+	if (t.type == TYPE_NUMBER) {
+		struct type_meta_number *m = (void *)&t.meta;
+		*size = m->size;
+	} else if (t.type == TYPE_POINTER) {
+		*size = 8;
+	} else if (t.type == TYPE_ARRAY) {
+		struct type_meta_array *m = (void *)&t.meta;
+		struct type dt;
+		size_t dtsize;
+		get_type_size(dt.name, &dtsize);
+		get_deref_type(&dt, t.name);
+		*size = dtsize * m->size;
+	} else if (t.type == TYPE_STRUCT || t.type == TYPE_CLASS) {
+		struct type_meta_struct *m = (void *)&t.meta;
 		size_t s = 0;
 		for (size_t i = 0; i < m->count; i++) {
 			size_t x;

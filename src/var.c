@@ -31,10 +31,22 @@ static const char *_deref_arr(const char *w, struct func *f,
 			EXIT(1, "Variable '%s' of type '%s' cannot be dereferenced", array, type);
 		type = strnclone(type, tq - type);
 		// Create temporary variable
-		char *v = strprintf("__elem%d", counter++);;
+		const char *v = strprintf("__elem%d", counter++);
+		// If type size isn't 1, multiply the index by the size
+		size_t size;
+		if (get_type_size(type, &size) < 0)
+			EXIT(1, "Type '%s' not declared", type);
 		// Add lines
-		line_declare(f, v, type, variables);
-		line_math(f, MATH_LOADAT, v, array, index);
+		if (size != 1) {
+			const char *i = new_temp_var(f, "long", "i", variables);
+			line_math(f, MATH_MUL, i, index, strprintf("%lu", size));
+			line_declare(f, v, type, variables);
+			line_math(f, MATH_LOADAT, v, array, i);
+			line_destroy(f, i, variables);
+		} else {
+			line_declare(f, v, type, variables);
+			line_math(f, MATH_LOADAT, v, array, index);
+		}
 		*etemp = 1;
 		return v;
 	}
@@ -286,6 +298,8 @@ const char *deref_var(const char *m, func f,
 
 int assign_var(func f, const char *var, const char *val, hashtbl variables)
 {
+	const char *typename;
+
 	// Parse to-be-assigned value
 	char tempdval;
 	const char *dvaltype;
@@ -315,13 +329,30 @@ array_dereference:;
 	}
 	const char *index = strnclone(q, p - q);
 	p++;
+	// If the size isn't 1, multiply the index by the size
+	if (h_get2(variables, array, (size_t *)&typename) == -1)
+		EXIT(1, "Variable '%s' not declared", array);
+	size_t size;
+	if (get_deref_type_size(typename, &size) < 0)
+		EXIT(1, "Type '%s' not declared", typename);
+	const char *i;
+	if (size != 1) {
+		i = new_temp_var(f, "long", "i", variables);
+		line_math(f, MATH_MUL, i, index, strprintf("%lu", size));
+	} else {
+		i = index;
+	}
+	// Access the array at 'i'
 	if (*p == 0) {
 		// If it is the last dereference, then store the value
-		line_store(f, array, index, dval);
+		line_store(f, array, i, dval);
 	} else {
 		// Else we may have to perform magic with structs, so crash for now
 		EXIT(4, "TODO: struct magic");
 	}
+	// Destroy the temporary 'i' index
+	if (size != 1)
+		line_destroy(f, i, variables);
 	goto end;
 
 member_dereference:;
@@ -339,7 +370,6 @@ member_dereference:;
 	// Check if it is the final dereference
 	int isfinal = *p == 0;
 	// Check what type the parent is
-	const char *typename;
 	struct type type;
 	if (h_get2(variables, parent, (size_t *)&typename) < 0)
 		EXIT(1, "Variable '%s' is not declared", parent);

@@ -103,9 +103,15 @@ int get_deref_type(struct type *dest, const char *name);
 
 
 /**
- * Get a types size.
+ * Get a type's size.
  */
 int get_type_size(const char *name, size_t *i);
+
+
+/**
+ * Get a dereferenced type's size.
+ */
+int get_deref_type_size(const char *name, size_t *i);
 
 
 /**
