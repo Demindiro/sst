@@ -603,22 +603,14 @@ void lines2func(const line_t *lines, size_t linecount,
 						line_destroy(f, e, &variables);
 				}
 			} else if (strchr(name, '[') != NULL) {
-				const char *p = strchr(line.text, '[');
-				name = strnclone(line.text, p - line.text);
-				p++;
-				const char *q = strchr(p, ']');
-				char e[1024];
-				memcpy(e, p, q - p);
-				e[q - p] = 0;
-				char tempi, tempv;
-				p = q + 4;
-				const char *i = parse_expr(f, e, &tempi, "long", &variables);
-				const char *v = parse_expr(f, p, &tempv, "long", &variables);
-				line_store(f, name, i, v);
-				if (tempi)
-					line_destroy(f, i, &variables);
-				if (tempv)
-					line_destroy(f, v, &variables);
+				DEBUG("VAR    '%s'", name);
+				const char *p = line.text;
+				while (!strstart(p, " = "))
+					p++;
+				const char *var = strnclone(line.text, p - line.text);
+				const char *val = p + 3;
+				DEBUG("'%s' = '%s'", var, val);
+				assign_var(f, var, val, &variables);
 			} else {
 				PRINTLINEX(line, ptr - oldptr, text);
 				EXIT(1, "Undefined keyword '%s'", name);

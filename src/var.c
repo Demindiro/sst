@@ -327,7 +327,8 @@ array_dereference:;
 			EXIT(1, "Expected ']'");
 		p++;
 	}
-	const char *index = strnclone(q, p - q);
+	char indextemp;
+	const char *index = parse_expr(f, strnclone(q, p - q), &indextemp, "TODO", variables);
 	p++;
 	// If the size isn't 1, multiply the index by the size
 	if (h_get2(variables, array, (size_t *)&typename) == -1)
@@ -337,7 +338,10 @@ array_dereference:;
 		EXIT(1, "Type '%s' not declared", typename);
 	const char *i;
 	if (size != 1) {
-		i = new_temp_var(f, "long", "i", variables);
+		if (indextemp)
+			i = index;
+		else
+			i = new_temp_var(f, "long", "i", variables);
 		line_math(f, MATH_MUL, i, index, strprintf("%lu", size));
 	} else {
 		i = index;
@@ -351,7 +355,7 @@ array_dereference:;
 		EXIT(4, "TODO: struct magic");
 	}
 	// Destroy the temporary 'i' index
-	if (size != 1)
+	if (indextemp || size != 1)
 		line_destroy(f, i, variables);
 	goto end;
 

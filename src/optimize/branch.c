@@ -468,9 +468,9 @@ int optimize_func_branches(func f)
 	do {
 		changed = 0;
 		for (size_t i = 0; i < bnc; i++) {
-			changed |= _immediate_goto(bn, &bnc, &i);
-			changed |= _one_ref(bn, &bnc, &i);
-			changed |= _no_ref(bn, &bnc, &i);
+			changed |= 0 && _immediate_goto(bn, &bnc, &i);
+			changed |= 0 && _one_ref(bn, &bnc, &i);
+			changed |= 0 && _no_ref(bn, &bnc, &i);
 			changed |= 0 && _unroll(bn, &bnc, &i);
 		}
 		haschanged |= changed;
