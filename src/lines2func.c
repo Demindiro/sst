@@ -143,7 +143,7 @@ void lines2func(const line_t *lines, size_t linecount,
 		const char *ends;
 		int type;
 	} loop[16];
-	int loopcounter = 0;
+	static int loopcounter = 0;
 	int loopcount   = 0;
 
 	// Add function parameters to variables

@@ -101,7 +101,10 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 	*vasms = malloc(1024 * sizeof **vasms);
 
 	a.s.op  = OP_LABEL;
-	a.s.s = f->name;
+	if (streq(f->name, "main"))
+		a.s.s = "main";
+	else
+		a.s.s = strprintf("%s_%u", f->name, f->argcount);
 	v[vc++] = a;
 
 	struct hashtbl tbl;
@@ -423,7 +426,10 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 
 			// Call
 			a.s.op  = OP_CALL;
-			a.s.s = flf->name;
+			if (streq(flf->name, "main"))
+				a.s.s = "main";
+			else
+				a.s.s = strprintf("%s_%u", flf->name, flf->argcount);
 			v[vc++] = a;
 
 			char arg_regs[32] = {};

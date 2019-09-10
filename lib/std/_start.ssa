@@ -16,6 +16,7 @@ _start:
 # - r0: length of block
 alloc:
 __alloc:
+__alloc_1:
 	set	r7,.allocptr
 	set	r6,8
 	# Load heap pointer
