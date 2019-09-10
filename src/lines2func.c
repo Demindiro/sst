@@ -40,49 +40,6 @@ static int is_member_dereference(const char *str, const char **parent, const cha
 
 
 
-
-static void _parsefunc(func f, const char *ptr, const char *var,
-                       hashtbl variables)
-{
-	const char *c = ptr;
-	while (*c != ' ' && *c != 0)
-		c++;
-	const char *name = strnclone(ptr, c - ptr);
-	func g = get_function(name, variables);
-	if (g == NULL)
-		EXIT(1, "Function '%s' not declared", name);
-	size_t      argcount = 0;
-	const char *args [32];
-	char        etemp[32];
-	if (*c != 0) {
-		c++;
-		while (1) {
-			ptr = c;
-			while (*c != ',' && *c != 0)
-				c++;
-			char b[2048];
-			memcpy(b, ptr, c - ptr);
-			b[c - ptr] = 0;
-			const char *type = g->args[argcount].type;
-			args[argcount] = parse_expr(f, b, &etemp[argcount], type, variables);
-			if (!etemp[argcount])
-				args[argcount] = strclone(args[argcount]);
-			argcount++;
-			if (*c == 0)
-				break;
-			c++;
-		}
-	}
-	const char **a = args;
-	line_function(f, var, name, argcount, a);
-	for (size_t i = argcount - 1; i != -1; i--) {
-		if (etemp[i])
-			line_destroy(f, args[i], variables);
-	}
-}
-
-
-
 int parsefunc_header(struct func *f, const line_t line, const char *text)
 {
 	size_t i = 0, j = 0;
@@ -574,7 +531,7 @@ void lines2func(const line_t *lines, size_t linecount,
 			line_declare(f, name, type, &variables);
 			h_add(&variables, name, (size_t)type);
 		} else if (get_function(word, &variables) != NULL) {
-			_parsefunc(f, oldptr, NULL, &variables);
+			line_function_parse(f, NULL, oldptr, &variables);
 		} else {
 			const char *name = strclone(word);
 			NEXTWORD;
@@ -592,14 +549,6 @@ void lines2func(const line_t *lines, size_t linecount,
 					const char *e;
 					if (is_array_dereference(name, &arr, &index)) {
 						assign_var(f, name, p, &variables);
-#if 0
-						if (h_get2(&variables, arr, (size_t *)&type) < 0)
-							EXIT(1, "Variable '%s' not declared", arr);
-						const char *de    = strchr(type, '[');
-						const char *dtype = strnclone(type, de - type);
-						e = parse_expr(f, p, &etemp, dtype, &variables);
-						line_store(f, arr, index, e);
-#endif
 					} else if (is_member_dereference(name, &parent, &member)) {
 						if (h_get2(&variables, parent, (size_t *)&type) < 0)
 							EXIT(1, "Variable '%s' not declared", parent);
