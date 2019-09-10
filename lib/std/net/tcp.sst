@@ -84,7 +84,7 @@ class Server
 	end
 
 	Client accept()
-		int cfd = accept fd
+		int cfd = accept this.fd
 		if cfd == -1
 			throw NetworkException "Couldn't accept client"
 		end

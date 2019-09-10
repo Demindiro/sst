@@ -129,11 +129,13 @@ int vasm2str(union vasm_all a, char *buf, size_t bufsize) {
 	case OP_DIV   : op = "div"   ; break;
 	case OP_REM   : op = "rem"   ; break;
 	case OP_MOD   : op = "mod"   ; break;
+	case OP_AND   : op = "and"   ; break;
+	case OP_OR    : op = "or"    ; break;
+	case OP_XOR   : op = "xor"   ; break;
 	case OP_NOT   : op = "not"   ; break;
 	case OP_INV   : op = "inv"   ; break;
 	case OP_RSHIFT: op = "rshift"; break;
 	case OP_LSHIFT: op = "lshift"; break;
-	case OP_XOR   : op = "xor"   ; break;
 	case OP_LESS  : op = "less"  ; break;
 	case OP_LESSE : op = "lesse" ; break;
 	case OP_SYSCALL:op ="syscall"; break;

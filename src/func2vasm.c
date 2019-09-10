@@ -115,10 +115,30 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 	memset(allocated_regs, 0, sizeof allocated_regs);
 	memset(is_const_reg_zero, 0, sizeof is_const_reg_zero);
 
+	struct hashtbl structs;
+	h_create(&structs, 1);
+
 	// Add function arguments
-	for (size_t i = 0; i < f->argcount; i++) {
-		h_add(&tbl, f->args[i].name, i);
-		allocated_regs[i] = 1;
+	for (size_t i = 0, r = 0; i < f->argcount; i++) {
+		; struct type type;
+		const char *ft = f->args[i].type, *fn = f->args[i].name;
+		if (get_type(&type, ft) < 0)
+			EXIT(3, "Type '%s' not declared", ft);
+		if (type.type == TYPE_STRUCT) {
+			if (h_add(&structs, fn, (size_t)ft) < 0)
+				EXIT(3, "Failed to add variable to hashtable");
+			struct type_meta_struct *m = (void *)&type.meta;
+			for (size_t j = 0; j < m->count; j++) {
+				const char *n = strprintf("%s@%s", fn, m->names[j]);
+				if (h_add(&tbl, n, r) < 0)
+					EXIT(3, "Failed to add variable to hashtable");
+				allocated_regs[r++] = 1;
+			}
+		} else {
+			if (h_add(&tbl, fn, r) < 0)
+				EXIT(3, "Failed to add variable to hashtable");
+			allocated_regs[r++] = 1;
+		}
 	}
 
 	// Add constants (if not too many)
@@ -305,15 +325,34 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			}
 			break;
 		case DECLARE:
-			for (reg = 0; reg < sizeof allocated_regs / sizeof *allocated_regs; reg++) {
-				if (!allocated_regs[reg]) {
-					allocated_regs[reg] = 1;
-					break;
+			; struct type type;
+			if (get_type(&type, fl.d->type) < 0)
+				EXIT(3, "Type '%s' not declared", fl.d->type);
+			if (type.type == TYPE_STRUCT) {
+				if (h_add(&structs, fl.d->var, (size_t)fl.d->type) < 0)
+					EXIT(3, "Failed to add variable to hashtable");
+				struct type_meta_struct *m = (void *)&type.meta;
+				for (size_t i = 0; i < m->count; i++) {
+					for (reg = 0; reg < sizeof allocated_regs / sizeof *allocated_regs; reg++) {
+						if (!allocated_regs[reg]) {
+							allocated_regs[reg] = 1;
+							break;
+						}
+					}
+					const char *n = strprintf("%s@%s", fl.d->var, m->names[i]);
+					if (h_add(&tbl, n, reg) < 0)
+						EXIT(3, "Failed to add variable to hashtable");
 				}
+			} else {
+				for (reg = 0; reg < sizeof allocated_regs / sizeof *allocated_regs; reg++) {
+					if (!allocated_regs[reg]) {
+						allocated_regs[reg] = 1;
+						break;
+					}
+				}
+				if (h_add(&tbl, fl.d->var, reg) < 0)
+					EXIT(3, "Failed to add variable to hashtable");
 			}
-			if (h_add(&tbl, fl.d->var, reg) < 0)
-				EXIT(1, "Failed to add variable to hashtable");
-			assert(fl.d->type != NULL);
 			_reserve_stack_space(&v, &vc, reg, fl.d->type);
 			break;
 		case DESTROY:
@@ -339,7 +378,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			}
 
 			// Push the needed arguments
-			for (ssize_t j = flf->argcount - 1; j >= 0; j--) {
+			for (size_t j = flf->argcount - 1; j != -1; j--) {
 				int r = h_get(&tbl, flf->args[j]);
 				if (r != -1 && r != j) {
 					a.r.op  = OP_PUSH;
@@ -350,12 +389,31 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 
 			// Pop or set the arguments
 			for (size_t j = 0; j < flf->argcount; j++) {
-				int r = h_get(&tbl, flf->args[j]);
+				size_t r = h_get(&tbl, flf->args[j]);
 				if (r == -1) {
-					a.rs.op  = OP_SET;
-					a.rs.r   = j;
-					a.rs.s = flf->args[j];
-					v[vc++] = a;
+					// Get the struct's members
+					const char *type;
+					if (h_get2(&structs, flf->args[j], (size_t *)&type) < 0) {
+						a.rs.op  = OP_SET;
+						a.rs.r   = j;
+						a.rs.s = flf->args[j];
+						v[vc++] = a;
+					} else {
+						struct type t;
+						get_type(&t, type);
+						struct type_meta_struct *m = (void *)&t.meta;
+						// Move the returned values to the variable
+						for (size_t i = 0; i < m->count; i++) {
+							char b[256];
+							snprintf(b, sizeof b, "%s@%s", flf->var, m->names[i]);
+							if (h_get2(&tbl, b, &r) < 0)
+								ENOTDECLARED(b);
+							a.r2.op = OP_MOV;
+							a.r2.r0 = r;
+							a.r2.r1 = i;
+							v[vc++] = a;
+						}
+					}
 				} else if (r != j) {
 					a.r.op = OP_POP;
 					a.r.r  = j;
@@ -368,32 +426,62 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 			a.s.s = flf->name;
 			v[vc++] = a;
 
-			// Pop registers
-			for (int j = 31; j >= (flf->var != NULL ? 1 : 0); j--) {
-				if (allocated_regs[j]) {
-					a.r.op  = OP_POP;
-					a.r.r   = j;
-					v[vc++] = a;
-				}
-			}
+			char arg_regs[32] = {};
 
 			// Check if function assigns to var
 			if (flf->var != NULL) {
 				size_t r;
-				if (h_get2(&tbl, flf->var, &r) < 0)
-					ENOTDECLARED(flf->var);
-				// Move the returned value to the variable
-				a.r2.op  = OP_MOV;
-				a.r2.r0= r;
-				a.r2.r1= 0; 
-				v[vc++]  = a;
-				// Pop remaining registers
-				if (allocated_regs[0]) {
-					a.r.op  = OP_POP;
-					a.r.r   = 0;
+				if (h_get2(&tbl, flf->var, &r) < 0) {
+					// Get the struct's members
+					const char *type;
+					if (h_get2(&structs, flf->var, (size_t *)&type) < 0)
+						ENOTDECLARED(flf->var);
+					struct type t;
+					get_type(&t, type);
+					struct type_meta_struct *m = (void *)&t.meta;
+					// Move the returned values to the variable
+					for (size_t i = 0; i < m->count; i++) {
+						char b[256];
+						snprintf(b, sizeof b, "%s@%s", flf->var, m->names[i]);
+						if (h_get2(&tbl, b, &r) < 0)
+							ENOTDECLARED(b);
+						a.r2.op = OP_MOV;
+						a.r2.r0 = r;
+						a.r2.r1 = i;
+						v[vc++] = a;
+						arg_regs[r] = 1;
+					}
+				} else {
+					// Move the returned value to the variable
+					a.r2.op = OP_MOV;
+					a.r2.r0 = r;
+					a.r2.r1 = 0; 
 					v[vc++] = a;
+					arg_regs[r] = 1;
 				}
 			}
+
+			// Pop registers
+			for (size_t j = 31; j != -1; j--) {
+				if (allocated_regs[j]) {
+					if (arg_regs[j]) {
+						a.rs.op = OP_SET;
+						a.rs.r  = 29;
+						a.rs.s  = "8";
+						v[vc++] = a;
+						a.r3.op = OP_SUB;
+						a.r3.r0 = 31;
+						a.r3.r1 = 31;
+						a.r3.r2 = 29;
+						v[vc++] = a;
+					} else {
+						a.r.op  = OP_POP;
+						a.r.r   = j;
+						v[vc++] = a;
+					}
+				}
+			}
+
 			break;
 		case GOTO:
 			flg = (struct func_line_goto *)f->lines[i];
