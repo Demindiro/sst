@@ -37,20 +37,23 @@ void vasm_syscall(int64_t regs[32], uint8_t *mem) {
 #endif
 		if (bind(fd, (struct sockaddr *)&addr, sizeof addr) < 0) {
 			close(fd);
-			DEBUG("listen(\"%s\", %u) = -1", buf, addr.sin6_port);
+			DEBUG("listen(\"%s\", %lu) = -1", buf, regs[2]);
 			goto _default;
 		}
 		if (listen(fd, 5) < 0) {
 			close(fd);
-			DEBUG("listen(\"%s\", %u) = -1", buf, addr.sin6_port);
+			DEBUG("listen(\"%s\", %lu) = -1", buf, regs[2]);
 			goto _default;
 		}
-		DEBUG("listen(\"%s\", %u) = %d", buf, addr.sin6_port, fd);
+		DEBUG("listen(\"%s\", %lu) = %d", buf, regs[2], fd);
 		regs[0] = fd;
 		break;
 	case 5: // accept(fd)
+#ifndef NDEBUG
+		fprintf(stderr, "accept(%ld) = ...", regs[1]);
+#endif
 		regs[0] = accept(regs[1], NULL, NULL);
-		DEBUG("accept(%ld) = %ld", regs[1], regs[0]);
+		DEBUG("\raccept(%ld) = %ld", regs[1], regs[0]);
 		break;
 	case 9: // signal
 		switch (regs[1]) {

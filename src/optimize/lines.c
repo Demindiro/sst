@@ -50,6 +50,9 @@ static int _unused_assign(struct func *f, size_t *i, struct hashtbl *h_const)
 	// Can't remove a variable that doesn't exist :P
 	if (v == NULL)
 		return 0;
+	// TODO handle structs properly
+	if (strchr(v, '@') != NULL)
+		return 0;
 	for (size_t k = *i + 1; k < f->linecount; k++) {
 		l.line = f->lines[k];
 		switch (l.line->type) {
