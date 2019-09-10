@@ -5,6 +5,14 @@
 #include "interpreter/syscall.h"
 #include "util.h"
 
+#ifndef NDEBUG
+# ifdef DEBUG
+#  undef DEBUG
+# endif
+# define DEBUG(m, ...) fprintf(stderr, m "\n", ##__VA_ARGS__)
+#endif
+
+
 void vasm_syscall(int64_t regs[32], uint8_t *mem) {
 	int fd;
 	struct sockaddr_in6 addr;
@@ -53,7 +61,7 @@ void vasm_syscall(int64_t regs[32], uint8_t *mem) {
 		fprintf(stderr, "accept(%ld) = ...", regs[1]);
 #endif
 		regs[0] = accept(regs[1], NULL, NULL);
-		DEBUG("\raccept(%ld) = %ld", regs[1], regs[0]);
+		DEBUG("\33[2K\raccept(%ld) = %ld", regs[1], regs[0]);
 		break;
 	case 9: // signal
 		switch (regs[1]) {
