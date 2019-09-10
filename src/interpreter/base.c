@@ -62,7 +62,7 @@ static int64_t regs[32];
 		REG3;							\
 		size_t _v = REGJ, _w = REGK;				\
 		REGI = REGJ op REGK;					\
-		DEBUG(m "\tr%d,r%d,r%d\t(%lu = %lu " #op " %lu)",	\
+		DEBUG(m "\tr%d,r%d,r%d\t(%ld = %ld " #op " %ld)",	\
 		      regi, regj, regk, REGI, _v, _w);			\
 	} while (0)
 # define REG3OPSTR(m,op,opstr)						\
@@ -70,7 +70,7 @@ static int64_t regs[32];
 		REG3;							\
 		size_t _v = REGJ, _w = REGK;				\
 		REGI = REGJ op REGK;					\
-		DEBUG(m "\tr%d,r%d,r%d\t(%lu = %lu " opstr " %lu)",	\
+		DEBUG(m "\tr%d,r%d,r%d\t(%ld = %ld " opstr " %ld)",	\
 		      regi, regj, regk, REGI, _v, _w);			\
 	} while (0)
 # define REG3OPSTRFUNC(m,func,opstr,fmt) do {		\
@@ -88,10 +88,10 @@ static int64_t regs[32];
 	if (c) {					\
 		ip = *(size_t *)(mem + ip);		\
 		ip = be64toh(ip);			\
-		DEBUG(m "\t0x%lx,r%d\t(%lu, true)",	\
+		DEBUG(m "\t0x%lx,r%d\t(%ld, true)",	\
 		      ip, regi, REGI);			\
 	} else {					\
-		DEBUG(m "\t0x%lx,r%d\t(%lu, false)",	\
+		DEBUG(m "\t0x%lx,r%d\t(%ld, false)",	\
 		      ip, regi, REGI);			\
 		ip += sizeof ip;			\
 	}						\
@@ -102,12 +102,12 @@ static int64_t regs[32];
 	if (c) {						\
 		t v = conv((t)mem[ip]);				\
 		ip += v;					\
-		DEBUG(m "\t%s0x%x,r%d\t(%lu, true, 0x%lx)",	\
+		DEBUG(m "\t%s0x%x,r%d\t(%ld, true, 0x%lx)",	\
 		      v < 0 ? "-" : "", v < 0 ? -v : v,		\
 		      regi, REGI, ip);				\
 	} else {						\
 		t v = conv((t)mem[ip]);				\
-		DEBUG(m "\t%s0x%x,r%d\t(%lu, false, 0x%lx)",	\
+		DEBUG(m "\t%s0x%x,r%d\t(%ld, false, 0x%lx)",	\
 		      v < 0 ? "-" : "", v < 0 ? -v : v,		\
 		      regi, REGI, ip);				\
 		ip += sizeof (t);				\
@@ -305,34 +305,34 @@ static void run() {
 		REG2;
 		REGI = *(uint64_t *)(mem + REGJ);
 		REGI = be64toh(REGI);
-		DEBUG("ldl\tr%d,r%d\t(%lu <-- 0x%lx)", regi, regj, REGI, REGJ);
+		DEBUG("ldl\tr%d,r%d\t(%ld <-- 0x%lx)", regi, regj, REGI, REGJ);
 		continue;
 
 	op_ldi:
 		REG2;
 		REGI = *(uint32_t *)(mem + REGJ);
 		REGI = be32toh(REGI);
-		DEBUG("ldl\tr%d,r%d\t(%lu <-- 0x%lx)", regi, regj, REGI, REGJ);
+		DEBUG("ldl\tr%d,r%d\t(%ld <-- 0x%lx)", regi, regj, REGI, REGJ);
 		continue;
 
 	op_lds:
 		REG2;
 		REGI = *(uint16_t *)(mem + REGJ);
 		REGI = be16toh(REGI);
-		DEBUG("ldl\tr%d,r%d\t(%lu <-- 0x%lx)", regi, regj, REGI, REGJ);
+		DEBUG("ldl\tr%d,r%d\t(%ld <-- 0x%lx)", regi, regj, REGI, REGJ);
 		continue;
 
 	op_ldb:
 		REG2;
 		REGI = *(uint8_t *)(mem + REGJ);
-		DEBUG("ldl\tr%d,r%d\t(%lu <-- 0x%lx)", regi, regj, REGI, REGJ);
+		DEBUG("ldl\tr%d,r%d\t(%ld <-- 0x%lx)", regi, regj, REGI, REGJ);
 		continue;
 
 	op_ldlat:
 		REG3;
 		REGI = *(uint64_t *)(mem + REGJ + REGK);
 		REGI = be64toh(REGI);
-		DEBUG("ldlat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
+		DEBUG("ldlat\tr%d,r%d,r%d\t(%ld <-- 0x%lx + 0x%ld)",
 		      regi, regj, regk, REGI, REGJ, REGK);
 		continue;
 
@@ -340,7 +340,7 @@ static void run() {
 		REG3;
 		REGI = *(uint32_t *)(mem + REGJ + REGK);
 		REGI = be32toh(REGI);
-		DEBUG("ldiat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
+		DEBUG("ldiat\tr%d,r%d,r%d\t(%ld <-- 0x%lx + 0x%ld)",
 		      regi, regj, regk, REGI, REGJ, REGK);
 		continue;
 
@@ -348,73 +348,73 @@ static void run() {
 		REG3;
 		REGI = *(uint16_t *)(mem + REGJ + REGK);
 		REGI = be16toh(REGI);
-		DEBUG("ldsat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
+		DEBUG("ldsat\tr%d,r%d,r%d\t(%ld <-- 0x%lx + 0x%ld)",
 		      regi, regj, regk, REGI, REGJ, REGK);
 		continue;
 
 	op_ldbat:
 		REG3;
 		REGI = *(uint8_t *)(mem + REGJ + REGK);
-		DEBUG("ldbat\tr%d,r%d,r%d\t(%lu <-- 0x%lx + 0x%ld)",
+		DEBUG("ldbat\tr%d,r%d,r%d\t(%ld <-- 0x%lx + 0x%ld)",
 		      regi, regj, regk, REGI, REGJ, REGK);
 		continue;
 
 	op_strl:
 		REG2;
 		*(uint64_t *)(mem + REGJ) = htobe64(REGI);
-		DEBUG("strl\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
+		DEBUG("strl\tr%d,r%d\t(%ld --> 0x%lx)", regi, regj, REGI, REGJ);
 		continue;
 
 	op_stri:
 		REG2;
 		*(uint32_t *)(mem + REGJ) = htobe32(REGI);
-		DEBUG("stri\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
+		DEBUG("stri\tr%d,r%d\t(%ld --> 0x%lx)", regi, regj, REGI, REGJ);
 		continue;
 
 	op_strs:
 		REG2;
 		*(uint16_t *)(mem + REGJ) = htobe16(REGI);
-		DEBUG("strs\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
+		DEBUG("strs\tr%d,r%d\t(%ld --> 0x%lx)", regi, regj, REGI, REGJ);
 		continue;
 
 	op_strb:
 		REG2;
 		*(uint8_t *)(mem + REGJ) = REGI;
-		DEBUG("strb\tr%d,r%d\t(%lu --> 0x%lx)", regi, regj, REGI, REGJ);
+		DEBUG("strb\tr%d,r%d\t(%ld --> 0x%lx)", regi, regj, REGI, REGJ);
 		continue;
 
 	op_strlat:
 		REG3;
 		*(uint64_t *)(mem + REGJ + REGK) = htobe64(REGI);
-		DEBUG("strlat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
+		DEBUG("strlat\tr%d,r%d,r%d\t(%ld --> 0x%lx + 0x%ld)",
 		      regi, regj, regk, REGI, REGJ, REGK);
 		continue;
 
 	op_striat:
 		REG3;
 		*(uint32_t *)(mem + REGJ + REGK) = htobe32(REGI);
-		DEBUG("striat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
+		DEBUG("striat\tr%d,r%d,r%d\t(%ld --> 0x%lx + 0x%ld)",
 		      regi, regj, regk, REGI, REGJ, REGK);
 		continue;
 
 	op_strsat:
 		REG3;
 		*(uint16_t *)(mem + REGJ + REGK) = htobe16(REGI);
-		DEBUG("strsat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
+		DEBUG("strsat\tr%d,r%d,r%d\t(%ld --> 0x%lx + 0x%ld)",
 		      regi, regj, regk, REGI, REGJ, REGK);
 		continue;
 
 	op_strbat:
 		REG3;
 		*(uint8_t *)(mem + REGJ + REGK) = REGI;
-		DEBUG("strbat\tr%d,r%d,r%d\t(%lu --> 0x%lx + 0x%ld)",
+		DEBUG("strbat\tr%d,r%d,r%d\t(%ld --> 0x%lx + 0x%ld)",
 		      regi, regj, regk, REGI, REGJ, REGK);
 		continue;
 
 	op_push:
 		REG1;
 		*(size_t *)(mem + sp) = REGI;
-		DEBUG("push\tr%d\t(%lu)", regi, *(size_t *)(mem + sp));
+		DEBUG("push\tr%d\t(%ld)", regi, *(size_t *)(mem + sp));
 		sp += sizeof regs[regi];
 		continue;
 
@@ -428,7 +428,7 @@ static void run() {
 	op_mov:
 		REG2;
 		REGI = REGJ;
-		DEBUG("mov\tr%d,r%d\t(%lu)", regi, regj, REGI);
+		DEBUG("mov\tr%d,r%d\t(%ld)", regi, regj, REGI);
 		continue;
 
 	op_setl:
@@ -437,7 +437,7 @@ static void run() {
 		val = be64toh(val);
 		ip += 8;
 		REGI = val;
-		DEBUG("setl\tr%d,%lu\t(%lu)", regi, val, REGI);
+		DEBUG("setl\tr%d,%ld\t(%ld)", regi, val, REGI);
 		continue;
 
 	op_seti:
@@ -446,7 +446,7 @@ static void run() {
 		val = be32toh(val);
 		ip += 4;
 		REGI = val;
-		DEBUG("seti\tr%d,%lu\t(%lu)", regi, val, REGI);
+		DEBUG("seti\tr%d,%ld\t(%ld)", regi, val, REGI);
 		continue;
 
 	op_sets:
@@ -455,7 +455,7 @@ static void run() {
 		val = be16toh(val);
 		ip += 2;
 		REGI = val;
-		DEBUG("sets\tr%d,%lu\t(%lu)", regi, val, REGI);
+		DEBUG("sets\tr%d,%ld\t(%ld)", regi, val, REGI);
 		continue;
 
 	op_setb:
@@ -463,7 +463,7 @@ static void run() {
 		val = *(uint8_t *)(mem + ip);
 		ip += 1;
 		REGI = val;
-		DEBUG("setb\tr%d,%lu\t(%lu)", regi, val, REGI);
+		DEBUG("setb\tr%d,%ld\t(%ld)", regi, val, REGI);
 		continue;
 
 	op_add:
@@ -529,13 +529,13 @@ static void run() {
 	op_not:
 		REG2;
 		REGI = ~REGJ;
-		DEBUG("not\tr%d,r%d\t(%lu)", regi, regj, REGI);
+		DEBUG("not\tr%d,r%d\t(%ld)", regi, regj, REGI);
 		continue;
 
 	op_inv:
 		REG2;
 		REGI = !REGJ;
-		DEBUG("inv\tr%d,r%d\t(%lu)", regi, regj, REGI);
+		DEBUG("inv\tr%d,r%d\t(%ld)", regi, regj, REGI);
 		continue;
 
 	op_syscall:
