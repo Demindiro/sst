@@ -306,6 +306,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				parse_op_args(&a, buf);
 				v[vc++] = a;
 			}
+			char arg_regs[32] = {};
 			// Out arguments
 			for (size_t i = 0; i < fl.as->outcount; i++) {
 				a.r.op  = OP_PUSH;
@@ -318,13 +319,26 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				a.r.op  = OP_POP;
 				a.r.r   = reg;
 				v[vc++] = a;
+				arg_regs[reg] = 1;
 			}
 			// Pop register contents
 			for (size_t i = 31; i != -1; i--) {
 				if (allocated_regs[i]) {
-					a.r.op  = OP_POP;
-					a.r.r   = i;
-					v[vc++] = a;
+					if (arg_regs[i]) {
+						a.rs.op = OP_SET;
+						a.rs.r  = 29;
+						a.rs.s  = "8";
+						v[vc++] = a;
+						a.r3.op = OP_SUB;
+						a.r3.r0 = 31;
+						a.r3.r1 = 31;
+						a.r3.r2 = 29;
+						v[vc++] = a;
+					} else {
+						a.r.op  = OP_POP;
+						a.r.r   = i;
+						v[vc++] = a;
+					}
 				}
 			}
 			break;
@@ -435,7 +449,7 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 				a.s.s = strprintf("%s_%u", flf->name, flf->argcount);
 			v[vc++] = a;
 
-			char arg_regs[32] = {};
+			/*char arg_regs[32] = {}; */memset(arg_regs, 0, sizeof arg_regs);
 
 			// Check if function assigns to var
 			if (flf->var != NULL) {
