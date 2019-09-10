@@ -261,28 +261,27 @@ static int _nop_math(struct func *f, size_t *i)
 {
 	struct func_line_math *l = (struct func_line_math *)f->lines[*i];
 	if (l->op == MATH_ADD) {
-		if (!streq(l->y, "0") && !streq(l->z, "0"))
+		if (!streq(l->z, "0"))
 			return 0;
 	} else if (l->op == MATH_SUB) {
 		if (!streq(l->z, "0"))
 			return 0;
 	} else if (l->op == MATH_MUL) {
-		if (!streq(l->y, "0") && !streq(l->z, "0"))
+		if (!streq(l->z, "1"))
 			return 0;
-	} else if (l->op == MATH_DIV || l->op == MATH_MOD) {
+	} else if (l->op == MATH_DIV) {
 		if (!streq(l->z, "1"))
 			return 0;
 	} else {
 		return 0;
 	}
 	const char *var = l->x,
-	           *val = streq(l->y, "0") ? l->z : l->y;
-	struct func_line_assign *a;
-	a            = calloc(sizeof *a, 1);
-	a->type = ASSIGN;
-	a->var       = var;
-	a->value     = val;
-	f->lines[*i]  = (struct func_line *)a;
+	           *val = l->y;
+	struct func_line_assign *a = calloc(sizeof *a, 1);
+	a->type  = ASSIGN;
+	a->var   = l->x;
+	a->value = l->y;
+	f->lines[*i] = (struct func_line *)a;
 	return 1;
 }
 
@@ -361,14 +360,31 @@ static int _substitute_var(struct func *f, size_t *i)
 							l.m->z = u;
 					}
 					break;
+				case STORE:
+					if (streq(l.s->var, v))
+						l.s->var = w;
+					else if (streq(l.s->var, w))
+						l.s->var = u;
+					if (streq(l.s->index, v))
+						l.s->index = w;
+					else if (streq(l.s->index, w))
+						l.s->index = u;
+					if (streq(l.s->val, v))
+						l.s->val = w;
+					else if (streq(l.s->val, w))
+						l.s->val = u;
+					break;
 				case RETURN:
 					if (streq(l.r->val, v))
 						l.r->val = w;
 					else if (streq(l.r->val, w))
 						l.r->val = u;
 					break;
-				default:
+				case GOTO:
+				case LABEL:
 					break;
+				default:
+					EXIT(3, "Unknown line type (%d)", l.line->type);
 				}
 			}
 			return 1;

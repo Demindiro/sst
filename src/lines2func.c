@@ -603,13 +603,11 @@ void lines2func(const line_t *lines, size_t linecount,
 						line_destroy(f, e, &variables);
 				}
 			} else if (strchr(name, '[') != NULL) {
-				DEBUG("VAR    '%s'", name);
 				const char *p = line.text;
 				while (!strstart(p, " = "))
 					p++;
 				const char *var = strnclone(line.text, p - line.text);
 				const char *val = p + 3;
-				DEBUG("'%s' = '%s'", var, val);
 				assign_var(f, var, val, &variables);
 			} else {
 				PRINTLINEX(line, ptr - oldptr, text);
