@@ -593,24 +593,53 @@ int func2vasm(union vasm_all **vasms, size_t *vasmcount, struct func *f) {
 		case RETURN:
 			// Restore stack pointer
 			a.r2.op = OP_MOV;
-			a.r2.r0= 31;
-			a.r2.r1= 30;
+			a.r2.r0 = 31;
+			a.r2.r1 = 30;
 			v[vc++] = a;
-			a.r.op = OP_POP;
-			a.r.r  = 30;
+			a.r.op  = OP_POP;
+			a.r.r   = 30;
 			v[vc++] = a;
 			if (isnum(*fl.r->val)) {
-				a.rs.op  = OP_SET;
-				a.rs.r   = 0;
-				a.rs.s = fl.r->val;
+				a.rs.op = OP_SET;
+				a.rs.r  = 0;
+				a.rs.s  = fl.r->val;
+				v[vc++] = a;
 			} else {
-				a.r2.op  = OP_MOV;
-				a.r2.r0= 0;
-				a.r2.r1= h_get(&tbl, fl.r->val);
-				if (a.r2.r1 == -1)
-					ENOTDECLARED(fl.r->val);
+				a.r2.op = OP_MOV;
+				a.r2.r0 = 0;
+				a.r2.r1 = h_get(&tbl, fl.r->val);
+				if (a.r2.r1 == -1) {
+					// Get the struct's members
+					const char *type;
+					if (h_get2(&structs, fl.r->val, (size_t *)&type) < 0) {
+						a.rs.op = OP_SET;
+						a.rs.r  = 0;
+						a.rs.s  = fl.r->val;
+						v[vc++] = a;
+					} else {
+						size_t r;
+						struct type t;
+						get_type(&t, type);
+						struct type_meta_struct *m = (void *)&t.meta;
+						// Push the struct's variables
+						for (size_t i = 0; i < m->count; i++) {
+							char b[256];
+							snprintf(b, sizeof b, "%s@%s", fl.r->val, m->names[i]);
+							if (h_get2(&tbl, b, &r) < 0)
+								ENOTDECLARED(b);
+							a.r.op  = OP_PUSH;
+							a.r.r   = r;
+							v[vc++] = a;
+						}
+						// Pop the variables
+						for (size_t i = m->count - 1; i != -1; i--) {
+							a.r.op  = OP_POP;
+							a.r.r   = i;
+							v[vc++] = a;
+						}
+					}
+				}
 			}
-			v[vc++] = a;
 			v[vc++].op = OP_RET;
 			break;
 		case STORE:
